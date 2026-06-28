@@ -13,9 +13,9 @@
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg?style=flat-square)](CODE_OF_CONDUCT.md)
 [![中文](https://img.shields.io/badge/%E4%B8%AD%E6%96%87-red?style=flat-square)](README.md)
 
-> 📘 **New to MCP?** Start with [MCP Protocol Cheatsheet](docs/MCP-CHEATSHEET.md) — understand MCP in 5 minutes.
-> 📖 **Detailed user guide?** See [User Manual](docs/USER-MANUAL.md) — from installation to mastery.
-> 🔧 **Having issues?** See [Log Troubleshooting Guide](docs/LOG-TROUBLESHOOTING.md) — common errors and solutions.
+> 📘 **New to MCP?** Start with [MCP Protocol Cheatsheet](docs/reference/mcp-cheatsheet.md) — understand MCP in 5 minutes.
+> 📖 **Step-by-step guide?** Check [User Manual](docs/public/legacy/USER-MANUAL.md) — from installation to mastery.
+> 🔧 **Having issues?** See [Log Troubleshooting](docs/public/legacy/LOG-TROUBLESHOOTING.md) — common errors & solutions.
 
 ---
 

@@ -13,9 +13,9 @@
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg?style=flat-square)](CODE_OF_CONDUCT.md)
 [![English](https://img.shields.io/badge/English-blue?style=flat-square)](README.en.md)
 
-> 📘 **MCP 新手？** 先看 [MCP 协议速查手册](docs/MCP-CHEATSHEET.md) — 5 分钟搞懂 MCP。
-> 📖 **详细操作指南？** 看 [用户操作手册](docs/USER-MANUAL.md) — 从安装到精通。
-> 🔧 **遇到问题？** 看 [日志排查手册](docs/LOG-TROUBLESHOOTING.md) — 常见错误与解决方案。
+> 📘 **MCP 新手？** 先看 [MCP 协议速查手册](docs/reference/mcp-cheatsheet.md) — 5 分钟搞懂 MCP。
+> 📖 **详细操作指南？** 看 [用户操作手册](docs/public/legacy/USER-MANUAL.md) — 从安装到精通。
+> 🔧 **遇到问题？** 看 [日志排查手册](docs/public/legacy/LOG-TROUBLESHOOTING.md) — 常见错误与解决方案。
 
 ---
 
