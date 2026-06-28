@@ -37,6 +37,7 @@
 - [📦 发布自动化](#-发布自动化)
 - [🙏 致谢](#-致谢)
 - [💬 社区与联系](#-社区与联系)
+- [❤️ 支持捐赠](#️-支持捐赠)
 
 ---
 
@@ -752,6 +753,26 @@ npm notice total files: 101
 
 ---
 
+## ❤️ 支持捐赠
+
+感谢您对本项目的关注与支持！
+
+如果您觉得这个项目对您有帮助，或者希望支持我持续开发和维护，欢迎通过捐赠的方式给予鼓励。您的每一份支持，都是我继续前行的动力！
+
+捐赠将用于项目维护、功能开发、服务器开销等，所有资金将透明公开，专款专用。
+
+### 捐赠方式
+
+| 支付宝 | 微信支付 |
+|:---:|:---:|
+| ![支付宝](docs/images/alipay.jpg) | ![微信支付](docs/images/weixinpay.jpg) |
+
+> 无论金额大小，都是对我莫大的鼓励。再次感谢您的支持！
+
+> **PayPal / GitHub Sponsors**：暂未开通，敬请期待。
+
+---
+
 **Contributing** — 欢迎贡献！阅读 [CONTRIBUTING.md](CONTRIBUTING.md) 了解如何参与。请遵守 [Code of Conduct](CODE_OF_CONDUCT.md)。
 
 **Security** — 发现漏洞？查看 [SECURITY.md](SECURITY.md) 了解安全策略。
@@ -809,6 +830,7 @@ npm notice total files: 101
 - [📦 Release Automation](#-release-automation)
 - [🙏 Acknowledgments](#-acknowledgments)
 - [💬 Community & Contact](#-community--contact)
+- [❤️ Support the Project](#️-support-the-project)
 
 ---
 
@@ -1521,6 +1543,26 @@ Scan the QR code to join the official `ai-verify-mcp` DingTalk group for questio
 - Business cooperation
 - Security vulnerability reports (please use the [SECURITY.md](SECURITY.md) process first)
 - Other inquiries
+
+---
+
+## ❤️ Support the Project
+
+Thank you for your interest in this project!
+
+If you find this project helpful or would like to support my ongoing development and maintenance, you're welcome to make a donation. Every contribution, no matter how small, is a great encouragement to me and helps keep this project alive and growing.
+
+Donations will be used for project maintenance, feature development, server costs, and other related expenses. All funds will be used transparently and responsibly.
+
+### Donation Options
+
+| Alipay | WeChat Pay |
+|:---:|:---:|
+| ![Alipay](docs/images/alipay.jpg) | ![WeChat Pay](docs/images/weixinpay.jpg) |
+
+> Thank you again for your support — it means a lot!
+
+> **PayPal / GitHub Sponsors**: Coming soon.
 
 ---
 
