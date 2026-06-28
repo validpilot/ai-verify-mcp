@@ -4,9 +4,13 @@
 >
 > 让 AI 代码生成结果可验证、可信赖。证据驱动的 MCP 验证平台。
 
-[![npm](https://img.shields.io/npm/v/ai-verify-mcp)](https://www.npmjs.com/package/ai-verify-mcp)
-[![npm](https://img.shields.io/npm/dm/ai-verify-mcp)](https://www.npmjs.com/package/ai-verify-mcp)
-[![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![npm version](https://img.shields.io/npm/v/ai-verify-mcp.svg?style=flat-square)](https://www.npmjs.com/package/ai-verify-mcp)
+[![npm downloads](https://img.shields.io/npm/dm/ai-verify-mcp.svg?style=flat-square)](https://www.npmjs.com/package/ai-verify-mcp)
+[![CI](https://img.shields.io/github/actions/workflow/status/validpilot/ai-verify-mcp/ci.yml?style=flat-square&label=CI)](https://github.com/validpilot/ai-verify-mcp/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](LICENSE)
+[![MCP Protocol](https://img.shields.io/badge/MCP-76%20tools-brightgreen.svg?style=flat-square)]()
+[![Node.js](https://img.shields.io/badge/node-%3E%3D18-green.svg?style=flat-square)]()
+[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg?style=flat-square)](CODE_OF_CONDUCT.md)
 
 > 📘 **MCP 新手？** 先看 [MCP 协议速查手册](docs/MCP-CHEATSHEET.md) — 5 分钟搞懂 MCP。
 > 📖 **详细操作指南？** 看 [用户操作手册](docs/USER-MANUAL.md) — 从安装到精通。
@@ -725,9 +729,11 @@ npm notice total files: 101
 
 ---
 
-**Contributing** — 欢迎贡献！阅读 [CONTRIBUTING.md](CONTRIBUTING.md) 了解如何参与。
+**Contributing** — 欢迎贡献！阅读 [CONTRIBUTING.md](CONTRIBUTING.md) 了解如何参与。请遵守 [Code of Conduct](CODE_OF_CONDUCT.md)。
 
 **Security** — 发现漏洞？查看 [SECURITY.md](SECURITY.md) 了解安全策略。
+
+**AI Agents** — 你是 AI Agent？查看 [AGENTS.md](AGENTS.md) 获取编码指南和项目约定。
 
 **License** — [MIT](LICENSE) © 2026 ValidPilot
 
