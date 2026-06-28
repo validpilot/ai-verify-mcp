@@ -25,3 +25,4 @@ invoke.ps1
 test-http.ps1
 validation-report.md
 scripts/verify-quick-fix-enhancements.js
+docs/.vitepress/dist/
