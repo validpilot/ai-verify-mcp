@@ -2493,6 +2493,67 @@ async function projectAudit(args = {}) {
         }
       });
     }
+
+    // ── 4. CSS 变量检测 ──
+    if (ext === '.css') {
+      // 收集 :root 中定义的所有变量
+      const rootDefs = new Set();
+      const rootVarValues = {};
+      const rootBlockRegex = /:root\s*\{([^}]*)\}/g;
+      let rootMatch;
+      while ((rootMatch = rootBlockRegex.exec(content)) !== null) {
+        const block = rootMatch[1];
+        const defRegex = /(--[\w-]+)\s*:\s*([^;]+);/g;
+        let defMatch;
+        while ((defMatch = defRegex.exec(block)) !== null) {
+          rootDefs.add(defMatch[1]);
+          rootVarValues[defMatch[1]] = defMatch[2].trim();
+        }
+      }
+
+      if (rootDefs.size > 0) {
+        // a/b. 检查 :root 中的每条定义
+        const refRegex = /var\(\s*(--[\w-]+)\s*/g;
+        for (const [varName, varValue] of Object.entries(rootVarValues)) {
+          refRegex.lastIndex = 0;
+          let refMatch;
+          while ((refMatch = refRegex.exec(varValue)) !== null) {
+            const refVar = refMatch[1];
+            const lineIdx = lines.findIndex(l => l.includes(varName));
+            // a. 循环引用: --xxx: var(--xxx)
+            if (refVar === varName) {
+              addIssue('high', 'CSS-SELF', relativePath, lineIdx + 1,
+                `CSS 变量循环引用: ${varName} 的值通过 var() 引用了自身`);
+            // b. 引用未定义变量: --xxx: var(--yyy) 但 --yyy 未在 :root 中定义
+            } else if (!rootDefs.has(refVar)) {
+              addIssue('high', 'CSS-UNDEF', relativePath, lineIdx + 1,
+                `CSS 变量引用未定义: ${varName} 引用了 ${refVar}，但 ${refVar} 未在 :root 中定义`);
+            }
+          }
+        }
+
+        // c. 非 :root 区域中的 var() 引用了未定义变量
+        let inRootBlock = false;
+        lines.forEach((line, idx) => {
+          if (inRootBlock) {
+            if (line.includes('}')) inRootBlock = false;
+            return;
+          }
+          if (/:root\s*\{/.test(line)) {
+            if (!line.includes('}')) inRootBlock = true;
+            return;
+          }
+          const lineRefRegex = /var\(\s*(--[\w-]+)\s*/g;
+          let m;
+          while ((m = lineRefRegex.exec(line)) !== null) {
+            if (!rootDefs.has(m[1])) {
+              addIssue('medium', 'CSS-NOROOT', relativePath, idx + 1,
+                `CSS 变量 ${m[1]} 未在 :root 中定义，但在文件中被引用`);
+            }
+          }
+        });
+      }
+    }
   }
 
   // ── 递归扫描 ──
