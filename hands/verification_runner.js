@@ -123,7 +123,7 @@ async function validationQuickRun(args = {}) {
   }
 
   if (checksToRun.includes('has_title')) {
-    const hasTitle = domInfo.title && domInfo.title.trim().length > 0;
+    const hasTitle = !!(domInfo.title && domInfo.title.trim()) ;
     checks.push({
       name: 'has_title',
       passed: hasTitle,
