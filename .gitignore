@@ -17,8 +17,11 @@ local-test/
 .trae/specs/
 *.json.bak
 req_*.json
+mcp_request.json
 test-*.js
 check-*.js
 demo-*.js
 invoke.ps1
 test-http.ps1
+validation-report.md
+scripts/verify-quick-fix-enhancements.js
