@@ -35,3 +35,45 @@
 1. 漏洞确认后，修复会先合并到 `main` 分支
 2. 发布补丁版本（如 1.0.1）
 3. 在 [GitHub Releases](https://github.com/validpilot/ai-verify-mcp/releases) 中说明修复内容
+
+---
+
+## English Version
+
+# Security Policy
+
+## Supported Versions
+
+| Version | Support Status |
+|---------|----------------|
+| 1.x (latest) | ✅ Actively maintained, receives security fixes |
+| < 1.0 | ❌ No longer maintained |
+
+## Reporting a Vulnerability
+
+If you discover a security vulnerability, **please do NOT submit a public Issue**. Report it privately via:
+
+- **Email**: validpilot@outlook.com
+- **Expected Response Time**: Acknowledgment within 48 hours, fix plan within 7 days
+
+### What to Include in Your Report
+
+1. Vulnerability type (XSS, command injection, information disclosure, etc.)
+2. Affected versions
+3. Steps to reproduce (including minimal PoC or sample code)
+4. Impact assessment
+
+## Implemented Security Measures
+
+- DNS rebinding protection (Origin header validation in HTTP mode)
+- Local binding restriction (HTTP listens on 127.0.0.1 by default)
+- Sensitive data redaction (controlled by `VALIDPILOT_REDACTION`)
+- MCP_API_KEY authentication (optional in HTTP mode)
+- Domain allowlist/blocklist (`VALIDPILOT_ALLOWLIST` / `VALIDPILOT_BLOCKED_HOSTS`)
+- Playwright sandbox isolation
+
+## Security Update Process
+
+1. After vulnerability confirmation, the fix is first merged into the `main` branch
+2. A patch version is released (e.g., 1.0.1)
+3. Fix details are documented in [GitHub Releases](https://github.com/validpilot/ai-verify-mcp/releases)

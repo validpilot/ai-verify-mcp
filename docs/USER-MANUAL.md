@@ -809,3 +809,819 @@ ai-verify-mcp validate --url http://localhost:5173
 > - [MCP 协议速查](MCP-CHEATSHEET.md) — MCP 基础概念
 > - GitHub Issues：https://github.com/validpilot/ai-verify-mcp/issues
 > - 邮箱：validpilot@outlook.com
+
+---
+
+## English Version
+
+# ai-verify-mcp User Manual
+
+> Complete usage guide from installation to mastery.
+
+---
+
+## Table of Contents
+
+- [1. Quick Navigation](#1-quick-navigation)
+- [2. Installation and Uninstallation](#2-installation-and-uninstallation)
+- [3. CLI Command Reference](#3-cli-command-reference)
+- [4. MCP Server Configuration (AI Clients)](#4-mcp-server-configuration-ai-clients)
+- [5. Skill + MCP Combined Usage (Recommended)](#5-skill--mcp-combined-usage-recommended)
+- [6. 77 Tools Quick Reference](#6-77-tools-quick-reference)
+- [7. Typical Use Cases](#7-typical-use-cases)
+- [8. Artifacts and Evidence Chain](#8-artifacts-and-evidence-chain)
+- [9. Environment Variables Reference](#9-environment-variables-reference)
+- [10. Troubleshooting](#10-troubleshooting)
+
+---
+
+## 1. Quick Navigation
+
+| Your Goal | Go Here |
+|-----------|---------|
+| Quick experience with validation | [3.2 validate Command](#32-validate---quick-validation) |
+| Configure for Cursor | [4.2 Cursor](#42-cursor) |
+| Configure for Trae | [4.1 Trae](#41-trae) |
+| Best experience with Skill | [Chapter 5](#5-skill--mcp-combined-usage-recommended) |
+| Learn about available tools | [Chapter 6](#6-77-tools-quick-reference) |
+| Encountering errors | [Chapter 10](#10-troubleshooting) |
+
+---
+
+## 2. Installation and Uninstallation
+
+### 2.1 Requirements
+
+| Item | Requirement |
+|------|-------------|
+| Node.js | >= 18 (20 LTS recommended) |
+| Operating System | Windows / macOS / Linux |
+| Browser | Playwright auto-manages Chromium (auto-downloads on first run) |
+
+### 2.2 Installation Methods
+
+**Method A: Global Installation (Recommended)**
+
+```bash
+npm install -g ai-verify-mcp
+```
+
+After installation, you can use the `ai-verify-mcp` command directly.
+
+**Method B: Temporary Use with npx (No Installation Required)**
+
+```bash
+npx ai-verify-mcp --version
+npx ai-verify-mcp validate --url https://example.com
+```
+
+Automatically downloads the latest version each time and removes it after use.
+
+**Method C: Project Local Installation**
+
+```bash
+cd your-project
+npm install --save-dev ai-verify-mcp
+```
+
+Suitable for use in project CI pipelines, or add scripts to `package.json`:
+
+```json
+{
+  "scripts": {
+    "verify": "ai-verify-mcp validate --url http://localhost:5173",
+    "verify:start": "ai-verify-mcp"
+  }
+}
+```
+
+### 2.3 Verify Installation
+
+```bash
+ai-verify-mcp --version
+# Output: 1.0.0
+
+ai-verify-mcp health
+# Output: {"ok":true,"name":"ai-verify-mcp","version":"1.0.0","message":"Playwright browser is available"}
+```
+
+### 2.4 Uninstallation
+
+```bash
+npm uninstall -g ai-verify-mcp
+```
+
+---
+
+## 3. CLI Command Reference
+
+### 3.1 `health` — Health Check
+
+Check if the Playwright browser is available.
+
+```bash
+ai-verify-mcp health
+
+# On success exit 0:
+# {"ok":true,"name":"ai-verify-mcp","version":"1.0.0","message":"Playwright browser is available"}
+
+# On failure exit 1:
+# {"ok":false,"error":"Playwright browser is not available"}
+```
+
+**Use cases**: CI pipeline pre-checks, Docker container health checks.
+
+---
+
+### 3.2 `validate` — Quick Validation
+
+One-click validation of 7 core checks for a URL.
+
+```bash
+ai-verify-mcp validate --url <URL>
+```
+
+**Parameters**:
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `--url <URL>` | ✅ | Page address to validate (http/https/file protocols) |
+| `--ai-provider` | ❌ | AI provider (openai/deepseek/qwen) |
+| `--ai-api-key` | ❌ | AI API Key |
+
+**Examples**:
+
+```bash
+# Validate local development page
+ai-verify-mcp validate --url http://localhost:5173
+
+# Validate remote page
+ai-verify-mcp validate --url https://example.com
+
+# Validate local HTML file
+ai-verify-mcp validate --url file:///path/to/index.html
+```
+
+**Output Description**:
+
+```json
+{
+  "pass": true,                    // true=all passed, false=failures exist
+  "mode": "quick",
+  "summary": "All 7 checks passed, load time 684ms",
+  "topErrors": [],                 // If failed, lists top errors
+  "artifacts": [                   // List of artifact paths
+    "E:\\project\\artifacts\\quick-run-xxx.png"
+  ]
+}
+```
+
+**7 Check Items**:
+
+| # | Check Item | Description |
+|---|------------|-------------|
+| 1 | Page Load | Page loads normally within 30s |
+| 2 | Blank Screen Detection | Page has visible text/element content |
+| 3 | Console Errors | No JavaScript exception output |
+| 4 | CSS Loading | All stylesheets load normally |
+| 5 | JS Loading | All scripts load normally |
+| 6 | Image Resources | Image resources do not return 4xx/5xx |
+| 7 | Usability | Page has interactive elements |
+
+---
+
+### 3.3 `run` — Execute Validation Flow
+
+Execute multi-step validation from a flow JSON file.
+
+```bash
+ai-verify-mcp run --flow <flow-file.json>
+```
+
+**Parameters**:
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `--flow <file>` | ✅ | Path to flow JSON file |
+| `--ai-provider` | ❌ | AI provider |
+| `--ai-api-key` | ❌ | AI API Key |
+
+**Flow JSON Format**:
+
+```json
+{
+  "name": "Login Page Validation",
+  "goal": "Open login page → Screenshot → Verify",
+  "steps": [
+    { "type": "open", "url": "http://localhost:5173/login" },
+    { "type": "screenshot", "name": "Login page" },
+    { "type": "check", "checks": ["no_top_errors"] }
+  ]
+}
+```
+
+**Supported Types**:
+
+| type | Parameters | Description |
+|------|------------|-------------|
+| `open` | `url` (required) | Open page |
+| `click` | `selector` (required) | Click element |
+| `type` | `selector` + `text` | Input text |
+| `wait` | `ms` or `urlContains` | Wait |
+| `screenshot` | `name` | Screenshot |
+| `hover` | `selector` | Hover |
+| `scroll` | `distance` | Scroll |
+| `press_key` | `key` + `selector` | Press key |
+| `eval` | `expression` | Execute JS |
+| `errors` | — | View Console errors |
+| `errors_clear` | — | Clear error baseline |
+| `check` | `checks`/`selector` | Verify |
+| `collect` | — | Collect evidence |
+| `report` | — | Generate report |
+
+**Example**:
+
+```json
+{
+  "name": "Shopping Cart Flow Validation",
+  "goal": "Open product page → Add to cart → Screenshot → Check errors",
+  "steps": [
+    { "type": "open", "url": "http://localhost:5173/shop" },
+    { "type": "screenshot", "name": "Product page" },
+    { "type": "click", "selector": ".add-to-cart" },
+    { "type": "wait", "ms": 2000 },
+    { "type": "screenshot", "name": "After adding to cart" },
+    { "type": "errors" }
+  ]
+}
+```
+
+---
+
+### 3.4 `start` — Start MCP Server
+
+Start MCP Server in stdio mode for AI client connections.
+
+```bash
+# stdio mode (default)
+ai-verify-mcp start
+
+# HTTP mode
+ai-verify-mcp start --http --port 3456
+```
+
+**Parameters**:
+
+| Parameter | Description |
+|-----------|-------------|
+| `--http` | Start in HTTP mode (default stdio) |
+| `--port <port>` | HTTP mode port (default 3456) |
+
+After startup, the Server runs continuously, waiting for AI clients to initiate tool calls.
+
+---
+
+## 4. MCP Server Configuration (AI Clients)
+
+### 4.1 Trae
+
+**Method A: Project-Level Configuration (Recommended)**
+
+Create `.trae/mcp.json` in the project root:
+
+```json
+{
+  "mcpServers": {
+    "ai-verify-mcp": {
+      "command": "npx",
+      "args": ["-y", "ai-verify-mcp"]
+    }
+  }
+}
+```
+
+**Method B: User-Level Global Configuration**
+
+Path: `%APPDATA%\Trae CN\User\mcp.json` (Windows)
+
+```json
+{
+  "mcpServers": {
+    "ai-verify-mcp": {
+      "command": "npx",
+      "args": ["-y", "ai-verify-mcp"]
+    }
+  }
+}
+```
+
+**Note**:
+- Restart Trae session after configuration
+- Trae has a limit of 40 tools per Server; exceeding this triggers `list tools failed`. If enabling multiple Servers, keep only those you need.
+
+### 4.2 Cursor
+
+**Project-Level Configuration**: `.cursor/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "ai-verify-mcp": {
+      "command": "npx",
+      "args": ["-y", "ai-verify-mcp"]
+    }
+  }
+}
+```
+
+Cursor → Settings → MCP → View Server status.
+
+### 4.3 Claude Desktop
+
+`claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "ai-verify-mcp": {
+      "command": "npx",
+      "args": ["-y", "ai-verify-mcp"]
+    }
+  }
+}
+```
+
+macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
+Windows: `%APPDATA%\Claude\claude_desktop_config.json`
+
+### 4.4 Windsurf
+
+Windsurf → Settings → MCP Servers → Add:
+
+```json
+{
+  "ai-verify-mcp": {
+    "command": "npx",
+    "args": ["-y", "ai-verify-mcp"]
+  }
+}
+```
+
+### 4.5 Claude Code
+
+```bash
+claude mcp add ai-verify-mcp npx -y ai-verify-mcp
+```
+
+### 4.6 Cline / Roo Code / OpenClaw
+
+```json
+{
+  "mcpServers": {
+    "ai-verify-mcp": {
+      "command": "npx",
+      "args": ["-y", "ai-verify-mcp"]
+    }
+  }
+}
+```
+
+See each client's documentation for configuration file locations.
+
+### 4.7 Codex CLI
+
+```bash
+codex mcp add ai-verify-mcp -- npx -y ai-verify-mcp
+```
+
+Or write to `~/.codex/config.toml`:
+
+```toml
+[mcpServers.ai-verify-mcp]
+command = "npx"
+args = ["-y", "ai-verify-mcp"]
+```
+
+### 4.8 Hermes
+
+```bash
+hermes mcp add ai-verify-mcp npx -y ai-verify-mcp
+```
+
+Or write to `~/.hermes/config.yaml`:
+
+```yaml
+mcp_servers:
+  ai-verify-mcp:
+    command: npx
+    args: ["-y", "ai-verify-mcp"]
+```
+
+### 4.9 CodeArts
+
+IDE → Settings → MCP Settings:
+
+```json
+{
+  "mcpServers": {
+    "ai-verify-mcp": {
+      "command": "npx",
+      "args": ["-y", "ai-verify-mcp"]
+    }
+  }
+}
+```
+
+**Note**: CodeArts recommends enabling no more than 3 Servers, otherwise performance may be affected.
+
+### 4.10 CodeBuddy
+
+```json
+{
+  "mcpServers": {
+    "ai-verify-mcp": {
+      "command": "npx",
+      "args": ["-y", "ai-verify-mcp"]
+    }
+  }
+}
+```
+
+Supports three transports: stdio / SSE / HTTP.
+
+---
+
+## 5. Skill + MCP Combined Usage (Recommended)
+
+### 5.1 Why Combine Them
+
+ai-verify-mcp provides 77 **atomic validation tools** (browser operations, screenshots, a11y scanning, etc.), but these tools need to be **orchestrated and called** to complete a full validation task. The Skill system is the orchestration layer.
+
+| MCP Alone | Skill Alone | Skill + MCP Combined |
+|-----------|-------------|---------------------|
+| 77 tools but requires manual orchestration | Has workflows but lacks execution capability | ✅ Auto-orchestration + auto-execution |
+| Scattered validation results | Fixed workflow templates | ✅ Complete evidence chain + flexible configuration |
+
+### 5.2 Configuration Steps
+
+**Step 1: Configure ai-verify-mcp MCP Server in Trae**
+
+`.trae/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "ai-verify-mcp": {
+      "command": "npx",
+      "args": ["-y", "ai-verify-mcp"]
+    }
+  }
+}
+```
+
+**Step 2: Ensure Skill File Exists**
+
+Skill configuration file is at `.trae/skills/browser-dev-full-validation-skill/SKILL.md`. Verify the file exists and has complete content.
+
+**Step 3: Restart Trae Session**
+
+To make the configuration take effect.
+
+### 5.3 Workflow
+
+```
+You → Tell AI Assistant "Help me validate this page"
+     ↓
+Skill auto-orchestrates 7-phase flow:
+  1. Open page → Screenshot
+  2. Check Console errors
+  3. Check network requests
+  4. Scan accessibility (a11y)
+  5. Check CSS variables
+  6. Generate report
+  7. Compile evidence chain
+     ↓
+ai-verify-mcp executes specific operations for each phase
+     ↓
+Output: Screenshots + error diagnosis + evidence chain report
+```
+
+### 5.4 Comparison: With Skill vs Without Skill
+
+```text
+❌ MCP Only (Manual Mode):
+   You: "Open the page with browser_open"
+   AI: Okay, opened
+   You: "Take a screenshot with browser_screenshot"
+   AI: Okay, screenshot taken
+   ...repeat each step...
+
+✅ With Skill (Auto Mode):
+   You: "Help me validate this page"
+   AI: Starting 7-phase validation flow...
+       ✅ Page loaded successfully
+       ✅ No Console errors
+       ⚠️ Found two accessibility issues
+       ✅ Report generated
+```
+
+---
+
+## 6. 77 Tools Quick Reference
+
+> Below are all 77 tools provided by ai-verify-mcp, listed by functional category. Among them, `error_fix_suggestion` has 23 built-in error matching patterns (including 4 Python backend fix patterns), supporting automatic diagnosis and recommended fix solutions.
+
+### 6.1 Browser Operations (25 tools)
+
+| Tool Name | Description |
+|-----------|-------------|
+| `browser_batch` | Batch execute browser operation sequences |
+| `browser_click` | Click page elements |
+| `browser_dom` | DOM query and manipulation |
+| `browser_eval` | Execute JavaScript in the page |
+| `browser_find_element` | Intelligently find elements by text |
+| `browser_find_page` | Page type recognition |
+| `browser_flow` | Browser operation flow orchestration |
+| `browser_highlight` | Highlight page elements |
+| `browser_hover` | Hover over elements |
+| `browser_instrument` | Inject tool scripts into the page |
+| `browser_links` | Get all page links |
+| `browser_locator_suggest` | Selector suggestions |
+| `browser_locator_validate` | Selector validation |
+| `browser_navigate` | Navigate to specified URL |
+| `browser_open` | Open page |
+| `browser_press_key` | Key press operations |
+| `browser_screenshot` | Full-page screenshot |
+| `browser_screenshot_element` | Element screenshot |
+| `browser_scroll` | Scroll page |
+| `browser_select` | Select dropdown options |
+| `browser_snapshot` | Page snapshot |
+| `browser_step` | Single-step operation execution |
+| `browser_traverse_menu` | Traverse menu structure |
+| `browser_type` | Input text |
+| `browser_wait` | Wait for specified conditions |
+
+### 6.2 Diagnosis and Debugging (17 tools)
+
+| Tool Name | Description |
+|-----------|-------------|
+| `browser_console` | View console logs |
+| `browser_debug_report` | Generate debug report |
+| `browser_diagnose` | Automatic error diagnosis (root cause analysis + confidence) |
+| `browser_element_status` | Element status check (visibility, interactivity) |
+| `browser_errors` | View page Console errors |
+| `browser_errors_aggregate` | Error aggregation statistics |
+| `browser_errors_clear` | Clear captured errors |
+| `browser_events` | View page events |
+| `browser_events_clear` | Clear captured events |
+| `browser_network` | View network request list |
+| `browser_network_detail` | View network request details |
+| `browser_performance_check` | Page performance check |
+| `browser_quick_fix` | Quick fix (multiple strategies) |
+| `browser_verify_fix` | Fix verification closed-loop |
+| `debug_investigate` | Deep investigation and analysis |
+| `error_fix_suggestion` | Error fix suggestions |
+| `error_summary_md` | Error summary (Markdown) |
+
+### 6.3 Validation Framework (14 tools)
+
+| Tool Name | Description |
+|-----------|-------------|
+| `browser_assert` | Assertion validation (URL, title, elements, etc.) |
+| `fix_verify` | Fix result verification |
+| `screenshot_diff` | Screenshot diff comparison |
+| `validation_check` | Checkpoint validation (load, JS errors, etc.) |
+| `validation_decision` | Validation decision |
+| `validation_element` | Element validation (existence, visibility, text) |
+| `validation_flow` | Multi-step flow validation |
+| `validation_matrix` | Validation matrix |
+| `validation_quick_run` | One-click 7-item quick validation |
+| `validation_report` | Generate validation report |
+| `validation_report_export` | Export validation report |
+| `validation_run` | Run validation |
+| `validation_start` | Start validation session |
+| `validation_suite_run` | Run validation suite |
+
+### 6.4 Session Management (7 tools)
+
+| Tool Name | Description |
+|-----------|-------------|
+| `browser_session_create` | Create browser session |
+| `browser_session_close` | Close browser session |
+| `browser_session_switch` | Switch browser session |
+| `browser_sessions` | List all active sessions |
+| `browser_cookies` | Cookie management |
+| `browser_storage` | Browser storage management |
+| `browser_har_export` | Export HAR network request archive |
+
+### 6.5 Evidence and Artifacts (4 tools)
+
+| Tool Name | Description |
+|-----------|-------------|
+| `browser_artifacts` | Manage validation artifacts |
+| `browser_artifacts_clear` | Clear validation artifacts |
+| `browser_trace_start` | Start Playwright tracing |
+| `browser_trace_stop` | Stop Playwright tracing |
+
+### 6.6 Visual Regression (3 tools)
+
+| Tool Name | Description |
+|-----------|-------------|
+| `browser_visual_baseline` | Set visual baseline |
+| `browser_visual_compare` | Visual comparison |
+| `browser_visual_report` | Generate visual regression report |
+
+### 6.7 Accessibility Check (1 tool)
+
+| Tool Name | Description |
+|-----------|-------------|
+| `browser_a11y_check` | axe-core accessibility scan |
+
+### 6.8 Auxiliary Tools (4 tools)
+
+| Tool Name | Description |
+|-----------|-------------|
+| `ai_debug_investigate` | AI-assisted deep troubleshooting |
+| `benchmark_run` | Benchmark performance testing |
+| `mcp_health_check` | MCP Server health check |
+| `mcp_self_test` | MCP self-test (protocol + tool count) |
+
+---
+
+## 7. Typical Use Cases
+
+### Scenario 1: Validate an AI-Generated Login Page
+
+**Background**: You asked AI to generate a login page, and now you want to confirm it works properly.
+
+**Tell the AI in your AI client**:
+
+```
+Help me validate this login page:
+1. Open http://localhost:5173/login
+2. Take a screenshot
+3. Enter username admin@test.com, password 123456
+4. Click the login button
+5. Take a screenshot of the post-login page
+6. Check for Console errors
+7. Tell me the results
+```
+
+**AI will sequentially call**:
+1. `browser_open` → Open page
+2. `browser_screenshot` → Screenshot
+3. `browser_type` → Enter username
+4. `browser_type` → Enter password
+5. `browser_click` → Click login
+6. `browser_screenshot` → Screenshot after login
+7. `validation_check` → Check results
+
+### Scenario 2: Validate Page Style Compliance
+
+```
+Validate this page's styles:
+1. Open http://localhost:5173/settings
+2. Take a screenshot
+3. Check for accessibility issues (a11y)
+4. Check for missing CSS variables
+5. Report results
+```
+
+**AI will call**:
+1. `browser_open` → Open
+2. `browser_screenshot` → Screenshot
+3. `browser_a11y_check` → axe scan
+4. `browser_css_trace` → CSS variable tracing
+
+### Scenario 3: Diagnose Page Errors
+
+```
+This page is throwing errors, help me diagnose:
+1. Open http://localhost:5173/dashboard
+2. View Console errors
+3. View network request status
+4. Auto-diagnose root cause
+5. Tell me how to fix it
+```
+
+**AI will call**:
+1. `browser_open` → Open
+2. `browser_errors` → Console errors
+3. `browser_network` → Network requests
+4. `browser_diagnose` → Auto-diagnosis
+5. `browser_quick_fix` → Fix suggestions
+
+### Scenario 4: Complete Validation + Evidence Retention
+
+```
+Validate the homepage and generate a complete evidence chain report:
+1. Open http://localhost:5173
+2. Screenshot the homepage
+3. Click "Products" navigation
+4. Screenshot the products page
+5. Click "Contact Us"
+6. Screenshot the contact page
+7. Generate validation report
+```
+
+---
+
+## 8. Artifacts and Evidence Chain
+
+### 8.1 Artifact Directory Structure
+
+Each validation operation retains evidence in the `artifacts/` directory:
+
+```
+artifacts/
+├── screenshots/           # Screenshot files
+│   ├── login-page.png
+│   ├── dashboard.png
+│   └── ...
+├── traces/               # Playwright trace files (with full operation recording)
+├── har/                  # HAR network request logs
+├── reports/              # Validation reports
+│   ├── validation-report.md
+│   └── validation-report.json
+└── ...                   # Other artifacts
+```
+
+### 8.2 Evidence Chain Description
+
+| Artifact Type | Format | Description |
+|--------------|--------|-------------|
+| Screenshots | PNG | Browser screenshots for each operation step |
+| Trace | ZIP | Playwright trace, can replay complete operation process |
+| HAR | JSON | Complete record of all network requests |
+| Reports | MD+JSON | Markdown and structured data of validation results |
+
+### 8.3 Configure Artifact Paths
+
+Customize artifact directory location via environment variables:
+
+```bash
+set VALIDPILOT_ARTIFACTS_DIR=E:/my-reports
+ai-verify-mcp validate --url http://localhost:5173
+```
+
+---
+
+## 9. Environment Variables Reference
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PORT` | 3456 | HTTP mode port |
+| `VALIDPILOT_ARTIFACTS_DIR` | `./artifacts` | Artifact directory path |
+| `VALIDPILOT_REDACTION` | `false` | Enable sensitive information redaction |
+| `VALIDPILOT_ALLOWLIST` | `*` | Domain allowlist (comma-separated) |
+| `VALIDPILOT_BLOCKED_HOSTS` | — | Domain blocklist (comma-separated) |
+| `MCP_API_KEY` | — | HTTP mode API Key authentication |
+| `SSH_PASS` | — | SSH password (used for remote tunneling) |
+| `SSH_KEY_PATH` | — | SSH private key path |
+| `NODE_ENV` | `production` | Environment mode (test/dev enables debug logs) |
+
+---
+
+## 10. Troubleshooting
+
+### Server Startup Failed
+
+```text
+Error: Port 3456 is already in use
+Solution: ai-verify-mcp start --http --port 3457
+```
+
+```text
+Error: Playwright browser is not available
+Solution: npx playwright install chromium
+```
+
+### Browser Refresh Input Method Conflict
+
+- Use Dropdown selector or Ctrl+Shift shortcut to switch input methods
+- Or use English input method for operations
+
+### MCP Tool List is Empty
+
+- Restart AI client session for configuration to take effect
+- Check configuration file JSON format (common errors: commas, quotes)
+- Trae users note the 40 tool limit, reduce other Servers
+
+### Validation Results Not as Expected
+
+- Check if Network requests are blocked by CORS or firewall
+- Confirm the page URL is reachable from the AI client's network
+- Check if `VALIDPILOT_ALLOWLIST` includes the target domain
+
+### Artifact Files Not Generated
+
+- Confirm `VALIDPILOT_ARTIFACTS_DIR` directory has write permissions
+- Default artifacts are in `./artifacts/` (current working directory)
+
+---
+
+> **More Help**:
+> - [Log Troubleshooting Manual](LOG-TROUBLESHOOTING.md) — Detailed error codes and solutions
+> - [MCP Protocol Cheatsheet](MCP-CHEATSHEET.md) — MCP basic concepts
+> - GitHub Issues: https://github.com/validpilot/ai-verify-mcp/issues
+> - Email: validpilot@outlook.com

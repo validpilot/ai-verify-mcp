@@ -258,3 +258,268 @@ curl http://localhost:3456/health
 | `VALIDPILOT_HEADLESS` | `true` | 是否启用无头模式 |
 | `VALIDPILOT_ALLOWLIST` | `localhost,127.0.0.1,::1` | 允许访问的域名白名单 |
 | `VALIDPILOT_BLOCKED_HOSTS` | 空 | 禁止访问的域名黑名单 |
+
+---
+
+## English Version
+
+# ai-verify-mcp Log Troubleshooting Guide
+
+> Quickly locate common issues such as MCP Server startup failures, tool invocation errors, browser crashes, and HTTP authentication problems.
+
+---
+
+## 1. Where Are the Logs?
+
+### Runtime Logs
+
+| Log Source | How to View | Description |
+|------------|-------------|-------------|
+| **Console (stdio)** | Terminal window | MCP Server main process logs, including startup info and runtime errors |
+| **Browser Console** | `browser_errors` tool | JS errors and network request failures within the target page |
+| **Browser Network** | `browser_network` tool | HTTP request status codes for the target page |
+| **MCP stderr** | AI client logs (IDE output panel) | MCP protocol layer errors, serialization failures, or unregistered tools |
+
+### Artifact Files
+
+| Directory | Default Path | Content |
+|-----------|-------------|---------|
+| Screenshots | `./screenshots/` | Screenshot evidence during browser operations |
+| Traces | `./traces/` | Playwright trace files (.zip) |
+| HAR | `./har/` | Network request archive files (.har) |
+| Diff Reports | `./artifacts/phase1/` | Pixel-level screenshot diff comparison images |
+| Evidence Summary | `./artifacts/` | Console/Network/DOM comprehensive summary |
+
+> You can customize the artifact output directory via the environment variable `VALIDPILOT_ARTIFACTS_DIR`.
+
+---
+
+## 2. Common Troubleshooting Flows
+
+### Flow 1: Server Won't Start
+
+```
+Unable to start
+  ├─ Node version < 18?
+  │   └─ node --version → Upgrade to ≥ 18
+  ├─ Try running CLI subcommands independently first?
+  │   ├─ ai-verify-mcp --version       → Check version (verifies package installation)
+  │   ├─ ai-verify-mcp health           → Check Playwright availability (independent of MCP Server)
+  │   └─ ai-verify-mcp validate --url <url> → Test if a page can be validated directly
+  ├─ Port 3456 occupied? (HTTP mode)
+  │   └─ netstat -ano | findstr :3456 → Change port or terminate conflicting process
+  ├─ npm package corrupted?
+  │   └─ npm cache clean --force && npm install -g ai-verify-mcp
+  └─ Insufficient permissions?
+      └─ Check npm installation directory permissions
+```
+
+### Flow 2: AI Client Shows "tool not found"
+
+```
+Tools not visible
+  ├─ Package not installed?
+  │   └─ npx ai-verify-mcp health → Check response
+  ├─ MCP configuration error?
+  │   └─ Check mcp.json → Verify command/args are correct
+  ├─ Trae 40-tool limit?
+  │   └─ Tools beyond 40 are dropped → Reduce number of MCP Servers
+  └─ Trae 8000-character limit?
+      └─ Tool descriptions exceeding limit get truncated → Refer to Trae FAQ
+```
+
+### Flow 3: Browser Operation Failed
+
+```
+Page operation error
+  ├─ Browser not launched?
+  │   └─ browser_sessions → Check for active sessions
+  ├─ Target page inaccessible?
+  │   └─ Manually open target URL in browser to verify
+  ├─ Invalid element selector?
+  │   └─ browser_find_element → Test selector against actual DOM
+  └─ Headless mode anomaly?
+      └─ Set VALIDPILOT_HEADLESS=false to launch in headed mode for debugging
+```
+
+---
+
+## 3. Common Errors and Solutions
+
+### Error 1: `ECONNREFUSED` or Port Already in Use
+
+```
+Error example:
+  Error: listen EADDRINUSE :::3456
+  Port 3456 已被占用
+
+Cause:
+  Another process is already using this port
+
+Solution:
+  1. netstat -ano | findstr :3456  → Find PID
+  2. taskkill /PID <PID> /F          → Kill process
+  3. Or start with a different port: --port 3457
+```
+
+### Error 2: MCP API Key Authentication Failed (HTTP Mode)
+
+```
+Error example:
+  HTTP 401 Unauthorized
+  Invalid API Key
+
+Cause:
+  MCP_API_KEY authentication is enabled in HTTP mode, but the request does not carry the correct key
+
+Solution:
+  1. Confirm the MCP_API_KEY environment variable value set on the server
+  2. Add Authorization: Bearer <key> to request headers
+  3. Or set MCP_API_KEY= (empty value) to disable authentication (dev environment only)
+```
+
+### Error 3: Browser Session Timeout
+
+```
+Error example:
+  Timeout 30000ms exceeded
+  page.click: target closed
+
+Cause:
+  Browser page was automatically closed after prolonged inactivity
+
+Solution:
+  1. Recreate session: browser_session_create
+  2. Avoid long intervals between operations
+  3. Check if browser was manually closed
+```
+
+### Error 4: Playwright Not Installed
+
+```
+Error example:
+  browserType.launch: Executable doesn't exist at ...
+  ╔══════════════════════════════════════════════════════════╗
+  ║ Looks like Playwright Test or Playwright was just       ║
+  ║ installed. Please install browser dependencies...       ║
+  ╚══════════════════════════════════════════════════════════╝
+
+Cause:
+  Playwright browser binaries are not installed
+
+Solution:
+  npx playwright install chromium    # Install Chromium
+  npx playwright install-deps chromium  # Install system dependencies (Linux)
+```
+
+### Error 5: Screenshot Path Does Not Exist
+
+```
+Error example:
+  ENOENT: no such file or directory, open 'screenshots/...png'
+
+Cause:
+  screenshots/ directory was not auto-created (edge case)
+
+Solution:
+  1. Create manually: mkdir screenshots
+  2. Or run browser_open once to let the system auto-create it
+```
+
+### Error 6: JSON Parse Error in stderr
+
+```
+Error example:
+  [STDERR] SyntaxError: Unexpected token ...
+  [STDERR]   at JSON.parse (...)
+
+Cause:
+  Non-JSON formatted output was mixed into stdout during MCP protocol communication
+
+Solution:
+  1. Check if console.log statements are mixing into the stdin/stdout stream
+  2. Use --http mode instead of stdio mode
+  3. Add "stderr": true in the AI client configuration to output stderr to logs
+```
+
+---
+
+## 4. Debugging Tips
+
+### Enable Verbose Logging
+
+```bash
+# HTTP mode (with request logs)
+node server.js --http --port 3456
+
+# Set environment variables
+set VALIDPILOT_REDACTION=false   # Disable sensitive data redaction, see full content
+set VALIDPILOT_HEADLESS=false    # Disable headless mode, see browser UI
+
+# Save stderr to file
+npx -y ai-verify-mcp 2> mcp-error.log
+```
+
+### Verify MCP Protocol Handshake
+
+```bash
+# Use test-mcp-protocol.js to verify the full initialize → tools/list flow
+node test-mcp-protocol.js
+
+# Expected output:
+# === initialize response ===
+# serverInfo: {"name":"ai-verify-mcp","version":"1.0.0"}
+# === tools/list response ===
+# Tool count: 75
+```
+
+### Check HTTP Endpoint
+
+```bash
+# After starting HTTP mode
+curl http://localhost:3456/health
+
+# Expected response:
+# {"ok":true,"name":"ai-verify-mcp","version":"1.0.0","mode":"http"}
+```
+
+---
+
+## 5. AI Client Log Viewing
+
+| Client | How to View Logs |
+|--------|-----------------|
+| **Cursor** | `Cmd+Shift+P` → "Developer: Toggle Developer Tools" → Console panel |
+| **Claude Desktop** | Settings → Developer → View MCP Server logs |
+| **Windsurf** | Terminal panel → MCP Server tab |
+| **Trae** | Settings → MCP → Server status → View logs |
+| **Claude Code** | `claude mcp logs` |
+| **Cline** | Extension output panel → Cline logs |
+
+---
+
+## 6. Key Markers in Logs
+
+| Marker | Meaning | Action |
+|--------|---------|--------|
+| `[AUDIT]` | Audit log, records all tool calls | Used for security audit |
+| `[SECURITY]` | Security-related warning | Follow the suggested remediation |
+| `[browserPool]` | Browser connection pool status | Troubleshoot session leaks |
+| `[STDERR]` | stderr output, usually errors | Requires priority investigation |
+| `console.error` | In-page JS error | Fix page code |
+| `pageerror` | Uncaught page exception | Fix page code |
+
+---
+
+## 7. Environment Variable Quick Reference
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `MCP_API_KEY` | Not set | HTTP mode authentication key, no auth if not set |
+| `MCP_HTTP_PORT` | `3456` | HTTP mode listening port |
+| `MCP_MODE` | `stdio` | Runtime mode, set to `http` to enable HTTP |
+| `VALIDPILOT_ARTIFACTS_DIR` | `./artifacts/` | Artifact directory path |
+| `VALIDPILOT_REDACTION` | `true` | Whether to redact sensitive information |
+| `VALIDPILOT_HEADLESS` | `true` | Whether to enable headless mode |
+| `VALIDPILOT_ALLOWLIST` | `localhost,127.0.0.1,::1` | Domain whitelist for allowed access |
+| `VALIDPILOT_BLOCKED_HOSTS` | Empty | Domain blacklist for forbidden access |

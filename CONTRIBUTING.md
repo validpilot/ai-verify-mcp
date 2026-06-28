@@ -84,3 +84,94 @@ ai-verify-mcp/
 
 - 项目维护者：validpilot@outlook.com
 - GitHub Issues：https://github.com/validpilot/ai-verify-mcp/issues
+
+---
+
+## English Version
+
+# Contributing Guide
+
+Thank you for your interest in contributing to **ai-verify-mcp**! Whether it's fixing bugs, improving documentation, or adding new features, all contributions are welcome.
+
+---
+
+## Code of Conduct
+
+Please be professional and respectful. This project adopts the [Contributor Covenant](https://www.contributor-covenant.org/) Code of Conduct.
+
+## How to Contribute
+
+### Reporting Bugs
+
+1. Search [Issues](https://github.com/validpilot/ai-verify-mcp/issues) first to confirm if it already exists
+2. Create a new Issue with a clear and concise title
+3. Include:
+   - Environment (Node.js version, OS, AI client)
+   - Steps to reproduce
+   - Expected behavior vs actual behavior
+   - Relevant logs or screenshots
+
+### Submitting Feature Requests
+
+Also submit in [Issues](https://github.com/validpilot/ai-verify-mcp/issues) with the `enhancement` label. Just describe the use case and expected outcome.
+
+### Submitting Pull Requests
+
+1. **Open an Issue first** — For any non-trivial changes, open an Issue to discuss first to avoid wasted effort
+2. **Fork the repository** — Click Fork in the top-right corner of GitHub
+3. **Create a branch** — Use descriptive branch names: `fix/login-bug`, `feat/add-xxx-tool`
+4. **Local development**
+
+```bash
+git clone https://github.com/YOUR_USERNAME/ai-verify-mcp.git
+cd ai-verify-mcp
+npm install
+node bin/validpilot.js health    # Verify environment is working
+```
+
+5. **Modify code** — Follow the code style (see below)
+6. **Test and verify**
+
+```bash
+node bin/validpilot.js health    # Confirm existing functionality is not affected
+node bin/validpilot.js --version # Confirm normal output
+```
+
+7. **Submit PR** — Clearly describe the changes and motivation
+
+## Development Guide
+
+### Project Structure
+
+```
+ai-verify-mcp/
+├── bin/validpilot.js    # CLI entry point
+├── server.js            # MCP Server entry point
+├── start-http.js        # HTTP mode entry point
+├── engines/             # Browser engine adapter (Playwright)
+├── hands/               # Business logic (browser operations, evidence collection, verification execution)
+├── brain/               # Intelligent analysis (error aggregation)
+├── core/                # Infrastructure (configuration, reporting, security)
+├── tools/               # MCP tool definitions (JSON)
+├── docs/                # Documentation
+└── rules/               # Rule configuration
+```
+
+### Adding New Tools
+
+1. Create a JSON definition file under `tools/`
+2. Register the tool name and handler function in `server.js`
+3. Verify: `node test-mcp-protocol.js`
+
+### Code Style
+
+- Use `'use strict'`
+- Use `async/await` for functions
+- Use `const`/`let` for variables (no `var`)
+- Use `try/catch` for errors with clear error messages
+- Use [Conventional Commits](https://www.conventionalcommits.org/) for commit messages: `feat:`, `fix:`, `docs:`, `chore:`
+
+## Contact
+
+- Project maintainer: validpilot@outlook.com
+- GitHub Issues: https://github.com/validpilot/ai-verify-mcp/issues

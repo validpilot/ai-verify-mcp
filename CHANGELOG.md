@@ -54,3 +54,64 @@ All notable changes to this project will be documented in this file.
 ---
 
 > **Don't just generate, verify.** — 让 AI 编程可信赖。
+
+---
+
+## English Version
+
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+## [1.0.0] - 2026-06-28
+
+### Added
+
+- 🎯 **Core Positioning**: AI programming verification platform — make AI code generation results verifiable and trustworthy
+- 📸 **Evidence Chain Preservation**: Automatic screenshots at each step, forming a traceable evidence chain
+- 🔍 **Intelligent Diagnosis**: Auto-analyze root causes of errors, provide confidence scores and fix suggestions
+- ✅ **Verification Framework**: 14 verification tools (checkpoint verification, element verification, process verification, etc.)
+- 🐛 **Diagnostic Tools**: 12 diagnostic tools (error diagnosis, element status check, fix verification closed-loop)
+- 🌐 **Browser Operations**: 21 browser operation tools (open, click, input, scroll, etc.)
+- 🎯 **Intelligent Locator**: 4 intelligent localization tools (find by text, selector suggestions, verification)
+- 📊 **Report Generation**: Markdown report + screenshot evidence + diagnosis results
+
+### Security
+
+- 🔒 **HTTP Server Authentication**: Support `MCP_API_KEY` environment variable for API key authentication
+- ⚠️ Display security warning log when authentication is not configured
+
+### Fixed
+
+- 🐛 Added boundary control for log array (MAX_LOG_ENTRIES=500) to prevent memory leaks
+- 🐛 Improved browserPool cleanup logic, correctly cleans all pool instances when closing sessions
+- 🐛 Added error logging for critical empty catch blocks
+- 🐛 Unified Schema naming: `input_schema` → `inputSchema` (3 files)
+- 🐛 Added expression length limit (10KB) and audit log for browser_eval
+- 🐛 Added security warning prompt when passing API key via CLI parameters
+- 🐛 Removed duplicate isConnected check code in chrome_mcp_adapter.js
+- 🐛 Added process.exit(1) for error handling in standalone-start.js
+- 🐛 Added error logging for browserPool operations
+- 🐛 Added timeout cleanup mechanism (5 minutes) for requestStartTimes Map
+- 🐛 Replaced Math.random() with crypto.randomBytes (cryptographically secure)
+- 🐛 Added security warning log when using file:// protocol
+- 🐛 Added comments explaining different purposes for duplicate redactString definitions
+
+### Features
+
+- **75 MCP Tools**: Full native MCP protocol support
+- **One-click Verification**: `validation_quick_run` 7 quick checks
+- **Evidence Chain**: Automatic screenshots + timestamps + operation types
+- **Diagnosis Closed-loop**: Error diagnosis → fix suggestions → verification closed-loop
+- **AI Agent Friendly**: Supports AI assistants like Cursor, Claude, Windsurf, etc.
+
+### Documentation
+
+- README rewrite: Emphasize "verification" and "evidence chain"
+- Added "Why Choose ValidPilot Verify" comparison table
+- Added "Evidence Chain Concept" section
+- Added practical usage examples
+
+---
+
+> **Don't just generate, verify.** — Make AI programming trustworthy.

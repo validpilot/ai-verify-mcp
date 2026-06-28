@@ -184,3 +184,194 @@ WantedBy=default.target
 - [Anthropic MCP 公告](https://www.anthropic.com/news/model-context-protocol)
 - [ai-verify-mcp GitHub](https://github.com/validpilot/ai-verify-mcp)
 - [ai-verify-mcp npm](https://www.npmjs.com/package/ai-verify-mcp)
+
+---
+
+## English Version
+
+# MCP Protocol Cheat Sheet
+
+> Suitable for group chat discussions, interview responses, and quick onboarding. Based on the [Model Context Protocol](https://modelcontextprotocol.io) 2024-11-05 version.
+
+---
+
+## 1. What is MCP?
+
+**In one sentence:** The **USB-C universal interface** for the AI field.
+
+| Analogy | Description |
+|---------|-------------|
+| USB-C | One connector for all peripherals (keyboard, display, charging) |
+| MCP | One protocol for all AI tools (browser, database, API) |
+
+Open-sourced by Anthropic in November 2024, the goal is to provide a unified tool calling standard for AI models. No need to write integration code for each tool individually.
+
+---
+
+## 2. Architecture Quick Reference
+
+```
+AI Client (Host)  ← JSON-RPC Protocol →  MCP Server
+    ↓                                    ↓
+ Claude Desktop                    ai-verify-mcp (Verification Platform)
+ Cursor / Windsurf                 Playwright (Browser Automation)
+ Trae / Codex                      Various Tool Services
+```
+
+**Two-layer Architecture:**
+
+| Role | Responsibility | Examples |
+|------|----------------|----------|
+| **Host** | Client running the AI model, initiates tool call requests | Claude Desktop, Cursor, Trae |
+| **Server** | Process encapsulating specific tool capabilities, responds to call requests | ai-verify-mcp, Playwright MCP |
+
+**Two Transport Methods:**
+
+| Method | Use Case | Characteristics |
+|--------|----------|-----------------|
+| stdio | Local CLI startup | `npx -y ai-verify-mcp`, inter-process communication via standard input/output |
+| SSE | Remote or HTTP | Suitable for distributed deployment, server-side event push |
+
+---
+
+## 3. Positioning of ai-verify-mcp in the Ecosystem
+
+| Dimension | Description |
+|-----------|-------------|
+| Role | **MCP Server** (provides services) |
+| Transport | **stdio** (`npx -y` one-click startup) |
+| Tool Count | **75** verification tools |
+| Core Capabilities | Browser automation screenshots / Console error capture / axe a11y scanning / CSS variable tracing / screenshot diff comparison / evidence chain report |
+
+**Philosophy:** *Don't just generate, verify.* — Don't just generate code, verify the results.
+
+### 🤝 Skill + MCP Working Together
+
+ai-verify-mcp provides 75 **atomic verification tools**, and the **Skill system** (such as Trae's `browser-dev-full-validation-skill`) orchestrates the verification workflow:
+
+| Using MCP Alone | Using Skill Alone | **Skill + MCP Combination** |
+|-----------------|-------------------|-----------------------------|
+| Has tools but requires manual orchestration | Has workflow but lacks execution capability | ✅ **Auto-orchestration + Auto-execution** |
+| Scattered verification results, needs manual aggregation | Fixed workflow templates | ✅ **Complete evidence chain + Flexible configuration** |
+
+> 💡 **Best Practice**: Enable both Skill + ai-verify-mcp MCP Server in Trae.
+> Skill answers "when to verify and what to verify", MCP handles "how to verify".
+
+---
+
+## 4. Essential Q&A for Conversations
+
+| Question | Answer |
+|----------|--------|
+| "How to install?" | `npx ai-verify-mcp`, npm package works out of the box, no global installation required |
+| "Where is the MCP config file?" | Varies by client: [Config Quick Reference](../README.md#-mcp-客户端配置速查) |
+| "How to verify installation?" | `ai-verify --version`, if you see the version number it's successful |
+| "What's the difference from Playwright?" | Playwright is a browser automation library; ai-verify-mcp wraps it as an MCP protocol exposed to AI clients, with additional verification reporting and evidence chain capabilities |
+| "Open source or paid?" | **MIT License**, completely open source and free |
+| "Which AI clients are supported?" | Cursor / Claude Desktop / Windsurf / Trae / Codex / OpenClaw / Hermes / CodeArts / CodeBuddy, etc. |
+| "Are there any limitations?" | Requires local Node >= 18; Trae has a limit of 40 tools / 8000 character description max |
+
+---
+
+## 5. Common Commands & Auto-Startup
+
+### CLI Subcommands
+
+| Command | Purpose | Example |
+|---------|---------|---------|
+| `--version` / `-v` | Output version number | `ai-verify-mcp --version` |
+| `--help` / `-h` | Display help information | `ai-verify-mcp --help` |
+| `health` | Check Playwright browser availability | `ai-verify-mcp health` |
+| `validate --url <url>` | Quickly validate a URL, output pass/fail + error summary | `ai-verify-mcp validate --url http://localhost:5173` |
+| `run --flow <file>` | Execute multi-step verification flow from a flow JSON file | `ai-verify-mcp run --flow flow.json` |
+
+```bash
+# Check version
+npx -y ai-verify-mcp --version
+
+# Playwright health check (exit 0 = available)
+npx -y ai-verify-mcp health
+
+# Quickly validate a URL
+npx -y ai-verify-mcp validate --url http://localhost:5173
+```
+
+> `health` and `validate` run independently without starting an MCP Server, suitable for CI/CD pipelines.
+
+### Starting MCP Server (for AI Client Connection)
+
+```bash
+# stdio mode (default, suitable for Cursor / Claude Desktop / Trae, etc.)
+npx -y ai-verify-mcp
+
+# HTTP mode (port 3456)
+npx -y ai-verify-mcp --http --port 3456
+```
+
+### Auto-Startup Configuration
+
+For development convenience, you can add auto-start commands to the `scripts` section of your project's `package.json`:
+
+```json
+{
+  "scripts": {
+    "verify": "ai-verify-mcp",
+    "verify:http": "ai-verify-mcp --http --port 3456",
+    "verify:check": "ai-verify-mcp health"
+  }
+}
+```
+
+Then point the `command` to the npm script in your AI client's MCP configuration:
+
+```json
+{
+  "mcpServers": {
+    "ai-verify-mcp": {
+      "command": "npm",
+      "args": ["run", "verify"],
+      "cwd": "/path/to/your/project"
+    }
+  }
+}
+```
+
+Or register in system auto-start scripts (Windows Task Scheduler / systemd):
+
+<details>
+<summary><b>Windows Task Scheduler</b></summary>
+
+```
+1. Open taskschd.msc
+2. Create Task → Trigger: At user log on
+3. Action: Start a program → node %APPDATA%\npm\node_modules\ai-verify-mcp\server.js
+```
+
+</details>
+
+<details>
+<summary><b>Linux systemd</b></summary>
+
+```ini
+[Unit]
+Description=ai-verify-mcp MCP Server
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/npx ai-verify-mcp --http --port 3456
+Restart=on-failure
+User=<your-user>
+
+[Install]
+WantedBy=default.target
+```
+</details>
+
+---
+
+## 6. Recommended Reading
+
+- [MCP Official Documentation](https://modelcontextprotocol.io)
+- [Anthropic MCP Announcement](https://www.anthropic.com/news/model-context-protocol)
+- [ai-verify-mcp GitHub](https://github.com/validpilot/ai-verify-mcp)
+- [ai-verify-mcp npm](https://www.npmjs.com/package/ai-verify-mcp)
