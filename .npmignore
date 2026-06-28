@@ -10,6 +10,7 @@ demo-*
 validation-report.md
 
 # 测试与校验脚本（不影响运行）
+test/
 test-*.js
 test-*.mjs
 check-tools*.js
