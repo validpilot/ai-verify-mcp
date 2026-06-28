@@ -3,7 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const { PNG } = require('pngjs');
-const pixelmatch = require('pixelmatch');
+const pixelmatch = require('pixelmatch').default || require('pixelmatch');
 const { defaultAdapter, ensureDir, truncate } = require('./../engines/playwright_adapter');
 
 const DIFF_DIR = path.join(__dirname, '..', 'artifacts', 'phase1');

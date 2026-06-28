@@ -1078,7 +1078,7 @@ async function visualBaseline(target, args = {}) {
 
 function comparePngFiles(baselinePath, actualPath, diffPath) {
   const { PNG } = require('pngjs');
-  const pixelmatch = require('pixelmatch');
+  const pixelmatch = require('pixelmatch').default || require('pixelmatch');
   const baseline = PNG.sync.read(fs.readFileSync(baselinePath));
   const actual = PNG.sync.read(fs.readFileSync(actualPath));
   if (baseline.width !== actual.width || baseline.height !== actual.height) {
