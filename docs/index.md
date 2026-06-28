@@ -4,7 +4,7 @@ layout: home
 hero:
   name: AI-Verify MCP
   text: 拒绝 AI 幻觉
-  tagline: 让每一行生成的代码都经过自动化验证。基于 MCP 协议，为 Cursor、Claude、Windsurf 提供证据级验证能力，支持截图、DOM、网络请求全链路回溯。
+  tagline: 让每一行 AI 生成的代码，都有证据、可追溯、敢上线。基于 MCP 协议，一键接入 Cursor、Claude、Windsurf，76 个工具全自动验证，截图 / DOM / 网络请求全链路留痕。
   image:
     src: /logo.svg
     alt: AI-Verify MCP
@@ -13,72 +13,72 @@ hero:
       text: 立即安装 (npm)
       link: /guide/getting-started
     - theme: alt
-      text: 76+ 工具库
+      text: 查看 76+ 工具
       link: /tools/overview
     - theme: alt
-      text: GitHub
+      text: ⭐ GitHub
       link: https://github.com/validpilot/ai-verify-mcp
 
 features:
-  - icon: 🛡️
+  - icon: 🔍
     title: 多维证据链
-    details: 自动捕获截图、DOM 快照与网络请求，让 Bug 无处遁形。
-  - icon: 🧩
+    details: 截图、DOM 快照、网络请求三重取证，Bug 无所遁形
+  - icon: 🔌
     title: 无缝接入主流 AI
-    details: 完美适配 Cursor、Claude Desktop、Windsurf、Trae，无需复杂配置即可调用。
-  - icon: 🎯
-    title: 76+ 原子化工具库
-    details: 涵盖浏览器操作、视觉对比、数据库校验，开箱即用。
-  - icon: 🔄
-    title: 7 阶段验证闭环
-    details: 从环境准备到最终验证，完整自动化流程，发现问题自动修复并重试。
-  - icon: 📸
-    title: 像素级视觉对比
-    details: pixelmatch 精准对比，支持基线图管理和差异高亮，UI 变化一目了然。
-  - icon: 🔧
-    title: 自愈式错误修复
-    details: 内置 23 种修复模式，覆盖前后端数据库常见问题，自动定位快速修复。
+    details: Cursor / Claude / Windsurf / Trae 开箱即用，零配置
+  - icon: 🧰
+    title: 76+ 原子工具
+    details: 浏览器操作·视觉对比·数据校验·错误修复·一应俱全
+  - icon: ♻️
+    title: 自动修复闭环
+    details: 发现问题自动定位、自动重试、人工只需确认结果
+  - icon: 📊
+    title: 像素级视觉回归
+    details: pixelmatch 精准比对，基线图管理，UI 变化一目了然
+  - icon: 🛡️
+    title: 安全脱敏
+    details: 敏感信息自动遮蔽，日志/截图/URL 全程安全可控
 ---
 
 <div class="hero-bg"></div>
 
-## 适用场景
+## 谁在用
 
 <div class="scene-grid">
   <div class="scene-card">
     <div class="scene-icon">🎨</div>
-    <div class="scene-title">前端开发</div>
-    <div class="scene-desc">UI 走查自动化，像素级还原度检测，告别人工点来点去</div>
+    <div class="scene-title">前端工程师</div>
+    <div class="scene-desc">AI 写的页面敢直接上线吗？像素级视觉对比，让 UI 还原度有保障</div>
   </div>
   <div class="scene-card">
     <div class="scene-icon">🧪</div>
     <div class="scene-title">测试工程师</div>
-    <div class="scene-desc">无需写代码，自然语言驱动 AI 执行回归测试</div>
+    <div class="scene-desc">不用写脚本，一句话让 AI 跑完回归测试，结果带截图带证据</div>
   </div>
   <div class="scene-card">
     <div class="scene-icon">🚀</div>
     <div class="scene-title">全栈开发者</div>
-    <div class="scene-desc">API 接口返回值实时结构化验证，数据库断言更可靠</div>
+    <div class="scene-desc">接口返回对不对？数据库有没有脏数据？AI 帮你验证得明明白白</div>
   </div>
   <div class="scene-card">
     <div class="scene-icon">🤖</div>
-    <div class="scene-title">AI 应用构建者</div>
-    <div class="scene-desc">为 AI Agent 加上验证闭环，让输出结果可信、可追溯</div>
+    <div class="scene-title">AI 应用开发者</div>
+    <div class="scene-desc">给你的 Agent 装上验证引擎，输出结果不再靠猜，可信可追溯</div>
   </div>
 </div>
 
-## 快速体验
+## 30 秒启动验证服务
 
-> 💡 **只需 30 秒**，验证你的环境是否就绪：
+> 💡 复制下面的命令，体验一下验证有多简单
 
 ```bash
 # 全局安装
 npm install -g ai-verify-mcp
 
-# 健康检查
+# 健康检查（验证环境是否就绪）
 ai-verify-mcp health
 
-# HTTP 模式启动
+# HTTP 模式启动（默认端口 3000）
 ai-verify-mcp http --port 3000
 ```
 
@@ -103,11 +103,11 @@ ai-verify-mcp http --port 3000
   </div>
 </div>
 
-::: tip 支持的 AI 客户端
+::: tip 已支持的 AI 客户端
 Cursor · Claude Desktop · Windsurf · Trae · Cline · Copilot · Continue.dev
 :::
 
-## 为什么选择我们
+## 为什么选择 AI-Verify MCP
 
 <div class="stats-grid">
   <div class="stat-item">
@@ -123,9 +123,15 @@ Cursor · Claude Desktop · Windsurf · Trae · Cline · Copilot · Continue.dev
     <div class="stat-label">验证阶段</div>
   </div>
   <div class="stat-item">
-    <div class="stat-num">100%</div>
-    <div class="stat-label">证据可追溯</div>
+    <div class="stat-num">0</div>
+    <div class="stat-label">人工猜测</div>
   </div>
+</div>
+
+<div class="cta-section">
+  <div class="cta-title">别再靠感觉验证 AI 输出了</div>
+  <div class="cta-desc">安装只需 30 秒，从此每一行代码都有证据</div>
+  <a href="/guide/getting-started" class="cta-btn">立即开始 →</a>
 </div>
 
 <style>
@@ -295,6 +301,43 @@ Cursor · Claude Desktop · Windsurf · Trae · Cline · Copilot · Continue.dev
   color: var(--vp-c-text-2);
 }
 
+.cta-section {
+  margin: 48px 0 24px;
+  padding: 40px 32px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.1));
+  border: 1px solid var(--vp-c-divider);
+  text-align: center;
+}
+
+.cta-title {
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.cta-desc {
+  font-size: 15px;
+  color: var(--vp-c-text-2);
+  margin-bottom: 20px;
+}
+
+.cta-btn {
+  display: inline-block;
+  padding: 12px 32px;
+  border-radius: 8px;
+  background: var(--vp-c-brand);
+  color: white !important;
+  text-decoration: none;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.cta-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.4);
+}
+
 @media (max-width: 768px) {
   .scene-grid {
     grid-template-columns: 1fr;
@@ -305,6 +348,12 @@ Cursor · Claude Desktop · Windsurf · Trae · Cline · Copilot · Continue.dev
   .terminal-body {
     font-size: 12px;
     padding: 12px;
+  }
+  .cta-section {
+    padding: 32px 20px;
+  }
+  .cta-title {
+    font-size: 20px;
   }
 }
 
