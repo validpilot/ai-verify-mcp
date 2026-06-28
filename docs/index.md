@@ -251,6 +251,52 @@ ai-verify-mcp http --port 3000
   </div>
 </div>
 
+## 常见问题
+
+<details class="faq-item">
+  <summary class="faq-question">支持哪些 AI 编程工具？</summary>
+  <div class="faq-answer">已适配 Cursor、Claude Desktop、Windsurf、Trae、Cline、Copilot、Continue.dev 等主流 AI 客户端，通过 MCP 协议提供标准化的验证能力。复制一行配置到 mcp.json 即可使用。</div>
+</details>
+<details class="faq-item">
+  <summary class="faq-question">需要付费吗？</summary>
+  <div class="faq-answer">完全免费！项目采用 MIT 开源许可证，无论是个人使用还是商业项目均可自由使用。如果觉得好用，欢迎在 GitHub 给我们点个 ⭐。</div>
+</details>
+<details class="faq-item">
+  <summary class="faq-question">支持哪些浏览器？</summary>
+  <div class="faq-answer">底层基于 Playwright，支持 Chromium、Firefox、WebKit 三大浏览器引擎。默认使用 Chromium，你可以在配置中指定其他浏览器。</div>
+</details>
+<details class="faq-item">
+  <summary class="faq-question">如何更新工具库？</summary>
+  <div class="faq-answer">全局安装用户运行 <code>npm update -g ai-verify-mcp</code> 即可更新到最新版本。项目活跃开发中，建议关注 GitHub Releases 了解更新动态。</div>
+</details>
+<details class="faq-item">
+  <summary class="faq-question">遇到问题怎么办？</summary>
+  <div class="faq-answer">先查看 <a href="/ai-verify-mcp/faq/troubleshooting">日志排查手册</a>，常见问题都有解决方案。如果还未解决，欢迎在 <a href="https://github.com/validpilot/ai-verify-mcp/issues" target="_blank">GitHub Issues</a> 提交反馈。</div>
+</details>
+
+<div class="community-section">
+  <div class="community-title">加入社区</div>
+  <div class="community-desc">项目活跃开发中，欢迎贡献代码、反馈问题、参与讨论</div>
+  <div class="community-links">
+    <a href="https://github.com/validpilot/ai-verify-mcp" class="community-link" target="_blank">
+      <span class="community-link-icon">⭐</span>
+      <span>GitHub</span>
+    </a>
+    <a href="https://github.com/validpilot/ai-verify-mcp/issues" class="community-link" target="_blank">
+      <span class="community-link-icon">💬</span>
+      <span>Issues</span>
+    </a>
+    <a href="https://github.com/validpilot/ai-verify-mcp/discussions" class="community-link" target="_blank">
+      <span class="community-link-icon">🗣️</span>
+      <span>Discussions</span>
+    </a>
+    <a href="mailto:validpilot@outlook.com" class="community-link">
+      <span class="community-link-icon">📧</span>
+      <span>邮件联系</span>
+    </a>
+  </div>
+</div>
+
 <div class="cta-section">
   <div class="cta-title">别再靠感觉验证 AI 输出了</div>
   <div class="cta-desc">安装只需 30 秒，从此每一行代码都有证据</div>
@@ -692,6 +738,119 @@ ai-verify-mcp http --port 3000
   box-shadow: 0 8px 24px rgba(99, 102, 241, 0.4);
 }
 
+/* FAQ 折叠区 */
+.faq-item {
+  margin-bottom: 12px;
+  border-radius: 10px;
+  border: 1px solid var(--vp-c-divider);
+  background: var(--vp-c-bg-soft);
+  overflow: hidden;
+  transition: all 0.2s;
+}
+
+.faq-item:hover {
+  border-color: var(--vp-c-brand);
+}
+
+.faq-item[open] {
+  border-color: var(--vp-c-brand);
+}
+
+.faq-question {
+  padding: 16px 20px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.faq-question::-webkit-details-marker {
+  display: none;
+}
+
+.faq-question::before {
+  content: '▶';
+  font-size: 10px;
+  color: var(--vp-c-text-2);
+  transition: transform 0.2s;
+}
+
+.faq-item[open] .faq-question::before {
+  transform: rotate(90deg);
+}
+
+.faq-answer {
+  padding: 0 20px 16px;
+  font-size: 14px;
+  color: var(--vp-c-text-2);
+  line-height: 1.7;
+}
+
+.faq-answer code {
+  font-size: 13px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--vp-c-bg-mute);
+}
+
+/* 社区模块 */
+.community-section {
+  margin: 40px 0 32px;
+  padding: 32px;
+  border-radius: 14px;
+  background: var(--vp-c-bg-soft);
+  border: 1px solid var(--vp-c-divider);
+  text-align: center;
+}
+
+.community-title {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.community-desc {
+  font-size: 14px;
+  color: var(--vp-c-text-2);
+  margin-bottom: 24px;
+}
+
+.community-links {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.community-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 20px;
+  border-radius: 8px;
+  background: var(--vp-c-bg);
+  border: 1px solid var(--vp-c-divider);
+  color: var(--vp-c-text-1) !important;
+  text-decoration: none !important;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.community-link:hover {
+  border-color: var(--vp-c-brand);
+  color: var(--vp-c-brand) !important;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.12);
+}
+
+.community-link-icon {
+  font-size: 16px;
+}
+
 @media (max-width: 768px) {
   .pain-grid,
   .scene-grid,
@@ -716,6 +875,13 @@ ai-verify-mcp http --port 3000
   }
   .cta-title {
     font-size: 20px;
+  }
+  .community-links {
+    gap: 10px;
+  }
+  .community-link {
+    padding: 8px 14px;
+    font-size: 13px;
   }
 }
 
