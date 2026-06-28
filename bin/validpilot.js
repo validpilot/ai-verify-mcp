@@ -142,7 +142,7 @@ async function main() {
     process.env.AI_API_KEY = args['ai-api-key'];
   }
 
-  if (args.version || command === '--version' || command === '-v') {
+  if (args.version || args.v || command === '--version' || command === '-v') {
     console.log(PKG.version || '0.1.0');
     return;
   }
