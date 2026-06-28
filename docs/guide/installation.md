@@ -72,3 +72,59 @@ npm uninstall -g ai-verify-mcp
 | `NODE_ENV` | `production` | 环境模式 |
 
 详细配置说明见 [配置项说明](../reference/config)。
+
+## 客户端配置
+
+### Cursor
+
+1. 打开 Cursor 设置 → Settings → MCP
+2. 添加以下配置：
+
+```json
+{
+  "mcpServers": {
+    "ai-verify": {
+      "command": "npx",
+      "args": ["-y", "ai-verify-mcp", "stdio"]
+    }
+  }
+}
+```
+
+3. 重启 Cursor 即可使用
+
+### Claude Desktop
+
+1. 打开 Claude Desktop 设置
+2. 找到 MCP 配置文件位置：
+   - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
+   - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
+3. 添加：
+
+```json
+{
+  "mcpServers": {
+    "ai-verify": {
+      "command": "npx",
+      "args": ["-y", "ai-verify-mcp", "stdio"]
+    }
+  }
+}
+```
+
+4. 重启 Claude Desktop
+
+### Windsurf
+
+1. 打开 Windsurf 设置
+2. 搜索 MCP 配置
+3. 添加同上配置
+4. 重启 Windsurf
+
+### Trae
+
+1. 打开 Trae 设置 → MCP
+2. 点击"添加 MCP 服务"
+3. 选择"命令行模式"
+4. 命令填 `npx`，参数填 `-y ai-verify-mcp stdio`
+5. 保存并启用
