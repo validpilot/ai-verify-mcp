@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.0] - 2026-06-29
+
+### Added
+
+- ✅ **单元测试**: 新增 18 个单元测试（result / config / tools 三大模块）
+- 🔧 **FUNDING.yml**: GitHub 赞助按钮配置
+- 📝 **.env.example**: 环境变量示例文件
+- 🧪 **CI 测试步骤**: GitHub Actions CI/CD 工作流新增 `npm test` 步骤
+
+### Fixed
+
+- 📐 **Schema 命名统一**: 7 个工具的 `arguments` → `inputSchema` 统一命名
+  - browser_batch / browser_console / browser_highlight / browser_hover
+  - browser_press_key / browser_scroll / browser_select
+- 🔗 **Badge 链接**: 修复 README 中空的 MCP / Node.js badge 链接
+- 🖼️ **图片 CDN**: 国内图片访问从 jsDelivr 切换到 ghproxy.net
+- 🧹 **仓库清理**: 完善 .gitignore / .npmignore，清理临时文件
+
+### Changed
+
+- ⬆️ **依赖升级**: pixelmatch 5.3.0 → 7.2.0，playwright 1.61.0 → 1.61.1
+- 🤖 **Dependabot**: 移除不存在的 labels 配置，修复标签报错
+
 ## [1.0.0] - 2026-06-28
 
 ### Added
@@ -62,6 +85,29 @@ All notable changes to this project will be documented in this file.
 # Changelog
 
 All notable changes to this project will be documented in this file.
+
+## [1.1.0] - 2026-06-29
+
+### Added
+
+- ✅ **Unit Tests**: 18 new unit tests (result / config / tools modules)
+- 🔧 **FUNDING.yml**: GitHub Sponsor button configuration
+- 📝 **.env.example**: Environment variable example file
+- 🧪 **CI Test Step**: GitHub Actions CI/CD workflows added `npm test` step
+
+### Fixed
+
+- 📐 **Schema Naming Unified**: 7 tools renamed `arguments` → `inputSchema`
+  - browser_batch / browser_console / browser_highlight / browser_hover
+  - browser_press_key / browser_scroll / browser_select
+- 🔗 **Badge Links**: Fixed empty MCP / Node.js badge links in README
+- 🖼️ **Image CDN**: Switched domestic image access from jsDelivr to ghproxy.net
+- 🧹 **Repo Cleanup**: Improved .gitignore / .npmignore, cleaned up temp files
+
+### Changed
+
+- ⬆️ **Dependency Upgrade**: pixelmatch 5.3.0 → 7.2.0, playwright 1.61.0 → 1.61.1
+- 🤖 **Dependabot**: Removed non-existent labels config, fixed label error
 
 ## [1.0.0] - 2026-06-28
 
