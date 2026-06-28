@@ -1,19 +1,23 @@
-// Generate demo.gif - terminal animation for ai-verify-mcp
-// Uses Playwright to render HTML frames, omggif to encode GIF
+// Generate demo.gif — terminal animation for ai-verify-mcp
+// Uses Playwright to render frames, gif-encoder-2 to encode GIF
 const fs = require('fs');
 const path = require('path');
 const { chromium } = require('playwright');
+const { PNG } = require('pngjs');
+const GIFEncoder = require('gif-encoder-2');
 
 async function generateGIF() {
   const browser = await chromium.launch({ headless: true });
   const page = await browser.newPage({ viewport: { width: 800, height: 400 } });
-  
-  // Create terminal HTML with animated frames
+
+  // Define frames: each frame is an array of terminal lines
   const frames = [
     [
-      { text: '$ ai-verify-mcp health', cls: 'prompt-line' },
+      { text: 'ai-verify-mcp health', cls: 'prompt' },
       { text: '', cls: '' },
       { text: '  Checking environment...', cls: 'dim' },
+      { text: '', cls: '' },
+      { text: '', cls: '' },
       { text: '', cls: '' },
       { text: '', cls: '' },
       { text: '', cls: '' },
@@ -21,62 +25,73 @@ async function generateGIF() {
       { text: '', cls: '' },
     ],
     [
-      { text: '$ ai-verify-mcp health', cls: 'prompt-line' },
+      { text: '$ ai-verify-mcp health', cls: 'prompt' },
       { text: '', cls: '' },
       { text: '  Checking environment...', cls: 'dim' },
       { text: '', cls: '' },
-      { text: '✓ Node.js: v20.10.0                OK', cls: 'success' },
+      { text: '\u2713 Node.js: v20.10.0                OK', cls: 'success' },
+      { text: '', cls: '' },
+      { text: '', cls: '' },
       { text: '', cls: '' },
       { text: '', cls: '' },
       { text: '', cls: '' },
     ],
     [
-      { text: '$ ai-verify-mcp health', cls: 'prompt-line' },
+      { text: '$ ai-verify-mcp health', cls: 'prompt' },
       { text: '', cls: '' },
       { text: '  Checking environment...', cls: 'dim' },
       { text: '', cls: '' },
-      { text: '✓ Node.js: v20.10.0                OK', cls: 'success' },
-      { text: '✓ Playwright: 1.61.1              OK', cls: 'success' },
+      { text: '\u2713 Node.js: v20.10.0                OK', cls: 'success' },
+      { text: '\u2713 Playwright: 1.61.1              OK', cls: 'success' },
+      { text: '', cls: '' },
+      { text: '', cls: '' },
       { text: '', cls: '' },
       { text: '', cls: '' },
     ],
     [
-      { text: '$ ai-verify-mcp health', cls: 'prompt-line' },
+      { text: '$ ai-verify-mcp health', cls: 'prompt' },
       { text: '', cls: '' },
       { text: '  Checking environment...', cls: 'dim' },
       { text: '', cls: '' },
-      { text: '✓ Node.js: v20.10.0                OK', cls: 'success' },
-      { text: '✓ Playwright: 1.61.1              OK', cls: 'success' },
-      { text: '✓ Tools loaded: 76                 OK', cls: 'success' },
+      { text: '\u2713 Node.js: v20.10.0                OK', cls: 'success' },
+      { text: '\u2713 Playwright: 1.61.1              OK', cls: 'success' },
+      { text: '\u2713 Tools loaded: 76                 OK', cls: 'success' },
+      { text: '', cls: '' },
+      { text: '', cls: '' },
       { text: '', cls: '' },
     ],
     [
-      { text: '$ ai-verify-mcp health', cls: 'prompt-line' },
+      { text: '$ ai-verify-mcp health', cls: 'prompt' },
       { text: '', cls: '' },
       { text: '  Checking environment...', cls: 'dim' },
       { text: '', cls: '' },
-      { text: '✓ Node.js: v20.10.0                OK', cls: 'success' },
-      { text: '✓ Playwright: 1.61.1              OK', cls: 'success' },
-      { text: '✓ Tools loaded: 76                 OK', cls: 'success' },
-      { text: '✓ MCP server: ready                OK', cls: 'success' },
+      { text: '\u2713 Node.js: v20.10.0                OK', cls: 'success' },
+      { text: '\u2713 Playwright: 1.61.1              OK', cls: 'success' },
+      { text: '\u2713 Tools loaded: 76                 OK', cls: 'success' },
+      { text: '\u2713 MCP server: ready                OK', cls: 'success' },
+      { text: '', cls: '' },
+      { text: '', cls: '' },
     ],
     [
-      { text: '$ ai-verify-mcp health', cls: 'prompt-line' },
+      { text: '$ ai-verify-mcp health', cls: 'prompt' },
       { text: '', cls: '' },
       { text: '  Checking environment...', cls: 'dim' },
       { text: '', cls: '' },
-      { text: '✓ Node.js: v20.10.0                OK', cls: 'success' },
-      { text: '✓ Playwright: 1.61.1              OK', cls: 'success' },
-      { text: '✓ Tools loaded: 76                 OK', cls: 'success' },
-      { text: '✓ MCP server: ready                OK', cls: 'success' },
+      { text: '\u2713 Node.js: v20.10.0                OK', cls: 'success' },
+      { text: '\u2713 Playwright: 1.61.1              OK', cls: 'success' },
+      { text: '\u2713 Tools loaded: 76                 OK', cls: 'success' },
+      { text: '\u2713 MCP server: ready                OK', cls: 'success' },
       { text: '', cls: '' },
-      { text: '🎉 All checks passed! Ready to verify.', cls: 'success-bold' },
+      { text: '\uD83C\uDF89 All checks passed! Ready to verify.', cls: 'success-bold' },
     ],
   ];
 
-  const delays = [120, 40, 40, 40, 50, 200]; // centiseconds
+  const delays = [120, 40, 40, 40, 50, 250]; // centiseconds
 
-  // HTML template for each frame
+  function escapeHTML(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
   function frameHTML(lines) {
     const lineHTML = lines.map(l => {
       if (!l.text) return '<div class="line">&nbsp;</div>';
@@ -87,20 +102,18 @@ async function generateGIF() {
 <html><head>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { background: #0d1117; display: flex; align-items: center; justify-content: center; 
-  height: 100vh; font-family: 'Courier New', 'Consolas', monospace; }
-.terminal { width: 760px; border-radius: 12px; overflow: hidden; border: 1px solid #30363d;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
-.header { display: flex; align-items: center; gap: 8px; padding: 10px 14px; 
-  background: #161b22; border-bottom: 1px solid #30363d; }
+body { background: #0d1117; display: flex; align-items: center; justify-content: center; height: 100vh; }
+.terminal { width: 780px; border-radius: 12px; overflow: hidden; border: 1px solid #30363d; box-shadow: 0 8px 32px rgba(0,0,0,0.4); font-family: 'Courier New', Consolas, monospace; }
+.header { display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: #161b22; border-bottom: 1px solid #30363d; }
 .dot { width: 12px; height: 12px; border-radius: 50%; }
 .d1 { background: #ff5f57; } .d2 { background: #febc2e; } .d3 { background: #28c840; }
 .title { margin-left: 8px; font-size: 13px; color: #8b949e; }
-.body { padding: 16px 20px; background: #0d1117; min-height: 200px; }
-.line { font-size: 14px; line-height: 1.8; color: #c9d1d9; }
+.body { padding: 16px 20px; background: #0d1117; min-height: 240px; }
+.line { font-size: 15px; line-height: 2; color: #c9d1d9; white-space: pre; }
 .dim { color: #6e7681; }
+.prompt { color: #c9d1d9; }
+.prompt::before { content: '$ '; color: #58a6ff; }
 .success { color: #3fb950; }
-.prompt-line .prefix { color: #58a6ff; }
 .success-bold { color: #3fb950; font-weight: bold; }
 </style></head><body>
 <div class="terminal">
@@ -108,134 +121,58 @@ body { background: #0d1117; display: flex; align-items: center; justify-content:
     <div class="dot d1"></div><div class="dot d2"></div><div class="dot d3"></div>
     <div class="title">Terminal — ai-verify-mcp</div>
   </div>
-  <div class="body">
-    ${lineHTML}
-  </div>
+  <div class="body">${lineHTML}</div>
 </div>
 </body></html>`;
   }
 
-  function escapeHTML(s) {
-    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  }
-
-  // Create temp directory for frame screenshots
-  const framesDir = path.join(__dirname, '..', 'docs', 'public');
-  if (!fs.existsSync(framesDir)) fs.mkdirSync(framesDir, { recursive: true });
-
-  const screenshots = [];
+  // Generate PNG screenshots for each frame
+  const framePNGs = [];
   for (let i = 0; i < frames.length; i++) {
     const html = frameHTML(frames[i]);
     await page.setContent(html, { waitUntil: 'networkidle' });
-    const ssBuf = await page.screenshot({ 
-      type: 'png',
-      clip: { x: 0, y: 0, width: 800, height: 320 }
-    });
-    screenshots.push(ssBuf);
+    const buf = await page.screenshot({ type: 'png', clip: { x: 0, y: 0, width: 800, height: 320 } });
+    framePNGs.push(PNG.sync.read(buf));
     console.log(`  Frame ${i + 1}/${frames.length} captured`);
   }
 
   await browser.close();
 
-  // Now encode frames to GIF using gifencoder via a child process
-  // or use a simple raw GIF generator
-  
-  // Read PNGs back
-  const { PNG } = require('pngjs');
-  const omggif = require('omggif');
+  const W = 800, H = 320;
 
-  const frameImages = screenshots.map(buf => PNG.sync.read(buf));
-  const W2 = 800, H2 = 320;
+  // Build GIF with gif-encoder-2
+  // We need to provide pixel data. gif-encoder-2 supports either RGB or indexed.
+  // Using direct RGB mode for simplicity (handles palette internally)
+  const encoder = new GIFEncoder(W, H, 'neuquant');  // 'neuquant' handles quantization
+  const outStream = fs.createWriteStream(path.join(__dirname, '..', 'docs', 'public', 'demo.gif'));
 
-  // Quantize colors to 256 max (omggif limit) using median cut
-  function quantizeColors(pngs, maxColors) {
-    // Collect all unique colors
-    const colorSet = new Set();
-    pngs.forEach(png => {
-      for (let i = 0; i < W2 * H2; i++) {
-        const r = png.data[i*4], g = png.data[i*4+1], b = png.data[i*4+2];
-        // Reduce precision to help compression
-        const rr = (r >> 2) << 2, gg = (g >> 2) << 2, bb = (b >> 2) << 2;
-        colorSet.add(`${rr},${gg},${bb}`);
-      }
-    });
-    
-    let colors = Array.from(colorSet).map(s => s.split(',').map(Number));
-    console.log(`  Unique colors (4-bit quantized): ${colors.length}`);
-    
-    if (colors.length > maxColors) {
-      // Simple frequency-based: keep most common colors
-      // Count frequency
-      const freq = {};
-      pngs.forEach(png => {
-        for (let i = 0; i < W2 * H2; i++) {
-          const rr = (png.data[i*4] >> 2) << 2;
-          const gg = (png.data[i*4+1] >> 2) << 2;
-          const bb = (png.data[i*4+2] >> 2) << 2;
-          const key = `${rr},${gg},${bb}`;
-          freq[key] = (freq[key] || 0) + 1;
-        }
-      });
-      
-      // Sort by frequency, keep top maxColors
-      colors.sort((a, b) => (freq[b.join(',')] || 0) - (freq[a.join(',')] || 0));
-      colors = colors.slice(0, maxColors);
-      // Add pure black if not present
-      if (!colors.find(c => c[0] === 0 && c[1] === 0 && c[2] === 0)) {
-        colors.pop();
-        colors.push([0, 0, 0]);
-      }
+  encoder.createReadStream().pipe(outStream);
+  encoder.start();
+  encoder.setRepeat(0); // infinite loop
+  encoder.setDelay(10);  // Will override per-frame
+
+  for (let i = 0; i < framePNGs.length; i++) {
+    const png = framePNGs[i];
+    encoder.setDelay(delays[i] * 10); // convert cs to ms
+
+    // Extract RGBA pixels and convert to RGB (remove alpha)
+    const rgb = new Uint8Array(W * H * 3);
+    for (let j = 0; j < W * H; j++) {
+      rgb[j * 3] = png.data[j * 4];
+      rgb[j * 3 + 1] = png.data[j * 4 + 1];
+      rgb[j * 3 + 2] = png.data[j * 4 + 2];
     }
-    
-    return colors;
+    encoder.addFrame(rgb);
+    console.log(`  Frame ${i + 1}/${frames.length} added to GIF`);
   }
 
-  // Build global color palette (max 256)
-  const paletteList = quantizeColors(frameImages, 256);
-  while (paletteList.length < 256) paletteList.push([0, 0, 0]);
-  
-  // Build palette map
-  const paletteMap = {};
-  paletteList.forEach((c, i) => { paletteMap[c.join(',')] = i; });
+  encoder.finish();
 
-  // Convert frames to indexed (with quantization)
-  const indexFrames = frameImages.map(png => {
-    const idx = new Uint8Array(W2 * H2);
-    for (let i = 0; i < W2 * H2; i++) {
-      const rr = (png.data[i*4] >> 2) << 2;
-      const gg = (png.data[i*4+1] >> 2) << 2;
-      const bb = (png.data[i*4+2] >> 2) << 2;
-      const key = `${rr},${gg},${bb}`;
-      idx[i] = paletteMap[key] || 0;
-    }
-    return idx;
-  });
+  // Wait for write to complete
+  await new Promise(resolve => outStream.on('finish', resolve));
 
-  // Allocate output buffer
-  const maxSize = 10 * 1024 * 1024; // 10MB should be enough
-  const outBuf = new Uint8Array(maxSize);
-
-  // Write GIF using omggif
-  const writer = new omggif.GifWriter(outBuf, W2, H2, {
-    palette: paletteList,
-    loop: 0 // infinite loop
-  });
-
-  for (let i = 0; i < indexFrames.length; i++) {
-    writer.addFrame(0, 0, W2, H2, indexFrames[i], {
-      delay: delays[i] // centiseconds
-    });
-  }
-
-  const endOffset = writer.end();
-  const finalBuf = outBuf.subarray(0, endOffset);
-
-  const outPath = path.join(framesDir, 'demo.gif');
-  fs.writeFileSync(outPath, Buffer.from(finalBuf));
-  console.log(`\n✅ demo.gif created: ${outPath}`);
-  console.log(`   Size: ${(finalBuf.length / 1024).toFixed(1)} KB`);
-  console.log(`   Frames: ${frames.length}`);
-  console.log(`   Loop: infinite`);
+  const fsize = fs.statSync(path.join(__dirname, '..', 'docs', 'public', 'demo.gif')).size;
+  console.log(`\n\ndemo.gif created: ${(fsize / 1024).toFixed(1)} KB, ${frames.length} frames, infinite loop`);
 }
 
 generateGIF().catch(e => {
