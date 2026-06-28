@@ -178,8 +178,6 @@ ai-verify-mcp health
 ai-verify-mcp http --port 3000
 ```
 
-<img src="/demo-v2.gif" alt="ai-verify-mcp health 终端演示" style="display:block;max-width:100%;border-radius:12px;border:1px solid var(--vp-c-divider);box-shadow:0 8px 32px rgba(0,0,0,0.12);margin:24px 0" />
-
 ## 已支持的 AI 客户端
 
 <div class="client-grid">
@@ -499,88 +497,6 @@ ai-verify-mcp http --port 3000
   text-decoration: underline;
 }
 
-.terminal-demo {
-  margin: 24px 0;
-  border-radius: 12px;
-  overflow: hidden;
-  border: 1px solid var(--vp-c-divider);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
-}
-
-.terminal-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 14px;
-  background: var(--vp-c-bg-soft);
-  border-bottom: 1px solid var(--vp-c-divider);
-}
-
-.terminal-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-}
-.terminal-dot.red { background: #ff5f57; }
-.terminal-dot.yellow { background: #febc2e; }
-.terminal-dot.green { background: #28c840; }
-
-.terminal-title {
-  margin-left: 8px;
-  font-size: 13px;
-  color: var(--vp-c-text-2);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-}
-
-.terminal-body {
-  padding: 16px 20px;
-  background: #0d1117;
-  color: #c9d1d9;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 13px;
-  line-height: 1.7;
-}
-
-.terminal-line {
-  white-space: pre-wrap;
-}
-
-.terminal-line .prompt {
-  color: #58a6ff;
-  margin-right: 8px;
-}
-
-.terminal-line.dim {
-  color: #6e7681;
-}
-
-.terminal-line .success {
-  color: #3fb950;
-  margin-right: 4px;
-}
-
-.terminal-line .ok {
-  color: #3fb950;
-  font-weight: 600;
-  margin-left: 8px;
-}
-
-.terminal-line.success-bold {
-  color: #3fb950;
-  font-weight: 600;
-  margin-top: 4px;
-}
-
-.terminal-gif {
-  display: block;
-  max-width: 100%;
-  border-radius: 12px;
-  overflow: hidden;
-  border: 1px solid var(--vp-c-divider);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
-  margin: 24px 0;
-}
-
 .client-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -865,10 +781,6 @@ ai-verify-mcp http --port 3000
   }
   .client-grid {
     grid-template-columns: repeat(2, 1fr);
-  }
-  .terminal-body {
-    font-size: 12px;
-    padding: 12px;
   }
   .cta-section {
     padding: 32px 20px;
