@@ -738,7 +738,7 @@ Thanks to the following projects and technologies for inspiration:
 
 Scan the QR code to join the official `ai-verify-mcp` DingTalk group for questions, feedback, and best practices:
 
-![DingTalk Group](docs/images/dingtalk-group.jpg)
+![DingTalk Group](https://cdn.jsdelivr.net/gh/validpilot/ai-verify-mcp@main/docs/images/dingtalk-group.jpg)
 
 > This QR code is permanently valid
 
@@ -764,7 +764,7 @@ Donations will be used for project maintenance, feature development, server cost
 
 | Alipay | WeChat Pay |
 |:---:|:---:|
-| ![Alipay](docs/images/alipay.jpg) | ![WeChat Pay](docs/images/weixinpay.jpg) |
+| ![Alipay](https://cdn.jsdelivr.net/gh/validpilot/ai-verify-mcp@main/docs/images/alipay.jpg) | ![WeChat Pay](https://cdn.jsdelivr.net/gh/validpilot/ai-verify-mcp@main/docs/images/weixinpay.jpg) |
 
 > Thank you again for your support — it means a lot!
 
