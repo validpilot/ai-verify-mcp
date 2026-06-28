@@ -161,7 +161,7 @@ features:
   </div>
 </div>
 
-<p class="more-tools">还有 70+ 工具 <a href="/tools/overview">查看全部 →</a></p>
+<p class="more-tools">还有 70+ 工具 <a href="/ai-verify-mcp/tools/overview">查看全部 →</a></p>
 
 ## 30 秒启动验证服务
 
@@ -186,22 +186,22 @@ ai-verify-mcp http --port 3000
   <div class="client-item">
     <div class="client-logo">⚡</div>
     <div class="client-name">Cursor</div>
-    <a href="/guide/installation#cursor" class="client-link">配置指南 →</a>
+    <a href="/ai-verify-mcp/guide/installation#cursor" class="client-link">配置指南 →</a>
   </div>
   <div class="client-item">
     <div class="client-logo">🧠</div>
     <div class="client-name">Claude Desktop</div>
-    <a href="/guide/installation#claude-desktop" class="client-link">配置指南 →</a>
+    <a href="/ai-verify-mcp/guide/installation#claude-desktop" class="client-link">配置指南 →</a>
   </div>
   <div class="client-item">
     <div class="client-logo">🏄</div>
     <div class="client-name">Windsurf</div>
-    <a href="/guide/installation#windsurf" class="client-link">配置指南 →</a>
+    <a href="/ai-verify-mcp/guide/installation#windsurf" class="client-link">配置指南 →</a>
   </div>
   <div class="client-item">
     <div class="client-logo">🦊</div>
     <div class="client-name">Trae</div>
-    <a href="/guide/installation#trae" class="client-link">配置指南 →</a>
+    <a href="/ai-verify-mcp/guide/installation#trae" class="client-link">配置指南 →</a>
   </div>
 </div>
 
@@ -300,7 +300,7 @@ ai-verify-mcp http --port 3000
 <div class="cta-section">
   <div class="cta-title">别再靠感觉验证 AI 输出了</div>
   <div class="cta-desc">安装只需 30 秒，从此每一行代码都有证据</div>
-  <a href="/guide/getting-started" class="cta-btn">立即开始 →</a>
+  <a href="/ai-verify-mcp/guide/getting-started" class="cta-btn">立即开始 →</a>
 </div>
 
 <style>
