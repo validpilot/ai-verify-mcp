@@ -4,12 +4,13 @@ export default defineConfig({
   title: 'AI-Verify MCP',
   description: 'AI 编程验证平台 - 让 AI 代码生成结果可验证、可信赖',
   lang: 'zh-CN',
+  base: '/ai-verify-mcp/',
   lastUpdated: true,
   cleanUrls: true,
   ignoreDeadLinks: true,
 
   head: [
-    ['link', { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }]
+    ['link', { rel: 'icon', type: 'image/svg+xml', href: '/ai-verify-mcp/favicon.svg' }]
   ],
 
   themeConfig: {
