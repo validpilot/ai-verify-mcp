@@ -1,0 +1,237 @@
+{
+  "metadata": {
+    "version": "1.0.0",
+    "generated_at": "2026-06-26T12:47:00+08:00",
+    "source": "stage7-debug.md 根因分析",
+    "total_errors": 275,
+    "error_breakdown": {
+      "consoleError": 139,
+      "pageError": 66,
+      "networkError": 70
+    }
+  },
+  "rules": [
+    {
+      "id": "RULE-001",
+      "type": "pre_check",
+      "trigger": "before_polling_api",
+      "action": "检测 API 状态码，500 时停止轮询并应用指数退避机制",
+      "source": "RC-1 后端 chat 轮询风暴",
+      "confidence": 0.95,
+      "priority": "P1",
+      "details": {
+        "api_endpoint": "/api/v1/chat/contacts",
+        "error_pattern": "internal_error (500)",
+        "impact": "30分钟内产生约60个pageError累积",
+        "recommendation": "前端给fetch加指数退避，长轮询未登入时暂停"
+      }
+    },
+    {
+      "id": "RULE-002",
+      "type": "pre_check",
+      "trigger": "before_api_call",
+      "action": "验证 API 路由是否已注册（检查是否返回 404 Not Found）",
+      "source": "RC-2 API /api/v1/identity/me 完全未注册",
+      "confidence": 0.90,
+      "priority": "P0",
+      "details": {
+        "api_endpoint": "/api/v1/identity/me",
+        "error_pattern": "404 Not Found",
+        "impact": "导致 Tenant init failed",
+        "recommendation": "在 gateway routes 中注册 identity.py 路由"
+      }
+    },
+    {
+      "id": "RULE-003",
+      "type": "pre_check",
+      "trigger": "before_function_call",
+      "action": "检查函数是否已定义，避免 ReferenceError",
+      "source": "RC-3 ensureAcquisitionWorkbench 未定义",
+      "confidence": 0.85,
+      "priority": "P2",
+      "details": {
+        "file": "bootstrap-tools.js:160",
+        "error_pattern": "ReferenceError: function is not defined",
+        "impact": "boot链终止，按钮点击无响应",
+        "recommendation": "确保函数已正确导出和导入"
+      }
+    },
+    {
+      "id": "RULE-004",
+      "type": "recommended",
+      "trigger": "after_page_load",
+      "action": "验证页面必需的无障碍元素（h1、aria-label、对比度等）",
+      "source": "RC-4 全局 a11y 与标题缺陷",
+      "confidence": 0.75,
+      "priority": "P3",
+      "details": {
+        "issues": [
+          "缺少 <h1> 标题",
+          "#roleSelect 无 aria-label",
+          "#leadStatusFilter 无 aria-label",
+          ".version 颜色对比度 4.39:1（要求 ≥4.5:1）"
+        ],
+        "recommendation": "添加 aria-label、调整颜色对比度、添加页面标题"
+      }
+    },
+    {
+      "id": "RULE-005",
+      "type": "pre_check",
+      "trigger": "before_business_api_call",
+      "action": "检查业务 API 状态码，500 时停止点击业务按钮",
+      "source": "RC-5 业务 API internal_error 集中爆发",
+      "confidence": 0.90,
+      "priority": "P0",
+      "details": {
+        "affected_apis": [
+          "/api/v1/intelligence/high-value-customers",
+          "/api/v1/tenants",
+          "/api/v1/reports/overview",
+          "/api/v1/reports/channel-roi",
+          "/api/v1/chat/contacts"
+        ],
+        "error_pattern": "500 internal_error",
+        "impact": "业务功能完全不可用",
+        "recommendation": "检查 gateway 和下游服务的健康状态，运行数据库迁移脚本"
+      }
+    },
+    {
+      "id": "RULE-006",
+      "type": "recommended",
+      "trigger": "after_page_load",
+      "action": "等待 3s 后再检查 DOM 元素稳定性",
+      "source": "F001-FILE01 成功用例经验",
+      "confidence": 0.80,
+      "priority": "low",
+      "details": {
+        "rationale": "页面初始化可能需要异步加载，等待可提高元素检查的准确性"
+      }
+    },
+    {
+      "id": "RULE-007",
+      "type": "monitoring",
+      "trigger": "on_continuous_api_failure",
+      "action": "当同一 API 连续失败 3 次时，暂停后续请求并记录告警",
+      "source": "RC-1 chat 轮询风暴",
+      "confidence": 0.88,
+      "priority": "P1",
+      "details": {
+        "threshold": 3,
+        "backoff_strategy": "exponential",
+        "max_retry_interval": "300s"
+      }
+    }
+  ],
+  "forbidden_actions": [
+    {
+      "id": "FORBID-001",
+      "trigger": "api_500_detected",
+      "action": "不要继续点击业务按钮",
+      "reason": "会导致无效请求堆积，增加服务器负担",
+      "source": "RC-1 chat 轮询风暴",
+      "priority": "P0"
+    },
+    {
+      "id": "FORBID-002",
+      "trigger": "api_404_detected",
+      "action": "不要假设 API 路由已正确注册",
+      "reason": "可能调用到不存在的端点，导致初始化失败",
+      "source": "RC-2 API 未注册",
+      "priority": "P0"
+    },
+    {
+      "id": "FORBID-003",
+      "trigger": "function_undefined",
+      "action": "不要调用未定义的函数",
+      "reason": "会导致 ReferenceError 并终止执行链",
+      "source": "RC-3 模块未定义",
+      "priority": "P2"
+    },
+    {
+      "id": "FORBID-004",
+      "trigger": "before_seed_data_check",
+      "action": "不要假设数据库已包含种子数据",
+      "reason": "未运行迁移和种子脚本会导致业务 API 返回 500",
+      "source": "RC-5 业务 API 错误",
+      "priority": "P0"
+    },
+    {
+      "id": "FORBID-005",
+      "trigger": "during_polling",
+      "action": "不要在未登入状态下持续轮询用户相关 API",
+      "reason": "会产生大量无效错误日志",
+      "source": "RC-1 chat 轮询风暴",
+      "priority": "P1"
+    }
+  ],
+  "health_score_factors": {
+    "static_resources": {
+      "score": 20,
+      "status": "pass",
+      "note": "静态资源全部 200"
+    },
+    "dom_rendering": {
+      "score": 15,
+      "status": "pass",
+      "note": "DOM 渲染完整"
+    },
+    "performance_lcp": {
+      "score": 10,
+      "status": "pass",
+      "note": "LCP 164ms"
+    },
+    "business_apis": {
+      "score": 0,
+      "status": "fail",
+      "note": "业务 API 仅 0/5 成功"
+    },
+    "accessibility": {
+      "score": 0,
+      "status": "fail",
+      "note": "a11y 仅 5/5 FAIL"
+    },
+    "page_errors": {
+      "score": -10,
+      "status": "fail",
+      "note": "pageError 持续累积"
+    },
+    "total_score": 35,
+    "max_score": 100,
+    "status": "blocked"
+  },
+  "priority_fixes": [
+    {
+      "priority": "P0",
+      "description": "立即修复",
+      "items": [
+        "RC-2 identity/me 注册",
+        "RC-5 seed/服务组装"
+      ],
+      "expected_benefit": "让 boot 不再抛 5 类 500，工作台可见列表"
+    },
+    {
+      "priority": "P1",
+      "description": "24小时内修复",
+      "items": [
+        "RC-1 chat 轮询退避 + 频次拉长"
+      ],
+      "expected_benefit": "减少约 60 个 pageError / 30 分钟，提高调试效率"
+    },
+    {
+      "priority": "P2",
+      "description": "次要修复",
+      "items": [
+        "RC-3 bootstrap 模块修补"
+      ],
+      "expected_benefit": "runApiDemoBtn '试点链路' 工作"
+    },
+    {
+      "priority": "P3",
+      "description": "优化级",
+      "items": [
+        "RC-4 a11y 改进"
+      ],
+      "expected_benefit": "WCAG AA 合规"
+    }
+  ]
+}

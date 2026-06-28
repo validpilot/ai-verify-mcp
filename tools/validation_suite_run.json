@@ -1,0 +1,17 @@
+{
+  "name": "validation_suite_run",
+  "description": "执行验证资产套件。可通过 suite 名称读取 .trae/validations/suites/<suite>.json，或通过 file 指定 .trae/validations 内的套件文件，按顺序运行 check/run/matrix 并聚合结果。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "suite": { "type": "string", "description": "套件名称，如 p5.5，将读取 .trae/validations/suites/p5.5.json" },
+      "file": { "type": "string", "description": "套件文件路径，必须位于 .trae/validations 内" },
+      "continueOnFailure": { "type": "boolean", "description": "覆盖套件文件中的失败后继续策略" },
+      "sessionName": { "type": "string", "description": "默认浏览器会话名称" }
+    },
+    "anyOf": [
+      { "required": ["suite"] },
+      { "required": ["file"] }
+    ]
+  }
+}

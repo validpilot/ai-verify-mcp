@@ -1,0 +1,12 @@
+{
+  "name": "mcp_self_test",
+  "description": "执行 MCP 自测：创建自测会话，打开 data URL，验证 flow/assert/type/click/wait/step/events/errors/trace/artifacts 基础能力。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "sessionName": { "type": "string", "description": "自测使用的会话名称，默认 mcp-self-test" },
+      "headless": { "type": "boolean", "description": "是否无头运行，默认 false" },
+      "trace": { "type": "boolean", "description": "是否录制 trace，默认 true" }
+    }
+  }
+}

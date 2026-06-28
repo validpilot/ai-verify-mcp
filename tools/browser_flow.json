@@ -1,0 +1,38 @@
+{
+  "name": "browser_flow",
+  "description": "按步骤执行真实浏览器流程，并为每一步自动保存截图/DOM/错误证据。适合登录、保存配置、创建项目等完整闭环验证。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "clearErrors": { "type": "boolean", "description": "开始前是否清空本轮错误并创建 checkpoint，默认 true" },
+      "continueOnError": { "type": "boolean", "description": "步骤失败后是否继续执行，默认 false" },
+      "headless": { "type": "boolean", "description": "无浏览器时是否以 headless 模式打开，默认 false" },
+      "steps": {
+        "type": "array",
+        "description": "流程步骤列表",
+        "items": {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string", "description": "步骤类型：open/click/type/wait/assert/eval/clearErrors" },
+            "name": { "type": "string", "description": "步骤名称，用于证据文件命名" },
+            "url": { "type": "string", "description": "open 步骤目标 URL" },
+            "selector": { "type": "string", "description": "click/type/wait 步骤 CSS 选择器" },
+            "text": { "type": "string", "description": "type 输入文本或 wait 等待文本" },
+            "expression": { "type": "string", "description": "eval 步骤 JS 表达式" },
+            "urlContains": { "type": "string", "description": "wait/assert URL 包含断言" },
+            "textContains": { "type": "string", "description": "assert 页面文本包含断言" },
+            "selectorVisible": { "type": "string", "description": "assert 元素可见断言" },
+            "selectorHidden": { "type": "string", "description": "assert 元素隐藏断言" },
+            "noErrors": { "type": "boolean", "description": "assert 当前 checkpoint 后无错误" },
+            "timeout": { "type": "number", "description": "等待/断言超时时间" },
+            "evidence": { "type": "boolean", "description": "该步骤后是否保存证据，默认 true" },
+            "screenshot": { "type": "boolean", "description": "该步骤证据是否截图，默认 true" },
+            "snapshot": { "type": "boolean", "description": "该步骤证据是否采集 DOM 快照，默认 true" }
+          },
+          "required": ["type"]
+        }
+      }
+    },
+    "required": ["steps"]
+  }
+}

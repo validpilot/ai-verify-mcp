@@ -1,0 +1,14 @@
+{
+  "name": "browser_hover",
+  "description": "鼠标悬浮到指定元素上，用于触发 hover 效果、tooltip、下拉菜单等",
+  "arguments": {
+    "type": "object",
+    "properties": {
+      "selector": {
+        "type": "string",
+        "description": "目标元素的 CSS 选择器"
+      }
+    },
+    "required": ["selector"]
+  }
+}

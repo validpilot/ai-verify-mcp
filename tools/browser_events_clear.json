@@ -1,0 +1,8 @@
+{
+  "name": "browser_events_clear",
+  "description": "清空 browser_instrument 捕获的运行时事件并创建新的事件 checkpoint。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {}
+  }
+}

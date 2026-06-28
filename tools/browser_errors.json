@@ -1,0 +1,17 @@
+{
+  "name": "browser_errors",
+  "description": "统一查看真实浏览器验证中的本轮错误日志：Console Error、PageError、请求失败、HTTP 4xx/5xx、MCP 服务错误日志。默认只统计当前 checkpoint 之后的新错误，避免历史错误污染。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "includeWarnings": { "type": "boolean", "description": "是否包含 warning/warn 日志，默认 false" },
+      "limit": { "type": "number", "description": "MCP 服务错误日志最多返回条数，默认 50" },
+      "since": { "type": "string", "description": "ISO 时间戳，只返回该时间之后的错误" },
+      "currentOnly": { "type": "boolean", "description": "是否只返回当前 checkpoint 之后的错误，默认 true" },
+      "urlContains": { "type": "string", "description": "只返回 URL 包含该关键字的网络错误" },
+      "method": { "type": "string", "description": "只返回指定 HTTP 方法的网络错误，如 GET/POST" },
+      "statusMin": { "type": "number", "description": "只返回状态码大于等于该值的网络记录" },
+      "statusMax": { "type": "number", "description": "只返回状态码小于等于该值的网络记录" }
+    }
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "name": "browser_traverse_menu",
+  "description": "自动遍历页面的导航菜单，逐级点击一级/二级/三级菜单项，每步检查控制台错误、页面错误和网络错误，验证每个功能链路是否正常。自动发现标准nav容器、侧边栏、UI框架菜单（Ant Design/Element UI等），未找到时降级扫描全页面链接。返回每个点击项的访问状态、URL变化、页面标题和错误信息。适用于功能回归测试和页面健康检查。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "maxDepth": {
+        "type": "number",
+        "description": "最大遍历深度（1=仅一级，2=含二级，3=含三级），默认3"
+      },
+      "maxItems": {
+        "type": "number",
+        "description": "最大点击次数，防止无限遍历，默认30"
+      },
+      "waitMs": {
+        "type": "number",
+        "description": "每次点击后的等待时间（毫秒），默认500"
+      },
+      "includeSubMenus": {
+        "type": "boolean",
+        "description": "是否自动展开并点击子菜单，默认true"
+      }
+    }
+  }
+}

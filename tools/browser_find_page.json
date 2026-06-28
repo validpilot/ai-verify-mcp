@@ -1,0 +1,22 @@
+{
+  "name": "browser_find_page",
+  "description": "智能发现页面：根据目标关键词（login/signup/home/dashboard/admin/settings/profile等）快速定位页面。检测方式按优先级：①URL路径匹配；②页面标题匹配；③CSS选择器匹配；④SPA按钮文本匹配；⑤导航区域文本匹配；⑥页面可见文本匹配。支持SPA应用（React/Vue/Angular）的按钮导航发现。返回匹配方式、匹配分数、相关链接和按钮（含selector可直接click）、建议导航URL。参数navigate=true可自动导航到发现的页面。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "target": {
+        "type": "string",
+        "description": "目标页面类型：login / signup / home / dashboard / admin / settings / profile / search / cart / checkout / forgot-password / reset-password / logout / all"
+      },
+      "navigate": {
+        "type": "boolean",
+        "description": "是否导航到发现的页面（如果还没在目标页面），默认false"
+      },
+      "baseUrl": {
+        "type": "string",
+        "description": "基础URL，用于尝试常见路径。不指定时从当前页面URL推导"
+      }
+    },
+    "required": ["target"]
+  }
+}

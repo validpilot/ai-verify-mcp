@@ -1,0 +1,16 @@
+{
+  "name": "screenshot_diff",
+  "description": "比较两张截图或捕获当前截图并返回差异摘要与 artifact 路径；不输出长截图描述。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "baselinePath": { "type": "string" },
+      "actualPath": { "type": "string" },
+      "beforePath": { "type": "string" },
+      "afterPath": { "type": "string" },
+      "selector": { "type": "string" },
+      "threshold": { "type": "number" },
+      "name": { "type": "string" }
+    }
+  }
+}

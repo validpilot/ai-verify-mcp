@@ -1,0 +1,18 @@
+{
+  "name": "browser_press_key",
+  "description": "在当前页面或指定元素上按下键盘按键，支持单个按键或组合键",
+  "arguments": {
+    "type": "object",
+    "properties": {
+      "key": {
+        "type": "string",
+        "description": "按键名称，如 Enter、Escape、Tab、ArrowDown、Backspace、a、Control+c 等"
+      },
+      "selector": {
+        "type": "string",
+        "description": "可选，在指定元素上按键（先聚焦再按键）"
+      }
+    },
+    "required": ["key"]
+  }
+}

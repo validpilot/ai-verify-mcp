@@ -1,0 +1,12 @@
+{
+  "name": "validation_flow",
+  "description": "执行完整用户流程",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "flowType": {"type": "string", "description": "流程类型"},
+      "credentials": {"type": "object", "properties": {"email": {"type": "string"}, "password": {"type": "string"}}}
+    },
+    "required": ["flowType"]
+  }
+}

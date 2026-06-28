@@ -1,0 +1,10 @@
+{
+  "name": "browser_instrument",
+  "description": "向当前页面注入运行时调试探针，捕获 fetch/XHR、console error/warn、全局错误、点击、输入、路由和 storage 变化。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "headless": { "type": "boolean", "description": "无浏览器时是否以 headless 模式打开，默认 false" }
+    }
+  }
+}

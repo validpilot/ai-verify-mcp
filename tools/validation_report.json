@@ -1,0 +1,10 @@
+{
+  "name": "validation_report",
+  "description": "根据最近一次 validation_check、validation_run、validation_matrix 或 validation_suite_run 生成 Markdown/JSON 结构化验证报告。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "format": { "type": "string", "enum": ["markdown", "json"], "default": "markdown", "description": "报告格式" }
+    }
+  }
+}

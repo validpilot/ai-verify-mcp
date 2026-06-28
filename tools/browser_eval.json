@@ -1,0 +1,11 @@
+{
+  "name": "browser_eval",
+  "description": "在当前浏览器页面执行调试 JavaScript 表达式并返回可序列化结果。返回值会自动脱敏 token、password、apiKey、Authorization 等敏感字段。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "expression": { "type": "string", "description": "要执行的 JavaScript 表达式或函数体" }
+    },
+    "required": ["expression"]
+  }
+}

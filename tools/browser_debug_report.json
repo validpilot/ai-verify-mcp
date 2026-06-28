@@ -1,0 +1,11 @@
+{
+  "name": "browser_debug_report",
+  "description": "生成当前浏览器调试报告，汇总页面状态、错误日志、网络错误、可选 DOM 与存储信息",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "includeDom": { "type": "boolean", "description": "是否包含页面文本和元素摘要，默认 true" },
+      "includeStorage": { "type": "boolean", "description": "是否包含存储信息，默认 false" }
+    }
+  }
+}

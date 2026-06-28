@@ -1,0 +1,17 @@
+{
+  "name": "browser_session_create",
+  "description": "创建或复用一个命名浏览器会话。每个会话拥有独立浏览器上下文、cookie、localStorage、console、network、errors 和 events。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "name": { "type": "string", "description": "会话名称，如 free-user、pro-user" },
+      "sessionName": { "type": "string", "description": "会话名称别名" },
+      "url": { "type": "string", "description": "创建后打开的 URL" },
+      "headless": { "type": "boolean", "description": "是否无头模式，默认 false" },
+      "extensionPath": { "type": "string", "description": "要加载的 Chrome 扩展目录路径。提供后使用持久化上下文并强制 headless=false" },
+      "loadExtensionPath": { "type": "string", "description": "extensionPath 的别名，要加载的 Chrome 扩展目录路径" },
+      "timeout": { "type": "number", "description": "导航超时时间，默认 30000ms" }
+    },
+    "required": ["name"]
+  }
+}

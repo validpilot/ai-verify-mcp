@@ -1,0 +1,13 @@
+{
+  "name": "validation_element",
+  "description": "验证特定DOM元素",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "targetUrl": {"type": "string", "description": "目标页面URL"},
+      "elementSelector": {"type": "string", "description": "元素选择器"},
+      "expectedText": {"type": "string", "description": "预期文本"}
+    },
+    "required": ["targetUrl", "elementSelector"]
+  }
+}

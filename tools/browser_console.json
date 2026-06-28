@@ -1,0 +1,26 @@
+{
+  "name": "browser_console",
+  "description": "查看浏览器控制台日志，支持按类型过滤(level: log/warning/error/debug/info)，按时间范围过滤(since: ISO时间戳或时间描述如'5m')，限制返回数量(limit)。",
+  "arguments": {
+    "type": "object",
+    "properties": {
+      "level": {
+        "type": "string",
+        "enum": ["log", "warning", "error", "debug", "info", "all"],
+        "description": "控制台日志级别过滤，默认为all"
+      },
+      "since": {
+        "type": "string",
+        "description": "时间过滤起始点，ISO时间戳或时间描述（如'5m'表示最近5分钟）"
+      },
+      "limit": {
+        "type": "number",
+        "description": "返回日志数量限制，默认50"
+      },
+      "urlContains": {
+        "type": "string",
+        "description": "按URL关键字过滤"
+      }
+    }
+  }
+}

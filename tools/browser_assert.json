@@ -1,0 +1,16 @@
+{
+  "name": "browser_assert",
+  "description": "对当前真实浏览器页面执行标准断言：URL、文本、元素可见/隐藏、本轮无错误。返回每条断言的通过/失败详情。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "urlContains": { "type": "string", "description": "断言当前 URL 包含该字符串" },
+      "textContains": { "type": "string", "description": "断言页面可见文本包含该内容" },
+      "selectorVisible": { "type": "string", "description": "断言指定 CSS 选择器可见" },
+      "selectorHidden": { "type": "string", "description": "断言指定 CSS 选择器不可见" },
+      "noErrors": { "type": "boolean", "description": "断言当前 checkpoint 后无统一错误" },
+      "includeErrors": { "type": "boolean", "description": "失败或输出时是否附带统一错误详情" },
+      "timeout": { "type": "number", "description": "读取页面文本的超时时间，默认 5000ms" }
+    }
+  }
+}

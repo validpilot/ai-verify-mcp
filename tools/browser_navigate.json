@@ -1,0 +1,26 @@
+{
+  "name": "browser_navigate",
+  "description": "浏览器导航操作。支持前进(forward)、后退(back)、刷新(refresh)、重新加载(reload)操作。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "action": {
+        "type": "string",
+        "description": "导航操作：forward（前进）、back（后退）、refresh（刷新）、reload（重新加载）",
+        "enum": ["forward", "back", "refresh", "reload"],
+        "default": "refresh"
+      },
+      "waitUntil": {
+        "type": "string",
+        "description": "等待条件：domcontentloaded（DOM加载完成）、load（页面完全加载）、networkidle（网络空闲）",
+        "enum": ["domcontentloaded", "load", "networkidle"],
+        "default": "domcontentloaded"
+      },
+      "timeout": {
+        "type": "number",
+        "description": "超时时间，单位毫秒，默认30000"
+      }
+    },
+    "required": ["action"]
+  }
+}

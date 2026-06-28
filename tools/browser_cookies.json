@@ -1,0 +1,38 @@
+{
+  "name": "browser_cookies",
+  "description": "查看和管理浏览器Cookie。支持获取所有Cookie、按域名筛选、设置Cookie、清除Cookie。返回Cookie总数、每个Cookie的详细信息（名称、值、域名、路径、过期时间、安全标志等）。调试时可快速查看登录态、Token等认证信息。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "action": {
+        "type": "string",
+        "description": "操作类型：get（获取Cookie，默认）、clear（清除所有Cookie）、set（设置Cookie）",
+        "enum": ["get", "clear", "set"],
+        "default": "get"
+      },
+      "domain": {
+        "type": "string",
+        "description": "按域名筛选Cookie，如 .example.com（仅action=get时生效）"
+      },
+      "name": {
+        "type": "string",
+        "description": "按名称筛选Cookie（仅action=get时生效）"
+      },
+      "cookie": {
+        "type": "object",
+        "description": "要设置的Cookie对象，包含 name、value 属性，可选 domain、path、expires 等（仅action=set时生效）",
+        "properties": {
+          "name": { "type": "string", "description": "Cookie名称" },
+          "value": { "type": "string", "description": "Cookie值" },
+          "domain": { "type": "string", "description": "Cookie域名" },
+          "path": { "type": "string", "description": "Cookie路径，默认/" },
+          "expires": { "type": "number", "description": "过期时间戳（秒）" },
+          "httpOnly": { "type": "boolean", "description": "是否仅HTTP访问" },
+          "secure": { "type": "boolean", "description": "是否仅HTTPS传输" },
+          "sameSite": { "type": "string", "description": "SameSite策略" }
+        },
+        "required": ["name", "value"]
+      }
+    }
+  }
+}

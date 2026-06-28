@@ -1,0 +1,21 @@
+{
+  "name": "browser_a11y_check",
+  "description": "使用 axe-core 对当前页面执行可访问性检查，支持限定扫描范围、排除区域和规则标签过滤，返回 violations 摘要。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "selector": { "type": "string", "description": "可选 CSS 选择器；指定后只扫描该区域" },
+      "excludeSelectors": {
+        "type": "array",
+        "description": "排除扫描的 CSS 选择器列表",
+        "items": { "type": "string" }
+      },
+      "tags": {
+        "type": "array",
+        "description": "axe runOnly 标签，如 wcag2a、wcag2aa、best-practice",
+        "items": { "type": "string" }
+      },
+      "sessionName": { "type": "string", "description": "浏览器会话名称，默认当前活跃会话" }
+    }
+  }
+}

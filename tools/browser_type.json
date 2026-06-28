@@ -1,0 +1,12 @@
+{
+  "name": "browser_type",
+  "description": "在真实浏览器中向指定 CSS 选择器输入文本",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "selector": { "type": "string", "description": "CSS 选择器" },
+      "text": { "type": "string", "description": "要输入的文本" }
+    },
+    "required": ["selector", "text"]
+  }
+}

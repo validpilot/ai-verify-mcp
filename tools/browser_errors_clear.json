@@ -1,0 +1,8 @@
+{
+  "name": "browser_errors_clear",
+  "description": "清空当前浏览器运行时 Console/PageError/Network 错误日志并创建新的验证 checkpoint，用于隔离本轮验证错误。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {}
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "name": "browser_quick_fix",
+  "description": "快速修复验证闭环。自动尝试常见修复策略（等待加载、滚动到元素、强制可见、移除遮挡、注入JS等），每步验证是否修复成功。返回修复尝试记录、最终状态、建议的下一步操作。支持批量传入多个 problem。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "selector": {
+        "type": "string",
+        "description": "目标元素选择器（必填）"
+      },
+      "problem": {
+        "type": "string",
+        "description": "问题描述（单问题模式，与 problems 互斥）：not_found（元素未找到）、not_visible（不可见）、not_interactable（不可交互）、click_failed（点击失败）、type_failed（输入失败）、js_error（JS错误）、api_failed（API请求失败）、page_crashed（页面崩溃）、resource_blocked（资源被拦截）",
+        "enum": ["not_found", "not_visible", "not_interactable", "click_failed", "type_failed", "js_error", "api_failed", "page_crashed", "resource_blocked"]
+      },
+      "problems": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": ["not_found", "not_visible", "not_interactable", "click_failed", "type_failed", "js_error", "api_failed", "page_crashed", "resource_blocked"]
+        },
+        "description": "批量问题列表（数组模式，与 problem 互斥）：按顺序依次尝试每个 problem 的修复策略"
+      },
+      "maxAttempts": {
+        "type": "number",
+        "description": "最大修复尝试次数，默认5"
+      },
+      "waitStrategy": {
+        "type": "string",
+        "description": "等待策略：smart（智能等待）、fixed（固定等待）、none（不等待）",
+        "enum": ["smart", "fixed", "none"],
+        "default": "smart"
+      }
+    },
+    "required": ["selector"]
+  }
+}

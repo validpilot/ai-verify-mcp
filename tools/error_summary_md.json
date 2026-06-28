@@ -1,0 +1,11 @@
+{
+  "name": "error_summary_md",
+  "description": "将错误聚合结果输出为 500 字以内 Markdown 摘要，不包含完整日志、重复堆栈或完整响应体。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "evidence": { "type": "object" },
+      "limit": { "type": "number" }
+    }
+  }
+}

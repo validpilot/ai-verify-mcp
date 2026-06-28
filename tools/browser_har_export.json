@@ -1,0 +1,17 @@
+{
+  "name": "browser_har_export",
+  "description": "将当前采集的网络记录导出为简化 HAR JSON 文件，包含请求/响应头、请求/响应体摘要、状态码和耗时。输出自动脱敏。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "name": { "type": "string", "description": "导出的 HAR 文件名，不含扩展名" },
+      "contains": { "type": "string", "description": "URL 过滤关键字，兼容旧参数" },
+      "urlContains": { "type": "string", "description": "URL 过滤关键字" },
+      "method": { "type": "string", "description": "HTTP 方法，如 GET/POST/PUT" },
+      "statusMin": { "type": "number", "description": "只导出状态码大于等于该值的记录" },
+      "statusMax": { "type": "number", "description": "只导出状态码小于等于该值的记录" },
+      "since": { "type": "string", "description": "ISO 时间戳，只导出该时间之后的记录" },
+      "currentOnly": { "type": "boolean", "description": "是否只导出当前 checkpoint 之后的记录，默认 true" }
+    }
+  }
+}

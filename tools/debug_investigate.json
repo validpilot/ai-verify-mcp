@@ -1,0 +1,17 @@
+{
+  "name": "debug_investigate",
+  "description": "输入问题症状，自动汇总本轮 errors、events、network_detail、DOM 可见错误、storage、artifacts，并输出假设、证据链和下一步修复/复测建议。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "symptom": { "type": "string", "description": "问题现象，例如：点击 AI 要点后 403" },
+      "expected": { "type": "string", "description": "期望结果，例如：生成 AI 要点" },
+      "focus": { "type": "string", "description": "关注的 URL/API 关键字，例如 /api/ai/summarize" },
+      "urlContains": { "type": "string", "description": "focus 的别名，按 URL 过滤网络和事件" },
+      "statusMin": { "type": "number", "description": "只关注状态码大于等于该值的网络记录" },
+      "limit": { "type": "number", "description": "网络和事件最多返回条数，默认 20/50" },
+      "includeStorage": { "type": "boolean", "description": "是否包含 storage 脱敏快照，默认 true" },
+      "includeArtifacts": { "type": "boolean", "description": "是否包含 artifacts 列表，默认 true" }
+    }
+  }
+}

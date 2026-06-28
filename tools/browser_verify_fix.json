@@ -1,0 +1,39 @@
+{
+  "name": "browser_verify_fix",
+  "description": "修复验证闭环工具。记录修复前状态（错误数、元素状态），执行修复操作（browser_click/type/wait等），验证修复后状态，对比前后差异，确认修复是否生效。返回 before/after 对比、fixStatus、verificationResult、nextAction。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "selector": {
+        "type": "string",
+        "description": "目标元素选择器（必填）"
+      },
+      "fixAction": {
+        "type": "string",
+        "description": "修复动作类型：click（点击）、type（输入）、wait（等待）、scroll（滚动）、quick_fix（自动修复）、none（仅验证不修复）",
+        "enum": ["click", "type", "wait", "scroll", "quick_fix", "none"],
+        "default": "quick_fix"
+      },
+      "fixValue": {
+        "type": "string",
+        "description": "修复动作值（type时为输入文本，wait时为毫秒数，scroll时为距离）"
+      },
+      "verificationCriteria": {
+        "type": "object",
+        "description": "验证标准",
+        "properties": {
+          "noNewErrors": { "type": "boolean", "description": "要求无新错误，默认true" },
+          "elementVisible": { "type": "boolean", "description": "要求元素可见" },
+          "elementInteractable": { "type": "boolean", "description": "要求元素可交互" },
+          "textContains": { "type": "string", "description": "要求页面包含文本" },
+          "urlChanged": { "type": "boolean", "description": "要求URL发生变化" }
+        }
+      },
+      "timeout": {
+        "type": "number",
+        "description": "验证超时时间（毫秒），默认10000"
+      }
+    },
+    "required": ["selector"]
+  }
+}

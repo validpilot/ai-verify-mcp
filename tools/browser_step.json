@@ -1,0 +1,18 @@
+{
+  "name": "browser_step",
+  "description": "记录当前验证步骤证据：截图、DOM 简要快照、本轮统一错误摘要。用于形成可追溯证据链。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "label": { "type": "string", "description": "步骤名称，如 login-after-submit" },
+      "screenshot": { "type": "boolean", "description": "是否截图，默认 true" },
+      "snapshot": { "type": "boolean", "description": "是否采集 DOM 简要快照，默认 true" },
+      "includeWarnings": { "type": "boolean", "description": "错误摘要是否包含 warning" },
+      "redactSelectors": {
+        "type": "array",
+        "description": "截图中额外遮挡的 CSS 选择器",
+        "items": { "type": "string" }
+      }
+    }
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "name": "ai_debug_investigate",
+  "description": "AI 驱动的自动调试调查工具。收集浏览器错误、控制台错误、网络错误，使用 AI 模型进行根因分析、生成修复方案、评估修复安全性，并将成功经验写入知识库。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "symptom": {
+        "type": "string",
+        "description": "错误症状描述，如 '点击提交按钮无响应' 或 'Cannot read properties of undefined'"
+      },
+      "url": {
+        "type": "string",
+        "description": "要检查的页面 URL（可选，默认使用当前页面）"
+      },
+      "includeAiFix": {
+        "type": "boolean",
+        "description": "是否包含 AI 修复方案生成",
+        "default": true
+      },
+      "maxIterations": {
+        "type": "integer",
+        "description": "OPAR 循环最大迭代次数",
+        "default": 3,
+        "minimum": 1,
+        "maximum": 5
+      }
+    },
+    "required": ["symptom"]
+  }
+}

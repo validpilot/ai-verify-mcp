@@ -1,0 +1,22 @@
+{
+  "name": "browser_screenshot_element",
+  "description": "对指定页面元素进行截图。使用CSS选择器定位元素，截取该元素的可见区域，返回截图路径和尺寸信息。支持padding参数扩展截图区域。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "selector": {
+        "type": "string",
+        "description": "目标元素的CSS选择器"
+      },
+      "padding": {
+        "type": "number",
+        "description": "截图区域周围的padding，单位像素，默认0"
+      },
+      "name": {
+        "type": "string",
+        "description": "截图文件名（不含扩展名），默认自动生成"
+      }
+    },
+    "required": ["selector"]
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "name": "validation_check",
+  "description": "执行单项浏览器健康检查：可打开 URL、等待条件、执行断言、截图留证，并统计本轮错误。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "name": { "type": "string", "description": "检查名称" },
+      "url": { "type": "string", "description": "可选，检查前打开的 URL" },
+      "wait": { "type": "object", "description": "可选，browser_wait 参数" },
+      "assertions": { "type": "object", "description": "browser_assert 参数" },
+      "textContains": { "type": "string", "description": "快捷断言：页面包含文本" },
+      "selectorVisible": { "type": "string", "description": "快捷断言：元素可见" },
+      "urlContains": { "type": "string", "description": "快捷断言：URL 包含文本" },
+      "noErrors": { "type": "boolean", "description": "是否要求本轮无错误，默认 true" },
+      "clearErrors": { "type": "boolean", "description": "检查前是否清空错误 checkpoint，默认 true" },
+      "instrument": { "type": "boolean", "description": "是否注入运行时探针，默认 false" },
+      "evidence": { "type": "boolean", "description": "是否保存步骤证据，默认 true" }
+    }
+  }
+}

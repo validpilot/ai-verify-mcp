@@ -1,0 +1,26 @@
+{
+  "name": "browser_element_status",
+  "description": "诊断元素状态（可见性、可交互性、加载状态、遮挡情况、事件绑定）。快速判断元素为何无法点击/输入，返回具体原因（如被遮挡、不可见、disabled、未加载、动画中、z-index问题等）和修复建议。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "selector": {
+        "type": "string",
+        "description": "要诊断的元素选择器（必填）"
+      },
+      "checkEvents": {
+        "type": "boolean",
+        "description": "是否检查元素事件绑定（click/keydown/change等），默认true"
+      },
+      "checkVisibility": {
+        "type": "boolean",
+        "description": "是否详细检查可见性（opacity、display、visibility、clip-path），默认true"
+      },
+      "checkInteractability": {
+        "type": "boolean",
+        "description": "是否检查可交互性（disabled、readonly、pointer-events），默认true"
+      }
+    },
+    "required": ["selector"]
+  }
+}

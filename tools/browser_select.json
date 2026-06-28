@@ -1,0 +1,26 @@
+{
+  "name": "browser_select",
+  "description": "在下拉框(select元素)中选择选项，支持按value值、按label文本、按索引选择。",
+  "arguments": {
+    "type": "object",
+    "properties": {
+      "selector": {
+        "type": "string",
+        "description": "select元素的选择器"
+      },
+      "value": {
+        "type": "string",
+        "description": "要选择的option的value值"
+      },
+      "label": {
+        "type": "string",
+        "description": "要选择的option的显示文本"
+      },
+      "index": {
+        "type": "number",
+        "description": "要选择的option的索引（从0开始）"
+      }
+    },
+    "required": ["selector"]
+  }
+}

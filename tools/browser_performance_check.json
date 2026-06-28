@@ -1,0 +1,25 @@
+{
+  "name": "browser_performance_check",
+  "description": "采集当前页面 navigation、paint、resource、long task、CLS/LCP 和慢请求指标，并按 budgets 输出性能预算结果。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "budgets": {
+        "type": "object",
+        "description": "预算阈值，支持 domContentLoaded、load、fcp、lcp、cls、longTaskCount、resourceCount、slowRequestMs",
+        "properties": {
+          "domContentLoaded": { "type": "number" },
+          "load": { "type": "number" },
+          "fcp": { "type": "number" },
+          "lcp": { "type": "number" },
+          "cls": { "type": "number" },
+          "longTaskCount": { "type": "number" },
+          "resourceCount": { "type": "number" },
+          "slowRequestMs": { "type": "number" }
+        }
+      },
+      "slowRequestMs": { "type": "number", "description": "慢请求阈值毫秒，默认 1000；可覆盖 budgets.slowRequestMs" },
+      "sessionName": { "type": "string", "description": "浏览器会话名称，默认当前活跃会话" }
+    }
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "name": "browser_session_close",
+  "description": "关闭并删除指定浏览器会话。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "name": { "type": "string", "description": "要关闭的会话名称" },
+      "sessionName": { "type": "string", "description": "会话名称别名" }
+    },
+    "required": ["name"]
+  }
+}

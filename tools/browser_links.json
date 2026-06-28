@@ -1,0 +1,21 @@
+{
+  "name": "browser_links",
+  "description": "提取当前页面所有导航链接和按钮，并按类型分类（导航菜单、首页、登录、注册、管理、设置、用户、搜索、退出、帮助等）。支持SPA应用的按钮提取（不仅是a标签），支持关键词筛选和外部链接过滤。返回链接总数、按钮数、分类统计和可视区域信息。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "filter": {
+        "type": "string",
+        "description": "筛选关键词，只返回URL/文本包含该关键词的链接或按钮（支持SPA按钮文本筛选）"
+      },
+      "includeExternal": {
+        "type": "boolean",
+        "description": "是否包含外部链接，默认false"
+      },
+      "maxLinks": {
+        "type": "number",
+        "description": "最大返回链接数，默认100"
+      }
+    }
+  }
+}

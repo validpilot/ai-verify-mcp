@@ -1,0 +1,13 @@
+{
+  "name": "validation_quick_run",
+  "description": "对单页执行低 Token 快速验证：Console、Network、PageError、DOM/ARIA/文本摘要和稳定选择器可达性，返回 pass/fail、Top errors、artifact 路径。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "url": { "type": "string" },
+      "headless": { "type": "boolean" },
+      "timeout": { "type": "number" }
+    },
+    "required": ["url"]
+  }
+}

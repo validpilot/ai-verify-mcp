@@ -1,0 +1,11 @@
+{
+  "name": "browser_dom",
+  "description": "查询当前页面中指定 DOM 元素的可见性、文本、属性、样式和位置",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "selector": { "type": "string", "description": "CSS 选择器" }
+    },
+    "required": ["selector"]
+  }
+}

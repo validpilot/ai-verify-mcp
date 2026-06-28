@@ -1,0 +1,23 @@
+{
+  "name": "browser_diagnose",
+  "description": "自动诊断浏览器错误根因。分析控制台错误、页面错误、网络错误、元素状态、JS执行状态，定位问题根源（如元素未加载、JS未执行、网络超时、权限不足等）。返回诊断报告含 rootCause、confidence、suggestedFixes、affectedElements。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "selector": {
+        "type": "string",
+        "description": "目标元素选择器，诊断该元素相关的错误（可选，不传则诊断整个页面）"
+      },
+      "errorType": {
+        "type": "string",
+        "description": "聚焦诊断的错误类型：all（全部）、js（JS错误）、network（网络错误）、element（元素问题）、interaction（交互失败）",
+        "enum": ["all", "js", "network", "element", "interaction"],
+        "default": "all"
+      },
+      "includeStackTrace": {
+        "type": "boolean",
+        "description": "是否包含JS错误堆栈分析，默认true"
+      }
+    }
+  }
+}

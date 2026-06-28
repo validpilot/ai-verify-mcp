@@ -1,0 +1,35 @@
+{
+  "name": "validation_run",
+  "description": "执行完整浏览器验收计划：自动清空错误、注入探针、录制 trace、按用例执行 browser_flow、断言、失败调查、导出 HAR，并保存证据产物。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "name": { "type": "string", "description": "验证计划名称" },
+      "cases": {
+        "type": "array",
+        "description": "测试用例列表",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string", "description": "用例名称" },
+            "sessionName": { "type": "string", "description": "该用例使用的浏览器会话名称，如 free-user、pro-user" },
+            "steps": { "type": "array", "description": "browser_flow 步骤列表" },
+            "assertions": { "type": "object", "description": "browser_assert 参数" },
+            "focus": { "type": "string", "description": "失败调查关注的接口 URL 关键字" },
+            "symptom": { "type": "string", "description": "失败时用于 debug_investigate 的症状描述" },
+            "expected": { "type": "string", "description": "期望结果" },
+            "continueOnError": { "type": "boolean", "description": "单个 flow 内步骤失败后是否继续" }
+          }
+        }
+      },
+      "clearArtifacts": { "type": "boolean", "description": "执行前是否清理截图、trace、har，默认 false" },
+      "clearErrors": { "type": "boolean", "description": "执行前是否清空错误 checkpoint，默认 true" },
+      "instrument": { "type": "boolean", "description": "是否注入运行时探针，默认 true" },
+      "trace": { "type": "boolean", "description": "是否录制 trace，默认 true" },
+      "har": { "type": "boolean", "description": "是否导出 HAR JSON，默认 true" },
+      "investigateOnFailure": { "type": "boolean", "description": "失败时是否自动调用 debug_investigate，默认 true" },
+      "continueOnFailure": { "type": "boolean", "description": "用例失败后是否继续执行后续用例，默认 false" }
+    },
+    "required": ["cases"]
+  }
+}
