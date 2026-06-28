@@ -2414,7 +2414,7 @@ function validateToolSchemas() {
     'validation_report_export', 'browser_visual_baseline', 'browser_visual_compare', 'browser_visual_report',
     'browser_a11y_check', 'browser_performance_check', 'browser_locator_validate', 'browser_locator_suggest',
     'browser_hover', 'browser_scroll', 'browser_press_key',
-    'mcp_health_check', 'mcp_self_test'
+    'mcp_health_check', 'mcp_self_test', 'project_audit'
   ];
   const registered = new Set(tools.map(tool => tool.name));
   const missing = requiredTools.filter(name => !registered.has(name));
@@ -2448,6 +2448,101 @@ function mcpHealthCheck() {
     eventCheckpoint,
     logFile: LOG_FILE
   });
+}
+
+/**
+ * projectAudit — 扫描项目目录，检测常见代码质量问题
+ */
+async function projectAudit(args = {}) {
+  const projectPath = args.projectPath;
+  if (!projectPath) return { ok: false, error: 'projectPath is required' };
+
+  const fs = require('fs');
+  const path = require('path');
+  const root = path.resolve(projectPath);
+  if (!fs.existsSync(root)) return { ok: false, error: `path not found: ${root}` };
+
+  const issues = [];
+  const minSeverity = args.severity || 'all';
+  const severityOrder = { critical: 1, high: 2, medium: 3, low: 4 };
+
+  function addIssue(severity, id, file, line, description) {
+    if (minSeverity !== 'all' && severityOrder[severity] > severityOrder[minSeverity]) return;
+    issues.push({ id, severity, file, line: line || 1, description });
+  }
+
+  function scanFile(filePath, relativePath) {
+    if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) return;
+    const ext = path.extname(filePath).toLowerCase();
+    const content = fs.readFileSync(filePath, 'utf-8');
+    const lines = content.split('\n');
+    const basename = path.basename(filePath);
+
+    // ── 1. 硬编码密码/密钥 ──
+    const passwordPatterns = [
+      /password\s*[=:]\s*['"][a-zA-Z0-9_!@#$%^&*()]{4,}['"]/i,
+      /secret\s*[=:]\s*['"][a-zA-Z0-9_!@#$%^&*()]{8,}['"]/i,
+      /api[_-]?key\s*[=:]\s*['"][a-zA-Z0-9_]{16,}['"]/i,
+      /token\s*[=:]\s*['"][a-zA-Z0-9_\-.]{16,}['"]/i
+    ];
+    if (/\.(yml|yaml|json|env|py|js|ts|ps1|sh)$/i.test(ext)) {
+      lines.forEach((line, idx) => {
+        passwordPatterns.forEach((pat, pi) => {
+          const m = line.match(pat);
+          if (m) {
+            const val = m[0].replace(/['";]/g, '');
+            // Skip obvious placeholders
+            if (/your_|changeme|placeholder|example/i.test(val)) return;
+            addIssue('high', `SEC-${pi + 1}`, relativePath, idx + 1, `可能的硬编码凭据: ${val.slice(0, 40)}`);
+          }
+        });
+      });
+    }
+
+    // ── 2. 硬编码绝对路径 (Windows) ──
+    if (/\.(py|js|ts|ps1|sh|bat|cmd)$/i.test(ext)) {
+      lines.forEach((line, idx) => {
+        const m = line.match(/[a-zA-Z]:\\(?:[^\\"]+\\)+[^\\"]+/);
+        if (m) {
+          addIssue('medium', `PATH-1`, relativePath, idx + 1, `硬编码绝对路径: ${m[0].slice(0, 60)}`);
+        }
+      });
+    }
+
+    // ── 3. SQL 语法检查 (schema.sql) ──
+    if (basename === 'schema.sql' || basename.endsWith('.sql')) {
+      lines.forEach((line, idx) => {
+        // Detect missing comma between column definitions
+        const trimmed = line.trimEnd();
+        if (/^\s+\w+/.test(trimmed) && !trimmed.endsWith(',') && !trimmed.includes('PRIMARY KEY') && !trimmed.includes('FOREIGN KEY') && !trimmed.includes('UNIQUE') && !trimmed.includes('CHECK') && !trimmed.includes('REFERENCES') && !trimmed.includes(');') && !trimmed.includes('--') && trimmed.length > 10) {
+          const nextLine = lines[idx + 1] ? lines[idx + 1].trim() : '';
+          if (nextLine.startsWith('  ') && !nextLine.startsWith(')') && !nextLine.startsWith('--')) {
+            addIssue('critical', `SQL-1`, relativePath, idx + 1, `可能的 SQL 语法错误: 列定义缺少逗号`);
+          }
+        }
+      });
+    }
+  }
+
+  // ── 递归扫描 ──
+  function walk(dir, relativeDir = '') {
+    let entries;
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch (e) { return; }
+    for (const entry of entries) {
+      // Skip .git, node_modules, .trae, logs
+      if (entry.name.startsWith('.') || entry.name === 'node_modules' || entry.name === 'logs') continue;
+      const fullPath = path.join(dir, entry.name);
+      const relPath = relativeDir ? `${relativeDir}/${entry.name}` : entry.name;
+      if (entry.isDirectory()) {
+        walk(fullPath, relPath);
+      } else {
+        scanFile(fullPath, relPath);
+      }
+    }
+  }
+
+  walk(root);
+  return { ok: true, projectPath: root, totalIssues: issues.length, issues };
 }
 
 async function mcpSelfTest(args = {}) {
@@ -4176,6 +4271,8 @@ async function callTool(name, args = {}) {
       return text(JSON.stringify(await closeBrowserSession(args.name || args.sessionName), null, 2));
     case 'mcp_health_check':
       return text(JSON.stringify(mcpHealthCheck(), null, 2));
+    case 'project_audit':
+      return text(JSON.stringify(await projectAudit(args), null, 2));
     case 'mcp_self_test':
       return text(JSON.stringify(await mcpSelfTest(args), null, 2));
     case 'validation_start': {
