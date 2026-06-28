@@ -36,6 +36,7 @@
 - [🎬 演示：✅ vs ❌ 对比](#-演示-vs--对比)
 - [📦 发布自动化](#-发布自动化)
 - [🙏 致谢](#-致谢)
+- [💬 社区与联系](#-社区与联系)
 
 ---
 
@@ -731,6 +732,26 @@ npm notice total files: 101
 
 ---
 
+## 💬 社区与联系
+
+### 钉钉交流群
+
+扫码加入 `ai-verify-mcp` 官方交流群，提问、反馈、交流最佳实践：
+
+![钉钉交流群](docs/images/dingtalk-group.jpg)
+
+> 此二维码永久有效
+
+### 联系邮箱
+
+📧 [validpilot@outlook.com](mailto:validpilot@outlook.com)
+
+- 商务合作
+- 安全漏洞报告（请优先使用 [SECURITY.md](SECURITY.md) 流程）
+- 其他问题
+
+---
+
 **Contributing** — 欢迎贡献！阅读 [CONTRIBUTING.md](CONTRIBUTING.md) 了解如何参与。请遵守 [Code of Conduct](CODE_OF_CONDUCT.md)。
 
 **Security** — 发现漏洞？查看 [SECURITY.md](SECURITY.md) 了解安全策略。
@@ -787,6 +808,7 @@ npm notice total files: 101
 - [🎬 Demo: ✅ vs ❌ Comparison](#-demo-vs--comparison)
 - [📦 Release Automation](#-release-automation)
 - [🙏 Acknowledgments](#-acknowledgments)
+- [💬 Community & Contact](#-community--contact)
 
 ---
 
@@ -1479,6 +1501,26 @@ Thanks to the following projects and technologies for inspiration:
 - [Playwright](https://playwright.dev/) — Browser automation engine
 - [@modelcontextprotocol/sdk](https://github.com/modelcontextprotocol/typescript-sdk) — MCP protocol SDK
 - [axe-core](https://github.com/dequelabs/axe-core) — Accessibility checking
+
+---
+
+## 💬 Community & Contact
+
+### DingTalk Group
+
+Scan the QR code to join the official `ai-verify-mcp` DingTalk group for questions, feedback, and best practices:
+
+![DingTalk Group](docs/images/dingtalk-group.jpg)
+
+> This QR code is permanently valid
+
+### Contact Email
+
+📧 [validpilot@outlook.com](mailto:validpilot@outlook.com)
+
+- Business cooperation
+- Security vulnerability reports (please use the [SECURITY.md](SECURITY.md) process first)
+- Other inquiries
 
 ---
 
