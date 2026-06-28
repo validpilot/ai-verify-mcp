@@ -62,6 +62,7 @@
     "http": "node start-http.js",
     "cli": "node bin/validpilot.js",
     "validate": "node bin/validpilot.js health",
+    "test": "node --test test/*.test.js",
     "pack:dry": "npm pack --dry-run",
     "prepublishOnly": "node bin/validpilot.js health && npm pack --dry-run"
   },

@@ -1,7 +1,7 @@
 {
   "name": "browser_highlight",
   "description": "高亮页面上的指定元素，便于人类观察和调试。元素会显示红色边框和阴影效果，持续到页面刷新。",
-  "arguments": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "selector": {

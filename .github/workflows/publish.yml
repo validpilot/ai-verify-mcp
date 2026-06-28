@@ -23,6 +23,9 @@ jobs:
       - name: Syntax check
         run: node -c server.js
 
+      - name: Run unit tests
+        run: npm test
+
       - name: Publish to npm
         run: npm publish --access public
         env:

@@ -28,6 +28,9 @@ jobs:
       - name: Syntax check
         run: node -c server.js
 
+      - name: Run unit tests
+        run: npm test
+
       - name: Verify tool schemas
         run: node -e "
           const fs = require('fs');

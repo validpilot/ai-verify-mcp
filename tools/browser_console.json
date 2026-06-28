@@ -1,7 +1,7 @@
 {
   "name": "browser_console",
   "description": "查看浏览器控制台日志，支持按类型过滤(level: log/warning/error/debug/info)，按时间范围过滤(since: ISO时间戳或时间描述如'5m')，限制返回数量(limit)。",
-  "arguments": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "level": {

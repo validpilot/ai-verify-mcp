@@ -8,8 +8,8 @@
 [![npm downloads](https://img.shields.io/npm/dm/ai-verify-mcp.svg?style=flat-square)](https://www.npmjs.com/package/ai-verify-mcp)
 [![CI](https://img.shields.io/github/actions/workflow/status/validpilot/ai-verify-mcp/ci.yml?style=flat-square&label=CI)](https://github.com/validpilot/ai-verify-mcp/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](LICENSE)
-[![MCP Protocol](https://img.shields.io/badge/MCP-76%20tools-brightgreen.svg?style=flat-square)]()
-[![Node.js](https://img.shields.io/badge/node-%3E%3D18-green.svg?style=flat-square)]()
+[![MCP Protocol](https://img.shields.io/badge/MCP-76%20tools-brightgreen.svg?style=flat-square)](https://modelcontextprotocol.io/)
+[![Node.js](https://img.shields.io/badge/node-%3E%3D18-green.svg?style=flat-square)](https://nodejs.org/)
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg?style=flat-square)](CODE_OF_CONDUCT.md)
 [![English](https://img.shields.io/badge/English-blue?style=flat-square)](README.en.md)
 
