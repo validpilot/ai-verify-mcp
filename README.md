@@ -121,7 +121,7 @@ npx ai-verify-mcp screenshot --url https://example.com --name evidence-001
 npx ai-verify-mcp quick-check --url https://example.com
 ```
 
-![验证终端演示](https://github.com/validpilot/ai-verify-mcp/raw/refs/heads/main/docs/public/demo.gif)
+![验证终端演示](https://github.com/validpilot/ai-verify-mcp/raw/refs/heads/main/docs/public/demo-v2.gif)
 
 ---
 

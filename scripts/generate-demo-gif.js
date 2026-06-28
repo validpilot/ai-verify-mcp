@@ -144,7 +144,7 @@ body { background: #0d1117; display: flex; align-items: center; justify-content:
   // We need to provide pixel data. gif-encoder-2 supports either RGB or indexed.
   // Using direct RGB mode for simplicity (handles palette internally)
   const encoder = new GIFEncoder(W, H, 'neuquant');  // 'neuquant' handles quantization
-  const outStream = fs.createWriteStream(path.join(__dirname, '..', 'docs', 'public', 'demo.gif'));
+  const outStream = fs.createWriteStream(path.join(__dirname, '..', 'docs', 'public', 'demo-v2.gif'));
 
   encoder.createReadStream().pipe(outStream);
   encoder.start();
@@ -171,8 +171,8 @@ body { background: #0d1117; display: flex; align-items: center; justify-content:
   // Wait for write to complete
   await new Promise(resolve => outStream.on('finish', resolve));
 
-  const fsize = fs.statSync(path.join(__dirname, '..', 'docs', 'public', 'demo.gif')).size;
-  console.log(`\n\ndemo.gif created: ${(fsize / 1024).toFixed(1)} KB, ${frames.length} frames, infinite loop`);
+  const fsize = fs.statSync(path.join(__dirname, '..', 'docs', 'public', 'demo-v2.gif')).size;
+  console.log(`\n\ndemo-v2.gif created: ${(fsize / 1024).toFixed(1)} KB, ${frames.length} frames, infinite loop`);
 }
 
 generateGIF().catch(e => {

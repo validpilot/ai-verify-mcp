@@ -178,7 +178,7 @@ ai-verify-mcp health
 ai-verify-mcp http --port 3000
 ```
 
-![ai-verify-mcp health 终端演示](/demo.gif)
+<img src="/demo-v2.gif" alt="ai-verify-mcp health 终端演示" style="display:block;max-width:100%;border-radius:12px;border:1px solid var(--vp-c-divider);box-shadow:0 8px 32px rgba(0,0,0,0.12);margin:24px 0" />
 
 ## 已支持的 AI 客户端
 
