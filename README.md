@@ -738,7 +738,7 @@ npm notice total files: 101
 
 扫码加入 `ai-verify-mcp` 官方交流群，提问、反馈、交流最佳实践：
 
-![钉钉交流群](https://cdn.jsdelivr.net/gh/validpilot/ai-verify-mcp@main/docs/images/dingtalk-group.jpg)
+![钉钉交流群](https://mirror.ghproxy.com/https://raw.githubusercontent.com/validpilot/ai-verify-mcp/main/docs/images/dingtalk-group.jpg)
 
 > 此二维码永久有效
 
@@ -764,7 +764,7 @@ npm notice total files: 101
 
 | 支付宝 | 微信支付 |
 |:---:|:---:|
-| ![支付宝](https://cdn.jsdelivr.net/gh/validpilot/ai-verify-mcp@main/docs/images/alipay.jpg) | ![微信支付](https://cdn.jsdelivr.net/gh/validpilot/ai-verify-mcp@main/docs/images/weixinpay.jpg) |
+| ![支付宝](https://mirror.ghproxy.com/https://raw.githubusercontent.com/validpilot/ai-verify-mcp/main/docs/images/alipay.jpg) | ![微信支付](https://mirror.ghproxy.com/https://raw.githubusercontent.com/validpilot/ai-verify-mcp/main/docs/images/weixinpay.jpg) |
 
 > 无论金额大小，都是对我莫大的鼓励。再次感谢您的支持！
 
