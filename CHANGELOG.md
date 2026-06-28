@@ -2,6 +2,34 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.0] - 2026-06-29
+
+### Added
+
+- ✅ **单元测试 78 个新增**: 总计从 177 → 255 个测试，覆盖 P0/P1/P2 共 18 个工具
+  - P0 组: browser_diagnose / browser_element_status / browser_quick_fix / browser_verify_fix
+  - P1 组: browser_find_page / browser_links / browser_highlight / browser_scroll
+  - P2 组: browser_network / browser_network_detail / browser_console / browser_errors / browser_errors_aggregate
+  - 验证框架: validation_element / validation_quick_run / error_fix_suggestion / validation_check
+- 🆕 **validation_flow 工具**: 多步流程验证工具，支持 navigate/click/type/wait/eval/screenshot 6 种操作
+  - continueOnFailure 参数支持（失败继续执行后续步骤）
+  - 超时控制（默认 30s）
+  - 8 个单元测试覆盖正常/失败/超时场景
+- 🔍 **project_audit 工具**: 项目健康扫描工具，自动检测硬编码密码、绝对路径、SQL 语法错误
+- 📖 **VitePress 文档站**: 18 个页面，5 大分类（指南/工具/参考/FAQ），GitHub Pages 自动部署
+- 💬 **FAQ 折叠区 + 社区入口**: 首页底部增加常见问题和社区链接
+- 🎨 **首页视觉升级**: 主标题/副标题/功能卡片/数据看板/Before&After 场景全面优化
+
+### Changed
+
+- ⬆️ **166 个旧测试保留并增强**（未删除，仅新增补充）
+- 🧹 **清理 .trae/mcp-server/scripts/ 过时脚本**: 删除 21 个过时变体（ssh-deploy x6, fix-gateway x1, diagnose-gateway x4 等）
+
+### Fixed
+
+- 🔗 **文档链接修复**: README 中 6 个死链接修复（加 base path `/ai-verify-mcp/`）
+- 🖼️ **GIF 全黑问题**: omggif → gif-encoder-2（颜色量化 bug 修复），后续删除不再使用
+
 ## [1.1.0] - 2026-06-29
 
 ### Added

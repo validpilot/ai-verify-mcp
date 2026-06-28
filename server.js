@@ -1949,162 +1949,133 @@ async function runValidationPlan(target, args = {}) {
 }
 
 async function runValidationFlow(target, args = {}) {
-  const flowName = args.name || `validation-flow-${Date.now()}`;
-  const maxSteps = args.maxSteps || 20;
   const continueOnFailure = args.continueOnFailure === true;
+  const timeout = Number(args.timeout) || 30000;
   const steps = Array.isArray(args.steps) ? args.steps : [];
 
-  if (steps.length > maxSteps) {
-    throw new Error(`步骤数 ${steps.length} 超过最大限制 ${maxSteps}，请减少步骤数或提高 maxSteps 参数`);
-  }
-
   const startTime = Date.now();
-  const results = [];
+  const stepResults = [];
   const failures = [];
 
-  for (let index = 0; index < steps.length; index += 1) {
-    const step = steps[index];
-    const stepName = step.name || `${index + 1}-${step.type || 'step'}`;
-    const stepStart = Date.now();
-    const stepResult = {
-      stepIndex: index,
-      stepName,
-      type: step.type,
-      passed: false,
-      duration: 0,
-      error: null
-    };
+  // 超时控制
+  const ac = new AbortController();
+  const timeoutTimer = setTimeout(() => {
+    ac.abort(new Error(`validation_flow 整体超时（${timeout}ms）`));
+  }, timeout);
 
-    try {
-      switch (step.type) {
-        case 'click':
-          if (!step.selector) throw new Error('click 步骤需要 selector 参数');
-          await target.click(step.selector, { timeout: 10000 });
-          break;
-        case 'type':
-          if (!step.selector) throw new Error('type 步骤需要 selector 参数');
-          await target.fill(step.selector, step.value || '', { timeout: 10000 });
-          await target.evaluate(({ selector, text }) => {
-            const el = document.querySelector(selector);
-            if (!el) return;
-            const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-            const nativeTextareaValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
-            if (el.tagName === 'INPUT' && nativeInputValueSetter) {
-              nativeInputValueSetter.call(el, text);
-            } else if (el.tagName === 'TEXTAREA' && nativeTextareaValueSetter) {
-              nativeTextareaValueSetter.call(el, text);
-            } else {
-              el.value = text;
-            }
-            el.dispatchEvent(new Event('input', { bubbles: true }));
-            el.dispatchEvent(new Event('change', { bubbles: true }));
-          }, { selector: step.selector, text: step.value || '' });
-          break;
-        case 'wait':
-          const waitMs = Number(step.value) || 1000;
-          await target.waitForTimeout(waitMs);
-          break;
-        case 'assert':
-          if (!step.selector) throw new Error('assert 步骤需要 selector 参数');
-          const assertType = step.assertType || 'exists';
-          const assertValue = step.value;
-          const locator = target.locator(step.selector);
-          const count = await locator.count().catch(() => 0);
-          let assertionPassed = false;
+  try {
+    for (let index = 0; index < steps.length; index += 1) {
+      if (ac.signal.aborted) throw ac.signal.reason;
 
-          switch (assertType) {
-            case 'exists':
-              assertionPassed = count > 0;
-              break;
-            case 'visible':
-              if (count === 0) assertionPassed = false;
-              else assertionPassed = await locator.first().isVisible().catch(() => false);
-              break;
-            case 'enabled':
-              if (count === 0) assertionPassed = false;
-              else {
-                const isDisabled = await locator.first().isDisabled().catch(() => true);
-                const isReadOnly = await locator.first().evaluate(el => el.hasAttribute('readonly')).catch(() => false);
-                assertionPassed = !isDisabled && !isReadOnly;
-              }
-              break;
-            case 'textContains':
-              if (count === 0) assertionPassed = false;
-              else {
-                const text = await locator.first().innerText({ timeout: 5000 }).catch(() => '');
-                assertionPassed = text.includes(assertValue || '');
-              }
-              break;
-            case 'valueEquals':
-              if (count === 0) assertionPassed = false;
-              else {
-                const value = await locator.first().inputValue().catch(() => '');
-                assertionPassed = value === (assertValue || '');
-              }
-              break;
-            default:
-              throw new Error(`未知断言类型：${assertType}`);
-          }
-
-          if (!assertionPassed) {
-            throw new Error(`断言失败: ${assertType} - 选择器: ${step.selector}`);
-          }
-          break;
-        case 'goto':
-          if (!step.value) throw new Error('goto 步骤需要 value 参数(URL)');
-          await target.goto(step.value, { waitUntil: 'domcontentloaded', timeout: 15000 });
-          break;
-        case 'scroll':
-          if (step.selector) {
-            await target.$eval(step.selector, (el) => {
-              el.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'center' });
-            });
-          } else {
-            await target.evaluate(() => {
-              window.scrollTo({ left: 0, top: 0, behavior: 'auto' });
-            });
-          }
-          break;
-        default:
-          throw new Error(`未知步骤类型：${step.type}`);
-      }
-
-      stepResult.passed = true;
-    } catch (error) {
-      stepResult.error = error.message;
-      const evidence = await captureStepEvidence(target, `${stepName}-failed`, { screenshot: true, snapshot: true }).catch(() => null);
-      stepResult.evidence = evidence;
-      failures.push({
+      const step = steps[index];
+      const action = step.action || step.type;
+      const stepName = step.name || `${index + 1}-${action || 'step'}`;
+      const stepStart = Date.now();
+      const stepResult = {
         stepIndex: index,
         stepName,
-        type: step.type,
-        error: error.message,
-        evidence
-      });
+        action,
+        passed: false,
+        duration: 0,
+        error: null
+      };
+
+      try {
+        switch (action) {
+          case 'navigate':
+          case 'goto': {
+            const url = step.url || step.value;
+            if (!url) throw new Error('navigate 步骤需要 url 参数');
+            await target.goto(url, { waitUntil: 'domcontentloaded', timeout: 15000 });
+            break;
+          }
+          case 'click':
+            if (!step.selector) throw new Error('click 步骤需要 selector 参数');
+            await target.click(step.selector, { timeout: 10000 });
+            break;
+          case 'type': {
+            if (!step.selector) throw new Error('type 步骤需要 selector 参数');
+            const text = step.value || '';
+            await target.fill(step.selector, text, { timeout: 10000 });
+            await target.evaluate(({ selector, text }) => {
+              const el = document.querySelector(selector);
+              if (!el) return;
+              try {
+                const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+                const nativeTextareaValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
+                if (el.tagName === 'INPUT' && nativeInputValueSetter) {
+                  nativeInputValueSetter.call(el, text);
+                } else if (el.tagName === 'TEXTAREA' && nativeTextareaValueSetter) {
+                  nativeTextareaValueSetter.call(el, text);
+                } else {
+                  el.value = text;
+                }
+                el.dispatchEvent(new Event('input', { bubbles: true }));
+                el.dispatchEvent(new Event('change', { bubbles: true }));
+              } catch (e) { /* 值设置非关键 */ }
+            }, { selector: step.selector, text });
+            break;
+          }
+          case 'wait': {
+            const waitMs = Number(step.value) || 1000;
+            await target.waitForTimeout(waitMs);
+            break;
+          }
+          case 'eval': {
+            if (!step.expression) throw new Error('eval 步骤需要 expression 参数');
+            const evalResult = await target.evaluate(step.expression);
+            stepResult.evalResult = evalResult;
+            break;
+          }
+          case 'screenshot': {
+            const screenshotName = step.name || `step-${index}`;
+            ensureArtifactsDir();
+            const safeName = `${Date.now()}-${screenshotName}`.replace(/[^a-zA-Z0-9_-]/g, '_');
+            const screenshotPath = path.join(SCREENSHOT_DIR, `${safeName}.png`);
+            await screenshotWithRedaction(target, screenshotPath, {});
+            stepResult.screenshot = screenshotPath;
+            break;
+          }
+          default:
+            throw new Error(`不支持的操作类型：${action}`);
+        }
+
+        stepResult.passed = true;
+      } catch (error) {
+        stepResult.error = error.message;
+        const evidence = await captureStepEvidence(target, `${stepName}-failed`, { screenshot: true, snapshot: true }).catch(() => null);
+        stepResult.evidence = evidence;
+        failures.push({
+          stepIndex: index,
+          stepName,
+          action,
+          error: error.message,
+          evidence
+        });
+      }
+
+      stepResult.duration = Date.now() - stepStart;
+      stepResults.push(redact(stepResult));
+
+      if (!stepResult.passed && !continueOnFailure) break;
     }
-
-    stepResult.duration = Date.now() - stepStart;
-    results.push(redact(stepResult));
-
-    if (!stepResult.passed && !continueOnFailure) break;
+  } finally {
+    clearTimeout(timeoutTimer);
   }
 
   const totalSteps = steps.length;
-  const passedSteps = results.filter(r => r.passed).length;
-  const failedSteps = results.filter(r => !r.passed).length;
-  const duration = Date.now() - startTime;
+  const passedSteps = stepResults.filter(r => r.passed).length;
+  const failedSteps = stepResults.filter(r => !r.passed).length;
+  const totalDuration = Date.now() - startTime;
 
-  log('PERF', 'validation_flow完成', { cost: `${duration}ms`, totalSteps, passedSteps, failedSteps });
+  log('PERF', 'validation_flow完成', { cost: `${totalDuration}ms`, totalSteps, passedSteps, failedSteps });
 
   return redact({
-    name: flowName,
-    passed: failedSteps === 0,
     totalSteps,
     passedSteps,
     failedSteps,
-    duration,
-    checkpoint: currentCheckpoint,
-    results,
+    totalDuration,
+    steps: stepResults,
     failures,
     url: target.url()
   });
@@ -2410,7 +2381,7 @@ function validateToolSchemas() {
     'browser_errors', 'browser_errors_clear', 'browser_wait', 'browser_assert', 'browser_flow', 'browser_step',
     'browser_trace_start', 'browser_trace_stop', 'browser_artifacts', 'browser_artifacts_clear',
     'browser_instrument', 'browser_events', 'browser_events_clear', 'browser_network_detail', 'browser_har_export',
-    'debug_investigate', 'validation_check', 'validation_run', 'validation_report', 'validation_suite_run',
+    'debug_investigate', 'validation_check', 'validation_flow', 'validation_run', 'validation_report', 'validation_suite_run',
     'validation_report_export', 'browser_visual_baseline', 'browser_visual_compare', 'browser_visual_report',
     'browser_a11y_check', 'browser_performance_check', 'browser_locator_validate', 'browser_locator_suggest',
     'browser_hover', 'browser_scroll', 'browser_press_key',
