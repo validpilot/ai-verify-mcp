@@ -66,6 +66,7 @@
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs",
+    "generate-demo-gif": "node scripts/generate-demo-gif.js",
     "pack:dry": "npm pack --dry-run",
     "prepublishOnly": "node bin/validpilot.js health && npm pack --dry-run"
   },
@@ -78,10 +79,11 @@
     "axe-core": "^4.12.1",
     "dotenv": "^17.4.2",
     "pixelmatch": "^7.2.0",
-    "playwright": "^1.61.1",
-    "pngjs": "^7.0.0"
+    "playwright": "^1.61.1"
   },
   "devDependencies": {
+    "omggif": "^1.0.10",
+    "pngjs": "^7.0.0",
     "vitepress": "^1.6.4"
   }
 }

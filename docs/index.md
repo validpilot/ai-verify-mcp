@@ -178,26 +178,7 @@ ai-verify-mcp health
 ai-verify-mcp http --port 3000
 ```
 
-<div class="terminal-demo">
-  <div class="terminal-header">
-    <div class="terminal-dot red"></div>
-    <div class="terminal-dot yellow"></div>
-    <div class="terminal-dot green"></div>
-    <span class="terminal-title">Terminal — ai-verify-mcp</span>
-  </div>
-  <div class="terminal-body">
-    <div class="terminal-line"><span class="prompt">$</span> npm install -g ai-verify-mcp</div>
-    <div class="terminal-line dim">added 47 packages in 3s</div>
-    <div class="terminal-line">&nbsp;</div>
-    <div class="terminal-line"><span class="prompt">$</span> ai-verify-mcp health</div>
-    <div class="terminal-line"><span class="success">✓</span> Node.js: v20.10.0 <span class="ok">OK</span></div>
-    <div class="terminal-line"><span class="success">✓</span> Playwright: 1.61.1 <span class="ok">OK</span></div>
-    <div class="terminal-line"><span class="success">✓</span> Tools loaded: 76 <span class="ok">OK</span></div>
-    <div class="terminal-line"><span class="success">✓</span> MCP server: ready <span class="ok">OK</span></div>
-    <div class="terminal-line">&nbsp;</div>
-    <div class="terminal-line success-bold">🎉 All checks passed! Ready to verify.</div>
-  </div>
-</div>
+![ai-verify-mcp health 终端演示](/demo.gif)
 
 ## 已支持的 AI 客户端
 
@@ -544,6 +525,16 @@ ai-verify-mcp http --port 3000
   margin-top: 4px;
 }
 
+.terminal-gif {
+  display: block;
+  max-width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--vp-c-divider);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  margin: 24px 0;
+}
+
 .client-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -726,10 +717,6 @@ ai-verify-mcp http --port 3000
   .cta-title {
     font-size: 20px;
   }
-}
-
-.dark .terminal-demo {
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
 }
 
 .dark .scene-card:hover,
