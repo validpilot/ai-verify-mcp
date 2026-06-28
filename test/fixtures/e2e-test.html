@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>E2E Test Page</title></head>
+<body>
+  <h1 id="title">Hello E2E</h1>
+  <p class="desc">Integration test page for PlaywrightAdapter</p>
+  <button id="btn" onclick="document.getElementById('output').textContent='clicked'">Click Me</button>
+  <input id="input" type="text" placeholder="type here" />
+  <img id="test-img" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==" alt="test" />
+  <div id="output"></div>
+  <a href="#section2" id="link">Section 2</a>
+  <ul id="list">
+    <li class="item">Item 1</li>
+    <li class="item">Item 2</li>
+    <li class="item">Item 3</li>
+  </ul>
+  <div id="dynamic-content"></div>
+  <script>
+    console.log('E2E test page loaded');
+    console.warn('This is a warning');
+  </script>
+</body></html>

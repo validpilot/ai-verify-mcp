@@ -63,6 +63,7 @@
     "cli": "node bin/validpilot.js",
     "validate": "node bin/validpilot.js health",
     "test": "node --test test/*.test.js",
+    "test:e2e": "node --test test/e2e.integration.js",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs",
