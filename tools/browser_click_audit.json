@@ -1,0 +1,32 @@
+{
+  "name": "browser_click_audit",
+  "description": "Audit a single click: screenshot before→click→wait→screenshot after→image diff→error collection→return. One call replaces 6+ individual tool calls for click-through validation loops. Returns navigation status, visual diff ratio, console/network errors, and screenshot paths.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "selector": {
+        "type": "string",
+        "description": "CSS selector of the element to click (required unless 'text' is provided)"
+      },
+      "text": {
+        "type": "string",
+        "description": "Text content of the element to find and click (alternative to 'selector', uses accessibility tree)"
+      },
+      "waitMs": {
+        "type": "number",
+        "default": 1500,
+        "description": "Wait time after click in milliseconds before capturing results"
+      },
+      "autoReturn": {
+        "type": "boolean",
+        "default": true,
+        "description": "Automatically navigate back after audit (goBack for URL nav, re-click for SPA toggle)"
+      },
+      "label": {
+        "type": "string",
+        "description": "Human-readable label for this audit step (used in screenshot filenames)"
+      }
+    },
+    "required": []
+  }
+}

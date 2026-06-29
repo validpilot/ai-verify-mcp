@@ -995,6 +995,14 @@ async function runFlow(target, args = {}) {
       else if (step.type === 'assert') results.push({ label, assertion: await assertPage(target, step) });
       else if (step.type === 'eval') await callTool('browser_eval', step);
       else if (step.type === 'clearErrors') resetRuntimeLogs();
+      else if (step.type === 'step') await callTool('browser_step', step);
+      else if (step.type === 'screenshot') await callTool('browser_screenshot', step);
+      else if (step.type === 'snapshot') await callTool('browser_snapshot', step);
+      else if (step.type === 'scroll') await callTool('browser_scroll', step);
+      else if (step.type === 'hover') await callTool('browser_hover', step);
+      else if (step.type === 'select') await callTool('browser_select', step);
+      else if (step.type === 'navigate') await callTool('browser_navigate', step);
+      else if (step.type === 'har') await callTool('browser_har_export', step);
       else throw new Error(`未知 flow step 类型：${step.type}`);
 
       const evidence = step.evidence === false ? null : await captureStepEvidence(target, label, { screenshot: step.screenshot, snapshot: step.snapshot });
@@ -5674,13 +5682,28 @@ async function callTool(name, args = {}) {
     }
     case 'browser_click': {
       const { target } = await ensurePage();
+      const urlBefore = target.url();
       await target.click(args.selector, { timeout: 10000 });
+      
+      // 检测 URL 是否变化
+      let urlAfter;
+      try { urlAfter = target.url(); } catch (_) { urlAfter = urlBefore; }
+      const navigated = urlBefore !== urlAfter;
       
       // 操作后快速错误捕获
       const postErrors = await postActionErrorCheck(target, 'click', args.selector);
       
+      const baseResult = {
+        action: 'click',
+        selector: args.selector,
+        success: true,
+        navigated,
+        urlBefore,
+        urlAfter,
+        lastAction
+      };
+      
       if (postErrors.detected) {
-        // 构建友好提示（含建议）
         const errorSummary = [];
         let suggestions = [];
         if (postErrors.console.length > 0) {
@@ -5702,9 +5725,7 @@ async function callTool(name, args = {}) {
         if (suggestions.length === 0) suggestions.push('请使用 browser_errors 查看完整错误详情');
         
         return text(JSON.stringify({
-          action: 'click',
-          selector: args.selector,
-          success: true,
+          ...baseResult,
           error_warning: `点击后检测到 ${postErrors.count} 个新错误（${errorSummary.join('、')}）`,
           suggestions,
           errors: {
@@ -5712,18 +5733,170 @@ async function callTool(name, args = {}) {
             console: postErrors.console.slice(0, 5),
             page: postErrors.page.slice(0, 3),
             network: postErrors.network.slice(0, 5)
-          },
-          lastAction
+          }
         }, null, 2));
       }
       
       return text(JSON.stringify({
-        action: 'click',
-        selector: args.selector,
-        success: true,
-        errors: { count: 0 },
-        lastAction
+        ...baseResult,
+        errors: { count: 0 }
       }, null, 2));
+    }
+    case 'browser_click_audit': {
+      const { target } = await ensurePage();
+      const label = args.label || args.selector || args.text || 'audit';
+      const waitMs = args.waitMs || 1500;
+      const autoReturn = args.autoReturn !== false;
+      const { PNG } = require('pngjs');
+      const pixelmatch = require('pixelmatch').default || require('pixelmatch');
+      
+      // 如果提供了 text 而不是 selector，用无障碍树定位
+      let selector = args.selector;
+      if (!selector && args.text) {
+        try {
+          const found = await target.evaluate((text) => {
+            const candidates = document.querySelectorAll('button, a, [role="button"], [tabindex]:not([tabindex="-1"]), input[type="submit"], input[type="button"]');
+            for (const el of candidates) {
+              if (el.offsetParent === null) continue;
+              const elText = (el.textContent || '').trim();
+              if (elText === text || elText.includes(text)) {
+                if (el.id) return '#' + el.id;
+                const cls = Array.from(el.classList).filter(c => !c.startsWith('_')).slice(0, 2).join('.');
+                if (cls) return el.tagName.toLowerCase() + '.' + cls;
+                return el.tagName.toLowerCase();
+              }
+            }
+            return null;
+          }, args.text);
+          if (found) selector = found;
+        } catch (_) {}
+      }
+      
+      if (!selector) {
+        return text(JSON.stringify({ success: false, error: 'No selector or element found for text: ' + (args.text || '') }));
+      }
+      
+      // 1. 点击前截图
+      const urlBefore = target.url();
+      ensureArtifactsDir();
+      const stamp = Date.now();
+      const beforePath = path.join(ARTIFACTS_DIR, `click-audit-before-${safeArtifactName(label)}-${stamp}.png`);
+      await screenshotWithRedaction(target, beforePath);
+      
+      // 2. 执行点击
+      let clicked = false;
+      try {
+        await target.click(selector, { timeout: 8000 });
+        clicked = true;
+      } catch (clickErr) {
+        return text(JSON.stringify({
+          success: false,
+          selector,
+          label,
+          error: `Click failed: ${clickErr.message}`,
+          urlBefore
+        }, null, 2));
+      }
+      
+      // 3. 等待稳定
+      try {
+        await target.waitForLoadState('networkidle', { timeout: Math.min(waitMs + 2000, 8000) });
+      } catch (_) {
+        await new Promise(r => setTimeout(r, waitMs));
+      }
+      
+      // 4. 点击后截图
+      let urlAfter;
+      try { urlAfter = target.url(); } catch (_) { urlAfter = urlBefore; }
+      const afterPath = path.join(ARTIFACTS_DIR, `click-audit-after-${safeArtifactName(label)}-${stamp}.png`);
+      await screenshotWithRedaction(target, afterPath);
+      
+      // 5. 截图对比（pixelmatch）
+      let diffRatio = 0;
+      let diffPath = null;
+      let visualChanged = false;
+      try {
+        const beforePng = PNG.sync.read(fs.readFileSync(beforePath));
+        const afterPng = PNG.sync.read(fs.readFileSync(afterPath));
+        if (beforePng.width === afterPng.width && beforePng.height === afterPng.height) {
+          const diff = new PNG({ width: beforePng.width, height: beforePng.height });
+          const diffPixels = pixelmatch(beforePng.data, afterPng.data, diff.data, beforePng.width, beforePng.height, { threshold: 0.1 });
+          diffRatio = diffPixels / (beforePng.width * beforePng.height);
+          visualChanged = diffRatio > 0.05;
+          if (visualChanged) {
+            diffPath = path.join(ARTIFACTS_DIR, `click-audit-diff-${safeArtifactName(label)}-${stamp}.png`);
+            fs.writeFileSync(diffPath, PNG.sync.write(diff));
+          }
+        } else {
+          // 尺寸不同 → 视觉已变化
+          visualChanged = true;
+          diffRatio = 1;
+        }
+      } catch (diffErr) {
+        // pixelmatch 失败不阻断流程
+      }
+      
+      // 6. 错误捕获
+      const postErrors = await postActionErrorCheck(target, 'click_audit', selector);
+      const network5xx = networkLogs.filter(e => e.status >= 500 && new Date(e.timestamp || 0).getTime() > new Date(currentCheckpoint).getTime());
+      
+      // 7. 导航检测
+      const urlNavigated = urlBefore !== urlAfter;
+      const spaNavigated = visualChanged && !urlNavigated;
+      
+      // 8. 自动返回
+      let returned = false;
+      let returnMethod = 'none';
+      if (autoReturn) {
+        if (urlNavigated) {
+          try {
+            await target.goBack({ waitUntil: 'networkidle', timeout: 8000 });
+            returned = true;
+            returnMethod = 'goBack';
+          } catch (_) {
+            try { await target.goBack(); returned = true; returnMethod = 'goBack_simple'; } catch (_) {}
+          }
+        } else if (spaNavigated) {
+          try {
+            await target.click(selector, { timeout: 5000 });
+            await new Promise(r => setTimeout(r, 1000));
+            returnMethod = 'toggle_click';
+            // 验证状态是否恢复
+            const afterReturn = target.url();
+            if (afterReturn === urlBefore) returned = true;
+          } catch (_) {}
+        }
+      }
+      
+      // 9. 组装结果
+      const result = {
+        success: true,
+        selector,
+        label,
+        navigated: urlNavigated,
+        spaNavigated,
+        visualChanged,
+        diffRatio: parseFloat(diffRatio.toFixed(4)),
+        urlBefore,
+        urlAfter,
+        returned,
+        returnMethod,
+        errors: {
+          count: postErrors.count + network5xx.length,
+          console: postErrors.console.slice(0, 5),
+          page: postErrors.page.slice(0, 3),
+          network: postErrors.network.slice(0, 5),
+          network5xx: network5xx.slice(0, 5).map(e => ({ url: (e.url || '').slice(0, 120), status: e.status }))
+        },
+        screenshots: {
+          before: beforePath,
+          after: afterPath,
+          diff: diffPath
+        },
+        timestamp: new Date().toISOString()
+      };
+      
+      return text(JSON.stringify(redact(result), null, 2));
     }
     case 'browser_type': {
       const { target } = await ensurePage();
@@ -5841,53 +6014,69 @@ async function callTool(name, args = {}) {
     }
     case 'browser_snapshot': {
       const { target } = await ensurePage();
-      const snapshot = await target.evaluate(() => ({
-        url: location.href,
-        title: document.title,
-        visibleText: document.body.innerText.slice(0, 5000),
-        // 页面基本信息
-        pageInfo: {
+      const snapshot = await target.evaluate(() => {
+        // 计算页面状态哈希：基于可见元素数 + 文本指纹
+        let visibleCount = 0;
+        const allEls = document.querySelectorAll('body *');
+        for (const el of allEls) {
+          if (visibleCount >= 500) break;
+          try { const s = window.getComputedStyle(el); if (s.display !== 'none' && s.visibility !== 'hidden' && el.offsetParent !== null) visibleCount++; } catch (_) {}
+        }
+        const mainText = (document.body.innerText || '').trim();
+        const textHash = mainText.length + '_' + mainText.slice(0, 100).replace(/\s+/g, '');
+        const stateHash = visibleCount + '_' + textHash.length + '_' + (mainText.length % 1000);
+        
+        return {
           url: location.href,
           title: document.title,
-          description: (document.querySelector('meta[name="description"]')?.getAttribute('content') || '').slice(0, 200),
-          charset: document.characterSet,
-          lang: document.documentElement.lang || '',
-          readyState: document.readyState,
-          referrer: document.referrer || '',
-          viewport: { w: window.innerWidth, h: window.innerHeight },
-          scrollPos: { x: window.scrollX, y: window.scrollY }
-        },
-        // 所有输入表单
-        inputs: Array.from(document.querySelectorAll('input, textarea, select')).map(el => {
-          const type = (el.getAttribute('type') || '').toLowerCase();
-          const sensitive = ['password'].includes(type) || /key|token|secret|password/i.test(`${el.id} ${el.name} ${el.placeholder}`);
-          return { tag: el.tagName.toLowerCase(), type, id: el.id || '', name: el.getAttribute('name') || '', placeholder: el.getAttribute('placeholder') || '', value: sensitive ? '******' : el.value };
-        }),
-        // 按钮与链接
-        buttons: Array.from(document.querySelectorAll('button, a')).slice(0, 80).map(el => ({ tag: el.tagName.toLowerCase(), id: el.id || '', text: (el.innerText || el.textContent || '').trim().slice(0, 120), href: el.href || '' })),
-        // 导航元素
-        navElements: (() => {
-          const navs = document.querySelectorAll('nav, [role="navigation"], .nav, .sidebar, .menu');
-          return Array.from(navs).slice(0, 5).map(n => ({
-            tag: n.tagName.toLowerCase(),
-            id: n.id || '',
-            links: Array.from(n.querySelectorAll('a, button')).slice(0, 20).map(l => (l.innerText || l.textContent || '').trim().slice(0, 60)).filter(Boolean)
-          }));
-        })(),
-        // 图片统计
-        imageCount: document.querySelectorAll('img').length,
-        // 表格统计
-        tableCount: document.querySelectorAll('table').length,
-        // 框架信息
-        frameworks: (() => {
-          const fw = [];
-          if (document.querySelector('#app, #__nuxt, #__next, [data-reactroot]')) fw.push('SPA (React/Vue/Nuxt)');
-          if (document.querySelector('[class*="ant-"]')) fw.push('Ant Design');
-          if (document.querySelector('[class*="el-"]')) fw.push('Element UI');
-          if (document.querySelector('[class*="ivu-"]')) fw.push('iView');
-          return fw;
-        })()
-      }));
+          visibleText: document.body.innerText.slice(0, 5000),
+          // 页面状态哈希（对比前后变化用，非加密哈希）
+          stateHash,
+          stateDetail: { visibleCount, textLength: mainText.length },
+          // 页面基本信息
+          pageInfo: {
+            url: location.href,
+            title: document.title,
+            description: (document.querySelector('meta[name="description"]')?.getAttribute('content') || '').slice(0, 200),
+            charset: document.characterSet,
+            lang: document.documentElement.lang || '',
+            readyState: document.readyState,
+            referrer: document.referrer || '',
+            viewport: { w: window.innerWidth, h: window.innerHeight },
+            scrollPos: { x: window.scrollX, y: window.scrollY }
+          },
+          // 所有输入表单
+          inputs: Array.from(document.querySelectorAll('input, textarea, select')).map(el => {
+            const type = (el.getAttribute('type') || '').toLowerCase();
+            const sensitive = ['password'].includes(type) || /key|token|secret|password/i.test(`${el.id} ${el.name} ${el.placeholder}`);
+            return { tag: el.tagName.toLowerCase(), type, id: el.id || '', name: el.getAttribute('name') || '', placeholder: el.getAttribute('placeholder') || '', value: sensitive ? '******' : el.value };
+          }),
+          // 按钮与链接
+          buttons: Array.from(document.querySelectorAll('button, a')).slice(0, 80).map(el => ({ tag: el.tagName.toLowerCase(), id: el.id || '', text: (el.innerText || el.textContent || '').trim().slice(0, 120), href: el.href || '' })),
+          // 导航元素
+          navElements: (() => {
+            const navs = document.querySelectorAll('nav, [role="navigation"], .nav, .sidebar, .menu');
+            return Array.from(navs).slice(0, 5).map(n => ({
+              tag: n.tagName.toLowerCase(),
+              id: n.id || '',
+              links: Array.from(n.querySelectorAll('a, button')).slice(0, 20).map(l => (l.innerText || l.textContent || '').trim().slice(0, 60)).filter(Boolean)
+            }));
+          })(),
+          // 图片统计
+          imageCount: document.querySelectorAll('img').length,
+          // 表格统计
+          tableCount: document.querySelectorAll('table').length,
+          // 框架信息
+          frameworks: (() => {
+            const fw = [];
+            if (document.querySelector('#app, #__nuxt, #__next, [data-reactroot]')) fw.push('SPA (React/Vue/Nuxt)');
+            if (document.querySelector('[class*="ant-"]')) fw.push('Ant Design');
+            if (document.querySelector('[class*="el-"]')) fw.push('Element UI');
+            if (document.querySelector('[class*="ivu-"]')) fw.push('iView');
+            return fw;
+          })()
+        };
+      });
       return text(JSON.stringify(redact(snapshot), null, 2));
     }
     case 'browser_batch': {
