@@ -1875,6 +1875,244 @@ async function runValidationCheck(target, args = {}) {
   return result;
 }
 
+// ============================================================
+// deploy_verify — 部署验证（HTTP 级别，无需浏览器）
+// ============================================================
+
+async function runDeployVerify(args = {}) {
+  const targetUrl = (args.targetUrl || args.url || '').replace(/\/+$/, '');
+  if (!targetUrl) {
+    return {
+      name: args.name || 'deploy-verify',
+      passed: false,
+      checks: [{ name: '参数校验', passed: false, detail: '缺少 targetUrl 或 url 参数' }]
+    };
+  }
+
+  const startTime = Date.now();
+  const checks = [];
+
+  // 1) API 端点检查
+  const apiEndpoints = ['/api/identity/me', '/api/tenants', '/api/reports'];
+  const apiResults = [];
+  for (const endpoint of apiEndpoints) {
+    try {
+      const url = `${targetUrl}${endpoint}`;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      const response = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeoutId);
+      apiResults.push({ endpoint, status: response.status, ok: response.ok });
+    } catch (err) {
+      apiResults.push({ endpoint, status: 0, ok: false, error: err.message });
+    }
+  }
+  const apiOk = apiResults.every(r => r.ok);
+  checks.push({
+    name: 'API 端点检查',
+    passed: apiOk,
+    detail: apiOk
+      ? `所有 ${apiEndpoints.length} 个端点正常`
+      : apiResults.filter(r => !r.ok).map(r => `${r.endpoint} (${r.status || r.error})`).join('; ')
+  });
+
+  // 2) Console 错误检查 — 通过请求 HTML 页面并扫描 script error 日志
+  let consoleCheckPassed = true;
+  let consoleDetail = '未发现 Console 错误';
+  try {
+    const htmlUrl = targetUrl;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const htmlResp = await fetch(htmlUrl, { signal: controller.signal });
+    clearTimeout(timeoutId);
+    const html = await htmlResp.text();
+
+    // 扫描 window.onerror / console.error 等模式
+    const errorPatterns = [
+      /console\.error\s*\(/,
+      /window\.onerror\s*=/,
+      /onerror\s*=\s*function/,
+      /throw\s+new\s+Error/,
+      /handler\.error/i
+    ];
+    const foundErrors = errorPatterns.filter(p => p.test(html));
+    if (foundErrors.length > 0) {
+      consoleCheckPassed = false;
+      consoleDetail = `页面中包含显式错误处理/抛出: ${foundErrors.length} 处`;
+    } else {
+      consoleDetail = '未发现明显的 Console 错误模式';
+    }
+  } catch (err) {
+    consoleCheckPassed = false;
+    consoleDetail = `HTML 页面请求失败: ${err.message}`;
+  }
+  checks.push({
+    name: 'Console 错误检查',
+    passed: consoleCheckPassed,
+    detail: consoleDetail
+  });
+
+  // 3) CSS 变量检查 — 获取页面的 CSS 资源并分析
+  let cssCheckPassed = true;
+  let cssDetail = 'CSS 变量未发现缺失';
+  try {
+    const cssAnalyzer = require('./scripts/css-var-analyzer');
+    const htmlUrl = targetUrl;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const htmlResp = await fetch(htmlUrl, { signal: controller.signal });
+    clearTimeout(timeoutId);
+    const html = await htmlResp.text();
+
+    // 提取 CSS 链接
+    const linkRegex = /<link[^>]*href=["']([^"']*\.css[^"']*)["'][^>]*>/gi;
+    const cssLinks = [];
+    let linkMatch;
+    while ((linkMatch = linkRegex.exec(html)) !== null) {
+      let cssUrl = linkMatch[1];
+      if (!cssUrl.startsWith('http')) {
+        cssUrl = new URL(cssUrl, targetUrl).href;
+      }
+      cssLinks.push(cssUrl);
+    }
+
+    // 也提取内联 CSS
+    const styleRegex = /<style[^>]*>([\s\S]*?)<\/style>/gi;
+    let styleMatch;
+    let inlineCSS = '';
+    while ((styleMatch = styleRegex.exec(html)) !== null) {
+      inlineCSS += styleMatch[1] + '\n';
+    }
+
+    // 分析内联 CSS
+    if (inlineCSS.trim()) {
+      const result = cssAnalyzer.analyzeCSS(inlineCSS);
+      if (result.summary.missingVariables > 0) {
+        cssCheckPassed = false;
+        cssDetail = `内联 CSS 中发现 ${result.summary.missingVariables} 个缺失变量: ${result.missingVarOverview.map(v => v.variable).join(', ')}`;
+      } else {
+        cssDetail = `内联 CSS 变量正常（${result.summary.totalDefinitions} 个定义）`;
+      }
+    }
+
+    // 尝试获取并分析外部 CSS
+    for (const cssUrl of cssLinks) {
+      try {
+        const cssController = new AbortController();
+        const cssTimeoutId = setTimeout(() => cssController.abort(), 5000);
+        const cssResp = await fetch(cssUrl, { signal: cssController.signal });
+        clearTimeout(cssTimeoutId);
+        const cssText = await cssResp.text();
+        const cssResult = cssAnalyzer.analyzeCSS(cssText);
+        if (cssResult.summary.missingVariables > 0) {
+          cssCheckPassed = false;
+          cssDetail = `外部 CSS (${cssUrl}) 中发现 ${cssResult.summary.missingVariables} 个缺失变量: ${cssResult.missingVarOverview.map(v => v.variable).join(', ')}`;
+          break;
+        }
+      } catch (_) {
+        // 外部 CSS 获取失败不阻断
+      }
+    }
+
+    if (cssCheckPassed && cssLinks.length === 0 && !inlineCSS.trim()) {
+      cssDetail = '未发现 CSS 资源';
+    }
+  } catch (err) {
+    cssCheckPassed = false;
+    cssDetail = `CSS 变量检查失败: ${err.message}`;
+  }
+  checks.push({
+    name: 'CSS 变量检查',
+    passed: cssCheckPassed,
+    detail: cssDetail
+  });
+
+  // 4) 静态资源检查
+  let resourcesCheckPassed = true;
+  let resourcesDetail = '';
+  try {
+    const htmlUrl = targetUrl;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const htmlResp = await fetch(htmlUrl, { signal: controller.signal });
+    clearTimeout(timeoutId);
+    const html = await htmlResp.text();
+
+    // 提取静态资源 URL
+    const resourcePatterns = [
+      { regex: /<link[^>]*href=["']([^"']*)["']/gi, type: 'link' },
+      { regex: /<script[^>]*src=["']([^"']*)["']/gi, type: 'script' },
+      { regex: /<img[^>]*src=["']([^"']*)["']/gi, type: 'image' }
+    ];
+
+    const resources = [];
+    for (const { regex, type } of resourcePatterns) {
+      let m;
+      while ((m = regex.exec(html)) !== null) {
+        let resUrl = m[1];
+        if (resUrl.startsWith('data:') || resUrl.startsWith('#')) continue;
+        if (!resUrl.startsWith('http')) {
+          try {
+            resUrl = new URL(resUrl, targetUrl).href;
+          } catch (_) { continue; }
+        }
+        resources.push({ url: resUrl, type });
+      }
+    }
+
+    // 去重
+    const uniqueResources = [...new Map(resources.map(r => [r.url, r])).values()];
+
+    // 检查资源可达性
+    const failedResources = [];
+    const batchSize = 5;
+    for (let i = 0; i < uniqueResources.length; i += batchSize) {
+      const batch = uniqueResources.slice(i, i + batchSize);
+      const batchResults = await Promise.all(batch.map(async (res) => {
+        try {
+          const resController = new AbortController();
+          const resTimeoutId = setTimeout(() => resController.abort(), 3000);
+          const resResp = await fetch(res.url, { method: 'HEAD', signal: resController.signal });
+          clearTimeout(resTimeoutId);
+          if (!resResp.ok) {
+            return { url: res.url, status: resResp.status };
+          }
+          return null;
+        } catch (_) {
+          return { url: res.url, status: 0 };
+        }
+      }));
+      for (const failed of batchResults.filter(Boolean)) {
+        failedResources.push(failed);
+      }
+    }
+
+    if (failedResources.length > 0) {
+      resourcesCheckPassed = false;
+      resourcesDetail = `${failedResources.length} 个静态资源不可达: ${failedResources.slice(0, 5).map(r => `${r.url} (${r.status})`).join('; ')}`;
+    } else {
+      resourcesDetail = `所有 ${uniqueResources.length} 个静态资源可达`;
+    }
+  } catch (err) {
+    resourcesCheckPassed = false;
+    resourcesDetail = `静态资源检查失败: ${err.message}`;
+  }
+  checks.push({
+    name: '静态资源检查',
+    passed: resourcesCheckPassed,
+    detail: resourcesDetail
+  });
+
+  const allPassed = checks.every(c => c.passed);
+  return {
+    name: args.name || 'deploy-verify',
+    targetUrl,
+    passed: allPassed,
+    duration: Date.now() - startTime,
+    checks
+  };
+}
+
 async function runValidationPlan(target, args = {}) {
   const runName = args.name || `validation-${Date.now()}`;
   const startTime = Date.now();
@@ -2385,7 +2623,7 @@ function validateToolSchemas() {
     'validation_report_export', 'browser_visual_baseline', 'browser_visual_compare', 'browser_visual_report',
     'browser_a11y_check', 'browser_performance_check', 'browser_locator_validate', 'browser_locator_suggest',
     'browser_hover', 'browser_scroll', 'browser_press_key',
-    'mcp_health_check', 'mcp_self_test', 'project_audit'
+    'mcp_health_check', 'mcp_self_test', 'project_audit', 'css_var_check'
   ];
   const registered = new Set(tools.map(tool => tool.name));
   const missing = requiredTools.filter(name => !registered.has(name));
@@ -4314,6 +4552,9 @@ async function callTool(name, args = {}) {
       return text(`验证已启动，目标: ${args.targetUrl || '未指定'}，场景数: ${scenarios.length}，checkpoint: ${currentCheckpoint}`);
     }
     case 'validation_check': {
+      if (args.check_type === 'deploy_verify') {
+        return text(JSON.stringify(await runDeployVerify(args), null, 2));
+      }
       const { target } = await ensurePage(args);
       return text(JSON.stringify(await runValidationCheck(target, args), null, 2));
     }
@@ -4345,6 +4586,15 @@ async function callTool(name, args = {}) {
       return text('validation_matrix: 权限矩阵验证。该能力在闭源端完整实现，开源版本仅作为占位（推荐使用多个 validation_check 模拟矩阵）');
     case 'validation_decision':
       return text('validation_decision: 决策建议。该能力在闭源端完整实现，开源版本仅作为占位');
+    case 'css_var_check': {
+      const cssAnalyzer = require('./scripts/css-var-analyzer');
+      const css = args.css;
+      if (!css) {
+        return text(JSON.stringify({ error: '缺少 css 参数' }, null, 2));
+      }
+      const result = cssAnalyzer.analyzeCSS(css, args.filePath || 'inline');
+      return text(JSON.stringify(result, null, 2));
+    }
     case 'error_fix_suggestion': {
       const errorSummary = args.errorSummary || '';
       const context = args.context || {};

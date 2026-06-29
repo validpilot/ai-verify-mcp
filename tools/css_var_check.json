@@ -1,0 +1,82 @@
+{
+  "name": "css_var_check",
+  "description": "分析 CSS 文件中缺失的变量定义，并提供修复建议。扫描 CSS 内容，检测在 :root 或其他选择器中引用但未定义的 CSS 自定义属性（变量），为每个缺失变量生成 suggestedFix（建议值和插入位置）。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "css": {
+        "type": "string",
+        "description": "要分析的 CSS 文本内容"
+      },
+      "filePath": {
+        "type": "string",
+        "description": "可选，CSS 文件路径（用于输出引用）"
+      }
+    },
+    "required": ["css"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "file": { "type": "string", "description": "分析的 CSS 来源" },
+      "summary": {
+        "type": "object",
+        "properties": {
+          "totalDefinitions": { "type": "number", "description": "定义的变量总数" },
+          "totalReferences": { "type": "number", "description": "引用变量总数" },
+          "missingVariables": { "type": "number", "description": "缺失的变量数" },
+          "circularReferences": { "type": "number", "description": "循环引用数" }
+        }
+      },
+      "entries": {
+        "type": "array",
+        "description": "检测到的问题条目列表",
+        "items": {
+          "type": "object",
+          "properties": {
+            "variable": { "type": "string", "description": "缺失的 CSS 变量名，如 --primary" },
+            "usedIn": { "type": "string", "description": "在哪个属性或变量中被引用" },
+            "selector": { "type": "string", "description": "所在选择器" },
+            "line": { "type": "number", "description": "行号" },
+            "column": { "type": "number", "description": "列号" },
+            "severity": { "type": "string", "description": "严重级别" },
+            "message": { "type": "string", "description": "问题描述" },
+            "suggestedFix": {
+              "type": "object",
+              "description": "修复建议",
+              "properties": {
+                "value": { "type": "string", "description": "建议的定义值，如 #176b87" },
+                "insertAfter": { "type": "string", "description": "建议插入在该变量定义之后，可为 null（表示插入到文件末尾）" }
+              }
+            }
+          }
+        }
+      },
+      "definitions": {
+        "type": "array",
+        "description": "所有变量定义列表",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "value": { "type": "string" },
+            "selector": { "type": "string" },
+            "line": { "type": "number" }
+          }
+        }
+      },
+      "missingVarOverview": {
+        "type": "array",
+        "description": "缺失变量总览（去重）",
+        "items": {
+          "type": "object",
+          "properties": {
+            "variable": { "type": "string" },
+            "count": { "type": "number", "description": "出现的次数" },
+            "suggestedValue": { "type": "string", "description": "建议的默认值" }
+          }
+        }
+      }
+    }
+  }
+}
