@@ -1,0 +1,12 @@
+{
+  "name": "skill_mcp_validate",
+  "description": "自动校验 Skill 定义的工具依赖是否与 MCP 服务器实际可用工具一致",
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "skillName": { "type": "string", "description": "Skill 名称，如 browser-dev-full-validation-skill" },
+      "mode": { "type": "string", "enum": ["strict", "warn"], "default": "strict", "description": "strict=缺失工具时报错，warn=仅报告不阻断" }
+    },
+    "required": ["skillName"]
+  }
+}

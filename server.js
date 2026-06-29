@@ -13,6 +13,7 @@ const {
 
 const browserOperator = require('./hands/browser_operator');
 const evidenceCollector = require('./hands/evidence_collector');
+const deepInteractor = require('./hands/deep_interactor');
 const errorAggregator = require('./brain/error_aggregator');
 
 const TOOLS_DIR = path.join(__dirname, 'tools');
@@ -4899,48 +4900,33 @@ async function runBrowserFullRegression(args = {}) {
               result.blockingIssues.push({ function: subDetail.function, url: subDetail.urlAfter, issue: e.type === 'console' ? 'console_error' : 'network_error', detail: e.msg });
             }
 
-            // ===== 深度交互：像人类一样探索 =====
-            // 点击一个功能后，检查页面是否有表单/弹窗，尝试完整的业务流程操作
-            // 人类行为：点击"新增代运营授权" → 填写表单 → 提交 → 看结果
-            // BFS 只点击不填写的表面覆盖，深度交互才能触发深层错误（表单提价 403/500、验证错误等）
+            // ===== 深度交互（Phase C）：像人类一样探索 =====
+            // 点击一个功能后，检测弹窗/表单，智能填充并提交，检测深层错误
+            // 覆盖场景：新增代运营授权、提交订单、表单验证错误等
             try {
-              const deepForms = await target.evaluate(() => {
-                const inputs = document.querySelectorAll('input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="checkbox"]):not([type="radio"]), textarea');
-                const selects = document.querySelectorAll('select');
-                const submitBtns = document.querySelectorAll('input[type="submit"], button[type="submit"]');
-                if ((inputs.length + selects.length) > 0 && submitBtns.length > 0) {
-                  return { hasForm: true, inputs: inputs.length, selects: selects.length, submits: submitBtns.length };
-                }
-                const modals = document.querySelectorAll('[class*="modal"], [class*="dialog"], [class*="popup"], [class*="overlay"]');
-                const modalVisible = Array.from(modals).some(m => m.offsetParent !== null || (m.style && m.style.display !== 'none'));
-                if (modalVisible) return { hasModal: true, modalCount: modals.length };
-                return { hasForm: false, inputs: inputs.length, selects: selects.length, submits: submitBtns.length };
-              }).catch(() => ({}));
-              if (deepForms.hasForm) {
-                // 填写表单
-                await target.evaluate(() => {
-                  document.querySelectorAll('input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="checkbox"]):not([type="radio"]), textarea').forEach(inp => {
-                    const t = (inp.type || 'text').toLowerCase(); const n = (inp.name || '').toLowerCase(); const p = (inp.placeholder || '').toLowerCase();
-                    if (t === 'email') inp.value = 'test@example.com';
-                    else if (t === 'tel') inp.value = '13800138000';
-                    else if (/phone|mobile|number/.test(n)) inp.value = '13800138000';
-                    else if (/name/.test(n) || /name/.test(p)) inp.value = '测试用户';
-                    else if (/amount/.test(n) || /amount/.test(p)) inp.value = '100';
-                    else inp.value = 't_' + Date.now().toString(36);
-                  });
-                  document.querySelectorAll('select').forEach(sel => { const ops = Array.from(sel.options).filter(o => !o.disabled && o.value); if (ops.length > 0) sel.value = ops[0].value; });
-                  document.querySelectorAll('input[type="checkbox"]').forEach(cb => { cb.checked = true; });
-                }).catch(() => {});
-                await new Promise(r => setTimeout(r, 500));
-                subDetail._deepInteraction = { type: 'form_fill', inputs: deepForms.inputs, selects: deepForms.selects };
-                const submitted = await target.evaluate(() => { const btn = document.querySelector('input[type="submit"], button[type="submit"]'); if (btn) { btn.click(); return true; } return false; }).catch(() => false);
-                if (submitted) {
-                  try { await target.waitForLoadState('networkidle', { timeout: 8000 }); } catch (_) {}
-                  await new Promise(r => setTimeout(r, 1500));
-                  subDetail._deepInteraction.submitted = true;
-                  const submitErrs = await captureErrors(Date.now() - 3000);
+              const uiState = await deepInteractor.detectUIState(target);
+              subDetail._uiState = {
+                modal: !!uiState.modal,
+                modalTitle: uiState.modal ? (uiState.modal.title || '') : '',
+                forms: uiState.forms.length,
+                toasts: uiState.toasts.length,
+              };
+
+              if (uiState.modal && uiState.modal.hasForm) {
+                // 弹窗中有表单 → 智能填充并提交
+                const formResult = await deepInteractor.interactWithForm(target, { fillFields: true, submit: true });
+                subDetail._deepInteraction = formResult;
+
+                // 收集表单提交后的错误
+                if (formResult.submitted) {
+                  const submitErrs = await captureErrors(Date.now() - 4000);
                   for (const e of submitErrs.items) {
-                    result.blockingIssues.push({ function: `${subDetail.function}>表单提交`, url: target.url(), issue: e.type === 'console' ? 'console_error' : 'network_error', detail: `[表单提交] ${e.msg}` });
+                    result.blockingIssues.push({
+                      function: `${subDetail.function}>表单提交`,
+                      url: target.url(),
+                      issue: e.type === 'console' ? 'console_error' : 'network_error',
+                      detail: `[表单提交] ${e.msg}`,
+                    });
                   }
                   if (submitErrs.items.length > 0) {
                     subDetail.consoleErrors += submitErrs.consoleErrors;
@@ -4948,7 +4934,33 @@ async function runBrowserFullRegression(args = {}) {
                     subDetail._deepInteraction.submitErrors = submitErrs.items.length;
                     subDetail._deepInteraction.submitErrorSample = submitErrs.items.slice(0, 3);
                   }
+                  // 提交成功（弹窗关闭）= 功能通过
+                  if (formResult.success) {
+                    subDetail._deepInteraction.workflowSuccess = true;
+                  }
                 }
+              } else if (uiState.forms.length > 0 && !uiState.modal) {
+                // 独立表单 → 智能填充并提交
+                const formResult = await deepInteractor.interactWithForm(target, { fillFields: true, submit: true });
+                subDetail._deepInteraction = formResult;
+                if (formResult.submitted) {
+                  const submitErrs = await captureErrors(Date.now() - 4000);
+                  for (const e of submitErrs.items) {
+                    result.blockingIssues.push({
+                      function: `${subDetail.function}>表单提交`,
+                      url: target.url(),
+                      issue: e.type === 'console' ? 'console_error' : 'network_error',
+                      detail: `[表单提交] ${e.msg}`,
+                    });
+                  }
+                  if (submitErrs.items.length > 0) {
+                    subDetail.consoleErrors += submitErrs.consoleErrors;
+                    subDetail.networkErrors += submitErrs.networkErrors;
+                  }
+                }
+              } else if (uiState.modal && !uiState.modal.hasForm) {
+                // 纯弹窗（无表单）→ 尝试关闭
+                try { await target.keyboard.press('Escape'); await new Promise(r => setTimeout(r, 300)); } catch (_) {}
               }
             } catch (_) {}
 
@@ -7738,6 +7750,32 @@ async function callTool(name, args = {}) {
       return text(JSON.stringify(await traverseMenu(args), null, 2));
     case 'browser_full_regression':
       return text(JSON.stringify(await runBrowserFullRegression(args), null, 2));
+    case 'browser_deep_interact': {
+      // 深层交互工具：检测弹窗/表单、智能填表、执行业务流程、像人类一样探索
+      const mode = args.mode || 'detect';
+      const page = await ensurePage(args.visible !== false);
+      if (args.url) {
+        try { await page.goto(args.url, { waitUntil: 'domcontentloaded', timeout: 30000 }); await new Promise(r => setTimeout(r, 1500)); } catch (_) {}
+      }
+      let result = {};
+      switch (mode) {
+        case 'detect':
+          result = await deepInteractor.detectUIState(page);
+          break;
+        case 'form':
+          result = await deepInteractor.interactWithForm(page, { fillFields: args.fillFields !== false, submit: args.submit !== false });
+          break;
+        case 'workflow':
+          result = await deepInteractor.executeWorkflow(page, args.workflow || []);
+          break;
+        case 'explore':
+          result = await deepInteractor.exploreLikeHuman(page, { maxActions: args.maxActions || 15, interactModals: args.interactModals !== false, fillForms: args.fillFields !== false });
+          break;
+        default:
+          result = { error: `未知模式: ${mode}` };
+      }
+      return text(JSON.stringify(result, null, 2));
+    }
     case 'auto_fix_pipeline': {
       const maxIterations = Math.min(args.maxIterations || 3, 3);
       const autoConfirm = args.autoConfirm !== false;
