@@ -7942,7 +7942,7 @@ async function callTool(name, args = {}) {
     case 'browser_deep_interact': {
       // 深层交互工具：检测弹窗/表单、智能填表、执行业务流程、像人类一样探索
       const mode = args.mode || 'detect';
-      const page = await ensurePage(args.visible !== false);
+      const { target: page } = await ensurePage(args.visible !== false);
       if (args.url) {
         try { await page.goto(args.url, { waitUntil: 'domcontentloaded', timeout: 30000 }); await new Promise(r => setTimeout(r, 1500)); } catch (_) {}
       }
