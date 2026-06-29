@@ -752,23 +752,27 @@ npm notice total files: 101
 
 ---
 
-## ❤️ 支持捐赠
+## ❤️ 支持捐赠 / Donations
 
-感谢您对本项目的关注与支持！
+感谢您对本项目的关注与支持！如果您觉得这个项目对您有帮助，欢迎通过捐赠的方式给予鼓励。
 
-如果您觉得这个项目对您有帮助，或者希望支持我持续开发和维护，欢迎通过捐赠的方式给予鼓励。您的每一份支持，都是我继续前行的动力！
+_Thank you for your interest and support! If you find this project helpful, consider buying me a coffee._
 
-捐赠将用于项目维护、功能开发、服务器开销等，所有资金将透明公开，专款专用。
+> 捐赠将用于项目维护、功能开发、服务器开销等，所有资金将透明公开，专款专用。
+>
+> _Donations will be used for project maintenance, feature development, and server costs. All funds will be transparent and project-dedicated._
 
-### 捐赠方式
+### 捐赠方式 / Donation Methods
 
-| 支付宝 | 微信支付 |
-|:---:|:---:|
-| ![支付宝](https://ghproxy.net/https://raw.githubusercontent.com/validpilot/ai-verify-mcp/main/docs/images/alipay.jpg) | ![微信支付](https://ghproxy.net/https://raw.githubusercontent.com/validpilot/ai-verify-mcp/main/docs/images/weixinpay.jpg) |
+| 支付宝 (Alipay) | 微信支付 (WeChat) | PayPal |
+|:---:|:---:|:---:|
+| ![支付宝](https://ghproxy.net/https://raw.githubusercontent.com/validpilot/ai-verify-mcp/main/docs/images/alipay.jpg) | ![微信支付](https://ghproxy.net/https://raw.githubusercontent.com/validpilot/ai-verify-mcp/main/docs/images/weixinpay.jpg) | [![PayPal](https://img.shields.io/badge/PayPal-00457C?style=for-the-badge&logo=paypal&logoColor=white)](https://paypal.me/qianzhiliang) |
 
 > 无论金额大小，都是对我莫大的鼓励。再次感谢您的支持！
+>
+> _No matter the amount, every bit of support means a lot. Thank you!_
 
-> **PayPal / GitHub Sponsors**：暂未开通，敬请期待。
+> **GitHub Sponsors**：暂未开通，敬请期待。_Not yet available, stay tuned._
 
 ---
 

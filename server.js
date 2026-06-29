@@ -187,7 +187,7 @@ function filterNetwork(items, args = {}) {
 async function warmupBrowser() {
   try {
     log('INFO', '预热浏览器...', {});
-    const wBrowser = await chromium.launch({ headless: false });
+    const wBrowser = await chromium.launch({ headless: true });
     const wContext = await wBrowser.newContext({ viewport: { width: 1280, height: 720 } });
     const wPage = await wContext.newPage();
     await wPage.goto('about:blank', { waitUntil: 'domcontentloaded', timeout: 10000 });
@@ -1892,59 +1892,229 @@ async function runDeployVerify(args = {}) {
   const startTime = Date.now();
   const checks = [];
 
-  // 1) API 端点检查
-  const apiEndpoints = ['/api/identity/me', '/api/tenants', '/api/reports'];
-  const apiResults = [];
-  for (const endpoint of apiEndpoints) {
+  // ---- 获取 Playwright 页面（API 检查和 Console 检查共享同一个会话） ----
+  let pwPage = null;
+  let pwObtained = false;
+  try {
+    const pwResult = await ensurePage(args);
+    pwPage = pwResult.target;
+    pwObtained = true;
+  } catch (_) {
+    // Playwright 不可用，后续检查降级
+  }
+
+  // ---- 辅助函数：判断是否为 API 请求（排除静态资源） ----
+  function isApiUrl(url) {
     try {
-      const url = `${targetUrl}${endpoint}`;
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
-      const response = await fetch(url, { signal: controller.signal });
-      clearTimeout(timeoutId);
-      apiResults.push({ endpoint, status: response.status, ok: response.ok });
-    } catch (err) {
-      apiResults.push({ endpoint, status: 0, ok: false, error: err.message });
+      const parsed = new URL(url);
+      const pathname = parsed.pathname;
+      // 排除静态资源扩展名
+      if (/\.(css|js|png|jpg|jpeg|gif|svg|webp|woff|woff2|ttf|eot|ico|map)(\?|#|$)/i.test(pathname)) return false;
+      // 排除 favicon
+      if (/\/favicon/i.test(pathname)) return false;
+      // 排除 data: 协议
+      if (parsed.protocol === 'data:') return false;
+      // 包含 /api/ 的视为 API 请求
+      if (pathname.includes('/api/')) return true;
+      // 常见的静态资源路径前缀
+      if (/^\/(static|assets|public|dist|build|images|img|fonts|styles|css|js)\//i.test(pathname)) return false;
+      // 其他请求视为动态资源（API-like）
+      return true;
+    } catch (_) {
+      return false;
     }
   }
-  const apiOk = apiResults.every(r => r.ok);
+
+  // ---- 降级：使用硬编码 API 列表（Playwright 不可用时的备用方案） ----
+  async function runHardcodedApiCheck() {
+    const hardcodedEndpoints = ['/api/identity/me', '/api/tenants', '/api/reports'];
+    const hcResults = [];
+    for (const endpoint of hardcodedEndpoints) {
+      try {
+        const url = `${targetUrl}${endpoint}`;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        const response = await fetch(url, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        hcResults.push({ endpoint, status: response.status, ok: response.ok });
+      } catch (err) {
+        hcResults.push({ endpoint, status: 0, ok: false, error: err.message });
+      }
+    }
+    const allOk = hcResults.every(r => r.ok);
+    return {
+      passed: allOk,
+      detail: allOk
+        ? `所有 ${hardcodedEndpoints.length} 个端点正常`
+        : hcResults.filter(r => !r.ok).map(r => `${r.endpoint} (${r.status || r.error})`).join('; ')
+    };
+  }
+
+  // 1) API 端点检查 — 动态发现（Playwright 监听）+ 降级硬编码
+  let apiCheckPassed = true;
+  let apiDetail = '';
+
+  if (pwObtained) {
+    try {
+      const apiRequests = [];
+      const onApiResponse = (resp) => {
+        const url = resp.url();
+        const status = resp.status();
+        if (isApiUrl(url)) {
+          apiRequests.push({ url, status });
+        }
+      };
+      pwPage.on('response', onApiResponse);
+
+      // 导航到目标页面，等待网络空闲确保所有异步请求完成
+      await pwPage.goto(targetUrl, { waitUntil: 'networkidle', timeout: 30000 });
+      await pwPage.waitForTimeout(1000);
+
+      pwPage.removeListener('response', onApiResponse);
+
+      if (apiRequests.length === 0) {
+        // 未捕获到 API 请求，降级到硬编码列表
+        const fallback = await runHardcodedApiCheck();
+        apiCheckPassed = fallback.passed;
+        apiDetail = fallback.detail + '（Playwright 未捕获到 API 请求，使用硬编码检查）';
+      } else {
+        const failedEndpoints = apiRequests.filter(r => r.status >= 400);
+        if (failedEndpoints.length > 0) {
+          apiCheckPassed = false;
+          apiDetail = `发现 ${failedEndpoints.length}/${apiRequests.length} 个失败端点: ` +
+            failedEndpoints.map(r => `${r.url} (${r.status})`).join('; ');
+        } else {
+          apiDetail = `所有 ${apiRequests.length} 个 API 端点正常`;
+        }
+      }
+    } catch (pwErr) {
+      // Playwright 导航失败，降级到硬编码列表
+      const fallback = await runHardcodedApiCheck();
+      apiCheckPassed = fallback.passed;
+      apiDetail = fallback.detail + '（Playwright 降级）';
+    }
+  } else {
+    // Playwright 不可用，使用硬编码列表
+    const fallback = await runHardcodedApiCheck();
+    apiCheckPassed = fallback.passed;
+    apiDetail = fallback.detail + '（Playwright 不可用）';
+  }
   checks.push({
     name: 'API 端点检查',
-    passed: apiOk,
-    detail: apiOk
-      ? `所有 ${apiEndpoints.length} 个端点正常`
-      : apiResults.filter(r => !r.ok).map(r => `${r.endpoint} (${r.status || r.error})`).join('; ')
+    passed: apiCheckPassed,
+    detail: apiDetail
   });
 
-  // 2) Console 错误检查 — 通过请求 HTML 页面并扫描 script error 日志
+  // 2) Console 错误检查 — 使用 Playwright 捕获真实运行时错误
   let consoleCheckPassed = true;
   let consoleDetail = '未发现 Console 错误';
-  try {
-    const htmlUrl = targetUrl;
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
-    const htmlResp = await fetch(htmlUrl, { signal: controller.signal });
-    clearTimeout(timeoutId);
-    const html = await htmlResp.text();
 
-    // 扫描 window.onerror / console.error 等模式
-    const errorPatterns = [
-      /console\.error\s*\(/,
-      /window\.onerror\s*=/,
-      /onerror\s*=\s*function/,
-      /throw\s+new\s+Error/,
-      /handler\.error/i
-    ];
-    const foundErrors = errorPatterns.filter(p => p.test(html));
-    if (foundErrors.length > 0) {
-      consoleCheckPassed = false;
-      consoleDetail = `页面中包含显式错误处理/抛出: ${foundErrors.length} 处`;
-    } else {
-      consoleDetail = '未发现明显的 Console 错误模式';
+  if (pwObtained) {
+    try {
+      const collectedErrors = [];
+
+      // 安装 console 消息监听器（在导航前安装）
+      const onConsoleMessage = (msg) => {
+        const type = msg.type();
+        if (type === 'error' || type === 'warning') {
+          const text = msg.text();
+          // 过滤掉常见的非关键错误（如 favicon 404）
+          if (!text.includes('favicon.ico')) {
+            collectedErrors.push(`[${type}] ${text}`);
+          }
+        }
+      };
+
+      // 安装未捕获 JS 异常监听器
+      const onPageError = (err) => {
+        collectedErrors.push(`[pageerror] ${err.message}`);
+      };
+
+      // 安装 HTTP 响应监听器（收集 4xx/5xx 响应）
+      const onResponse = (resp) => {
+        const status = resp.status();
+        if (status >= 400) {
+          const url = resp.url();
+          // 过滤掉常见的非关键错误
+          if (!url.includes('favicon.ico')) {
+            collectedErrors.push(`[http ${status}] ${url}`);
+          }
+        }
+      };
+
+      pwPage.on('console', onConsoleMessage);
+      pwPage.on('pageerror', onPageError);
+      pwPage.on('response', onResponse);
+
+      // 重新导航到目标 URL 以捕获完整的运行时错误
+      await pwPage.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+
+      // 等待页面稳定
+      await pwPage.waitForTimeout(2000);
+
+      // 移除监听器
+      pwPage.removeListener('console', onConsoleMessage);
+      pwPage.removeListener('pageerror', onPageError);
+      pwPage.removeListener('response', onResponse);
+
+      if (collectedErrors.length > 0) {
+        consoleCheckPassed = false;
+        consoleDetail = `发现 ${collectedErrors.length} 个运行时错误:\n${collectedErrors.join('\n')}`;
+      } else {
+        consoleDetail = '未发现 Console 错误 (Playwright 实时检测)';
+      }
+    } catch (pwErr) {
+      // 降级方案：Playwright 操作失败时回退到 HTTP fetch 方式
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        const htmlResp = await fetch(targetUrl, { signal: controller.signal });
+        clearTimeout(timeoutId);
+
+        if (htmlResp.status >= 400) {
+          consoleCheckPassed = false;
+          consoleDetail = `HTTP 响应错误: ${htmlResp.status} ${htmlResp.statusText}`;
+        } else {
+          const html = await htmlResp.text();
+          // 检查响应体中是否包含服务端错误关键词
+          const errorKeywords = /\b(50[0-9]|Internal Server Error|Fatal|Exception|SyntaxError|RuntimeError)\b/i;
+          if (errorKeywords.test(html)) {
+            consoleCheckPassed = false;
+            consoleDetail = '页面中包含服务端错误关键词（降级检测模式）';
+          } else {
+            consoleDetail = '未发现明显的错误（降级检测模式）';
+          }
+        }
+      } catch (fallbackErr) {
+        consoleCheckPassed = false;
+        consoleDetail = `页面检查失败: ${fallbackErr.message}`;
+      }
     }
-  } catch (err) {
-    consoleCheckPassed = false;
-    consoleDetail = `HTML 页面请求失败: ${err.message}`;
+  } else {
+    // Playwright 不可用，降级到 HTTP fetch 方式
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      const htmlResp = await fetch(targetUrl, { signal: controller.signal });
+      clearTimeout(timeoutId);
+
+      if (htmlResp.status >= 400) {
+        consoleCheckPassed = false;
+        consoleDetail = `HTTP 响应错误: ${htmlResp.status} ${htmlResp.statusText}`;
+      } else {
+        const html = await htmlResp.text();
+        const errorKeywords = /\b(50[0-9]|Internal Server Error|Fatal|Exception|SyntaxError|RuntimeError)\b/i;
+        if (errorKeywords.test(html)) {
+          consoleCheckPassed = false;
+          consoleDetail = '页面中包含服务端错误关键词（降级检测模式）';
+        } else {
+          consoleDetail = '未发现明显的错误（降级检测模式）';
+        }
+      }
+    } catch (fallbackErr) {
+      consoleCheckPassed = false;
+      consoleDetail = `页面检查失败: ${fallbackErr.message}`;
+    }
   }
   checks.push({
     name: 'Console 错误检查',
@@ -2102,6 +2272,96 @@ async function runDeployVerify(args = {}) {
     passed: resourcesCheckPassed,
     detail: resourcesDetail
   });
+
+  // 5) 页面错误文本检查 — DOM 文本中搜索错误关键词
+  let errorTextCheckPassed = true;
+  let errorTextDetail = '页面未发现错误文本';
+
+  if (pwObtained) {
+    try {
+      const pageText = await pwPage.evaluate(() => document.body.innerText);
+      const errorPattern = /加载失败|系统内部错误|Internal Server Error|出错了|服务器繁忙|服务器错误|500\s*Error/i;
+      const match = pageText.match(errorPattern);
+      if (match) {
+        errorTextCheckPassed = false;
+        errorTextDetail = `页面中发现错误文本: "${match[0]}"（阻断级问题）`;
+      }
+    } catch (err) {
+      errorTextCheckPassed = false;
+      errorTextDetail = `页面错误文本检查失败: ${err.message}`;
+    }
+  } else {
+    // 降级到 HTTP fetch 获取 HTML 文本搜索关键词
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      const resp = await fetch(targetUrl, { signal: controller.signal });
+      clearTimeout(timeoutId);
+      const text = await resp.text();
+      const errorPattern = /加载失败|系统内部错误|Internal Server Error|出错了|服务器繁忙|服务器错误|500\s*Error/i;
+      const match = text.match(errorPattern);
+      if (match) {
+        errorTextCheckPassed = false;
+        errorTextDetail = `页面 HTML 中发现错误文本: "${match[0]}"（阻断级问题，降级检测模式）`;
+      }
+    } catch (err) {
+      errorTextCheckPassed = false;
+      errorTextDetail = `页面错误文本检查失败: ${err.message}`;
+    }
+  }
+  checks.push({
+    name: '页面错误文本检查',
+    passed: errorTextCheckPassed,
+    detail: errorTextDetail
+  });
+
+  // 第 6 项：全功能闭环回归（强制性阻断级）
+  // runBrowserFullRegression 内部独立创建可视浏览器，不需要外部传入 pwPage
+  checks.push({
+    name: '全功能闭环回归',
+    blocking: true,
+    passed: false,
+    detail: '',
+    executed: false
+  });
+  {
+    const check6 = checks[checks.length - 1];
+    try {
+      const regressionResult = await runBrowserFullRegression({
+        url: targetUrl,
+        maxDepth: 3,
+        maxItems: 50
+      });
+
+      check6.executed = true;
+      check6.detail = JSON.stringify(regressionResult.summary);
+
+      if (regressionResult.passed && regressionResult.executed && regressionResult.summary.clicked > 0) {
+        check6.passed = true;
+      } else {
+        check6.passed = false;
+        if (regressionResult.blockingIssues && regressionResult.blockingIssues.length > 0) {
+          check6.detail += ' | 阻断原因: ' + regressionResult.blockingIssues.map(i => i.detail).join('; ');
+        }
+        if (!regressionResult.executed) {
+          check6.detail += ' | 工具未执行';
+        }
+        if (regressionResult.summary.clicked === 0) {
+          check6.detail += ' | 无法点击任何功能';
+        }
+      }
+    } catch (err) {
+      check6.executed = false;
+      check6.detail = `全功能闭环回归执行失败: ${err.message}`;
+    }
+  }
+
+  // 清理 Playwright 页面
+  if (pwObtained && pwPage && !pwPage.isClosed()) {
+    try {
+      await pwPage.close();
+    } catch (_) {}
+  }
 
   const allPassed = checks.every(c => c.passed);
   return {
@@ -2732,6 +2992,93 @@ async function projectAudit(args = {}) {
       });
     }
 
+    // ── 3b. SQL 列缺失检查 (SQL-COL) ──
+    if (basename === 'schema.sql' || basename.endsWith('.sql')) {
+      // 构建表 schema 映射: { tableName: Set<columnName> }
+      const tableColumns = {};
+
+      // 1) 解析 CREATE TABLE ... (列定义), 支持 IF NOT EXISTS 和库名前缀
+      const createTableRegex = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:`?\w+`?\.)?`?(\w+)`?\s*\(/gi;
+      let ctMatch;
+      while ((ctMatch = createTableRegex.exec(content)) !== null) {
+        const tableName = ctMatch[1].toLowerCase();
+        // 从匹配位置向后扫描，找到匹配的闭合 )
+        const startPos = ctMatch.index + ctMatch[0].length;
+        let depth = 1;
+        let endPos = startPos;
+        while (endPos < content.length && depth > 0) {
+          if (content[endPos] === '(') depth++;
+          else if (content[endPos] === ')') depth--;
+          endPos++;
+        }
+        const columnBlock = content.slice(startPos, endPos - 1);
+        // 提取列名：每行第一个非空白词为列名（跳过 SQL 关键字）
+        const colDefLines = columnBlock.split('\n');
+        const cols = new Set();
+        for (const colLine of colDefLines) {
+          const trimmedLine = colLine.trim();
+          if (!trimmedLine || trimmedLine.startsWith('--') || trimmedLine.startsWith('/*')) continue;
+          // 提取第一个词作为列名（去掉可能的反引号）
+          const firstWord = trimmedLine.split(/\s+/)[0].replace(/[`"]/g, '');
+          if (!firstWord) continue;
+          // 跳过 SQL 关键字
+          if (/^(primary|foreign|unique|check|constraint|index|key|not|null|default|references|fulltext|spatial)\b/i.test(firstWord)) continue;
+          // 跳过末尾的 ) 和 ,
+          if (firstWord === ')' || firstWord === ',') continue;
+          cols.add(firstWord.toLowerCase());
+        }
+        if (cols.size > 0) {
+          tableColumns[tableName] = cols;
+        }
+      }
+
+      // 2) 解析 ALTER TABLE ... ADD COLUMN ... 提取后续添加的列
+      const alterAddRegex = /ALTER\s+TABLE\s+(?:`?\w+`?\.)?`?(\w+)`?\s+ADD\s+(?:COLUMN\s+)?`?(\w+)`?/gi;
+      let alMatch;
+      while ((alMatch = alterAddRegex.exec(content)) !== null) {
+        const tableName = alMatch[1].toLowerCase();
+        const colName = alMatch[2].toLowerCase();
+        if (!tableColumns[tableName]) {
+          tableColumns[tableName] = new Set();
+        }
+        tableColumns[tableName].add(colName);
+      }
+
+      // 3) 解析 SELECT ... FROM 并检查列名
+      const selectRegex = /SELECT\s+([\s\S]*?)\s+FROM\s+(?:`?\w+`?\.)?`?(\w+)`?/gi;
+      let selMatch;
+      while ((selMatch = selectRegex.exec(content)) !== null) {
+        const selectClause = selMatch[1].trim();
+        const tableName = selMatch[2].toLowerCase();
+
+        // 跳过通配符
+        if (/^\s*\*\s*$/.test(selectClause)) continue;
+
+        // 跳过包含子查询的 SELECT
+        if (/SELECT\s/i.test(selectClause) && !/^\s*CASE\s/i.test(selectClause)) continue;
+
+        // 如果表不在 schema 中，跳过
+        if (!tableColumns[tableName]) continue;
+
+        // 提取列名列表（取逗号分隔的每个部分的首个词，去掉反引号、别名等）
+        const colParts = selectClause.split(',').map(c => c.trim());
+        for (const part of colParts) {
+          // 取首个非空词作为列名，去掉反引号和引号
+          const colName = part.split(/\s+/)[0].replace(/[`"\[\]]/g, '').toLowerCase();
+          if (!colName || colName === '') continue;
+          // 跳过 SQL 函数/关键字
+          if (/^(count|sum|avg|min|max|distinct|case|when|then|else|end|as|is|null|not|in|exists|and|or|on|true|false)\b/i.test(colName)) continue;
+          // 检查列名是否在表定义中
+          if (!tableColumns[tableName].has(colName)) {
+            // 找到该 SELECT 语句所在行号
+            const lineIdx = lines.findIndex(l => l.toLowerCase().includes(selMatch[0].split('\n')[0].toLowerCase().trim()));
+            addIssue('high', 'SQL-COL', relativePath, (lineIdx >= 0 ? lineIdx : 0) + 1,
+              `数据库列缺失: SELECT 中引用的列 "${colName}" 未在表 "${tableName}" 的 schema 定义中找到`);
+          }
+        }
+      }
+    }
+
     // ── 4. CSS 变量检测 ──
     if (ext === '.css') {
       // 收集 :root 中定义的所有变量
@@ -2840,6 +3187,48 @@ async function mcpSelfTest(args = {}) {
   const traceStop = trace && !trace.error ? await stopTrace(target, { name: 'mcp-self-test' }).catch(error => ({ error: error.message })) : null;
   const artifacts = getArtifacts();
   const health = mcpHealthCheck();
+
+  // Skill-MCP 一致性检查
+  let skillConsistency = { checked: false, results: [], summary: { total: 0, passed: 0, warnings: 0 } };
+  try {
+    const skillsDir = path.join(PROJECT_ROOT, '.trae', 'skills');
+    if (fs.existsSync(skillsDir)) {
+      const skillDirs = fs.readdirSync(skillsDir);
+      skillConsistency.results = [];
+      for (const dir of skillDirs) {
+        const toolsJsonPath = path.join(skillsDir, dir, 'SKILL.tools.json');
+        if (fs.existsSync(toolsJsonPath)) {
+          try {
+            const skillTools = JSON.parse(fs.readFileSync(toolsJsonPath, 'utf8'));
+            const toolFiles = fs.readdirSync(TOOLS_DIR).filter(f => f.endsWith('.json'));
+            const availableSet = new Set(toolFiles.map(f => path.basename(f, '.json')));
+            const missingTools = Object.keys(skillTools.tools).filter(t => !availableSet.has(t));
+            const capabilityIssues = (skillTools.capabilities || []).map(cap => ({
+              name: cap.name,
+              missingTools: cap.requiredTools.filter(t => !availableSet.has(t))
+            })).filter(c => c.missingTools.length > 0);
+            const passed = missingTools.length === 0 && capabilityIssues.length === 0;
+            skillConsistency.results.push({
+              skillName: dir,
+              passed,
+              totalReferenced: Object.keys(skillTools.tools).length,
+              missingTools,
+              capabilityIssues
+            });
+            if (passed) skillConsistency.summary.passed++;
+            else skillConsistency.summary.warnings++;
+          } catch (e) {
+            skillConsistency.results.push({ skillName: dir, error: e.message });
+          }
+          skillConsistency.summary.total++;
+        }
+      }
+      skillConsistency.checked = true;
+    }
+  } catch (e) {
+    skillConsistency.error = e.message;
+  }
+
   return redact({
     ok: health.ok && flow.passed && errors.summary.total === 0,
     health,
@@ -2849,7 +3238,8 @@ async function mcpSelfTest(args = {}) {
     errors,
     trace,
     traceStop,
-    artifacts
+    artifacts,
+    skillConsistency
   });
 }
 
@@ -3864,6 +4254,1357 @@ async function traverseMenu(args = {}) {
     },
     results: allItems
   };
+}
+
+async function runBrowserFullRegression(args = {}) {
+  console.error('[runBrowserFullRegression] CALLED, args:', JSON.stringify(args));
+  // 共享全局浏览器实例（ensurePage 创建并维护），与 browser_open/browser_navigate 相同
+  // 默认 headless:false（可见浏览器窗口），让测试人员能实时查看点击过程
+  // 设置 args.visible=false 时后台运行，使用截图作为执行证据
+  const useHeadless = args.visible === false;
+  let target = null;
+  try {
+    const ensured = await ensurePage({ headless: useHeadless });
+    target = ensured.target;
+    console.error('[runBrowserFullRegression] using ensured page (reused=' + ensured.reused + ', headless=' + useHeadless + ')');
+  } catch (e) {
+    return {
+      passed: false, executed: true,
+      error: `获取浏览器失败: ${e.message}`,
+      summary: { totalFunctions: 0, clicked: 0, passed: 0, failed: 0, skipped: 0, pagesVisited: 0 },
+      closedLoop: { navigableFunctions: 0, returnableFunctions: 0, loopScore: 0, loopComplete: false },
+      blockingIssues: [], details: []
+    };
+  }
+
+  const targetUrl = args.url || 'http://192.168.8.4:5173/app.html';
+  if (!args.url) {
+    console.warn('[runBrowserFullRegression] 未传 url，使用默认:', targetUrl);
+  }
+
+  const maxItems = Math.min(args.maxItems || 50, 100);
+  const timeout = (args.timeout || 180) * 1000;
+  const clickDelay = 1500;
+  const startTime = Date.now();
+
+  const result = {
+    passed: false, executed: true,
+    summary: { totalFunctions: 0, clicked: 0, passed: 0, failed: 0, skipped: 0, pagesVisited: 0 },
+    closedLoop: { navigableFunctions: 0, returnableFunctions: 0, loopScore: 0, loopComplete: false },
+    blockingIssues: [], details: [],
+    captureEvidence: {
+      consoleListeners: false, pageListeners: false, networkListeners: false,
+      initialLogs: { console: 0, page: 0, network: 0 },
+      initialSample: [],
+      runtimeLogsBeforeReset: { console: 0, page: 0, network: 0 },
+      capturedSample: [],
+      perActionBreakdown: [],
+      screenshots: [],
+      capturedTotalErrors: 0,
+      capturedErrorTypes: { console: 0, page: 0, network: 0 }
+    }
+  };
+
+  let isTimeout = () => Date.now() - startTime >= timeout;
+
+  // 本地日志缓冲区（独立于全局 getRuntimeLogs，避免被覆盖/清空）
+  const localLogs = { console: [], page: [], network: [] };
+  // ===== 永久错误累加器 =====
+  // 底层原理：resetLogs() 会清空 localLogs，导致操作间隙的错误永久丢失
+  // 永久累加器永不清除，确保所有 CDP/Playwright 事件都被保留
+  // 最终扫描时从永久累加器中找出所有遗漏的 403/500
+  const permanentErrors = { console: [], page: [], network: [] };
+  let cdpSession = null;
+
+  // 过滤静态资源，只保留有意义的 API 请求
+  function isApiUrl(url) {
+    if (!url || typeof url !== 'string') return false;
+    try {
+      if (url.startsWith('data:') || url.startsWith('blob:')) return false;
+      const u = new URL(url);
+      const path = u.pathname;
+      if (/\.(css|js|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot|map|webp)(\?|#|$)/i.test(path)) return false;
+      if (/\/favicon/i.test(path)) return false;
+      return true;
+    } catch (_) { return false; }
+  }
+
+  // ---- 辅助函数 ----
+  async function installListeners() {
+    if (typeof target === 'undefined' || target == null) return;
+    try {
+      // ===== Playwright 标准事件（备选） =====
+      // 同时写入 localLogs（用于阶段性捕获）和 permanentErrors（终身保留）
+      target.on('console', (msg) => {
+        try {
+          if (msg.type() === 'error') {
+            const entry = { message: msg.text(), ts: Date.now(), source: 'pw' };
+            localLogs.console.push(entry);
+            permanentErrors.console.push(entry);
+          }
+        } catch (_) {}
+      });
+      target.on('pageerror', (err) => {
+        try {
+          const entry = { message: err.message, ts: Date.now(), source: 'pw' };
+          localLogs.page.push(entry);
+          permanentErrors.page.push(entry);
+        } catch (_) {}
+      });
+      // requestfailed 保留为 CDP 的补充
+      target.on('requestfailed', (req) => {
+        try {
+          const u = req.url();
+          if (u && isApiUrl(u)) {
+            const entry = { url: u, method: req.method(), status: 0, failure: req.failure()?.errorText || 'failed', ts: Date.now(), source: 'pw' };
+            localLogs.network.push(entry);
+            permanentErrors.network.push(entry);
+          }
+        } catch (_) {}
+      });
+      target.on('response', (res) => {
+        try {
+          const st = res.status();
+          const u = res.url();
+          if (st >= 400 && u && isApiUrl(u)) {
+            const entry = { url: u, method: res.request().method(), status: st, ts: Date.now(), source: 'pw' };
+            localLogs.network.push(entry);
+            permanentErrors.network.push(entry);
+          }
+        } catch (_) {}
+      });
+      result.captureEvidence.consoleListeners = true;
+      result.captureEvidence.pageListeners = true;
+      result.captureEvidence.networkListeners = true;
+    } catch (_) {}
+
+    // ===== CDP 直连（主要来源，不漏任何请求）— 必须在 goto 前完成 =====
+    try {
+      cdpSession = await target.context().newCDPSession(target);
+      if (!cdpSession) return;
+      await cdpSession.send('Network.enable');
+      await cdpSession.send('Runtime.enable');
+      // ===== CDP Log.enable（第四层控制台捕获） =====
+      // 捕获 CSP 违规、安全策略错误、"Failed to load resource" 等
+      // 这些消息不经过 Runtime.consoleAPICalled，只能通过 Log.entryAdded 获取
+      try {
+        await cdpSession.send('Log.enable');
+        cdpSession.on('Log.entryAdded', (params) => {
+          try {
+            const entry = params.entry || {};
+            const text = entry.text || '';
+            const level = entry.level || 'log';
+            const source = entry.source || '';
+            if (!text) return;
+            // CSP 违规、网络错误、安全策略违规
+            if (/(csp|csp-violation|security|403|forbidden|500|5\d{2}|refused|blocked)/i.test(text) || source === 'security' || level === 'error') {
+              const logEntry = { message: `[${source}] ${text}`, level, ts: Date.now(), source: 'cdp-log' };
+              localLogs.console.push(logEntry);
+              permanentErrors.console.push(logEntry);
+            }
+          } catch (_) {}
+        });
+      } catch (_) {}
+
+      // ===== CDP Runtime.exceptionThrown（第五层：未捕获异常） =====
+      // 捕获 unhandled rejection、运行时异常等
+      try {
+        cdpSession.on('Runtime.exceptionThrown', (params) => {
+          try {
+            const exc = params.exceptionDetails || {};
+            const text = exc.text || exc.exception?.description || '';
+            const line = exc.lineNumber || 0;
+            const col = exc.columnNumber || 0;
+            if (!text) return;
+            const entry = { message: `[exception@${line}:${col}] ${text}`, ts: Date.now(), source: 'cdp-exc' };
+            localLogs.page.push(entry);
+            permanentErrors.page.push(entry);
+          } catch (_) {}
+        });
+      } catch (_) {}
+
+      cdpSession.on('Network.responseReceived', (params) => {
+        try {
+          const resp = params.response || {};
+          const url = resp.url || '';
+          const status = resp.status || 0;
+          if (status >= 400 && url && isApiUrl(url)) {
+            const method = (resp.requestHeaders && (resp.requestHeaders[':method'] || resp.requestHeaders.method)) || '?';
+            const entry = { url, method, status, ts: Date.now(), source: 'cdp' };
+            localLogs.network.push(entry);
+            permanentErrors.network.push(entry);
+          }
+        } catch (_) {}
+      });
+
+      cdpSession.on('Network.loadingFailed', (params) => {
+        try {
+          const url = params.documentURL || params.url || '';
+          const errorText = params.errorText || 'unknown';
+          if (url && isApiUrl(url)) {
+            const entry = { url, method: '?', status: 0, failure: errorText, ts: Date.now(), source: 'cdp' };
+            localLogs.network.push(entry);
+            permanentErrors.network.push(entry);
+          }
+        } catch (_) {}
+      });
+
+      cdpSession.on('Runtime.consoleAPICalled', (params) => {
+        try {
+          const type = params.type || 'log';
+          if (type !== 'error' && type !== 'warning' && type !== 'assert') return;
+          const args = params.args || [];
+          const text = args.map(a => {
+            if (a.value !== undefined) return String(a.value);
+            if (a.description) return a.description;
+            if (a.preview) return JSON.stringify(a.preview);
+            return '';
+          }).join(' ');
+          if (!text) return;
+          const entry = { message: text, level: type, ts: Date.now(), source: 'cdp' };
+          localLogs.console.push(entry);
+          permanentErrors.console.push(entry);
+        } catch (_) {}
+      });
+
+      console.error('[runBrowserFullRegression] CDP session established');
+    } catch (e) {
+      console.error('[runBrowserFullRegression] CDP setup failed (non-fatal):', e.message);
+    }
+
+    // ===== 运行时 JS 拦截器（第三层，最可靠） =====
+    // 通过 addInitScript 在每个页面都注入，拦截 fetch 和 XMLHttpRequest
+    try {
+      if (typeof target !== 'undefined' && target != null) {
+        const interceptorCode = `
+(function() {
+  if (window.__interceptorInstalled) return;
+  window.__interceptorInstalled = true;
+  window.__interceptedApiResponses = [];
+  window.__interceptorSeq = 0;
+
+  // 拦截 fetch
+  const origFetch = window.fetch;
+  if (origFetch) {
+    window.fetch = async function() {
+      const args = arguments;
+      const url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url ? args[0].url : '');
+      const method = (args[1] && args[1].method) || 'GET';
+      try {
+        const resp = await origFetch.apply(this, args);
+        const status = resp.status;
+        if (status >= 400 && url && !url.match(/\\\\.(css|js|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot|map|webp)(\\\\?|#|$)/i) && !url.match(/\\/favicon/i)) {
+          const clone = resp.clone ? resp.clone() : null;
+          let bodyText = '';
+          try { if (clone) bodyText = (await clone.text()).slice(0,200); } catch(e) {}
+          window.__interceptedApiResponses.push({
+            url: url, method: method, status: status,
+            ts: Date.now(), body: bodyText,
+            seq: ++window.__interceptorSeq
+          });
+        }
+        return resp;
+      } catch(e) {
+        window.__interceptedApiResponses.push({
+          url: url, method: method, status: 0,
+          ts: Date.now(), error: e.message,
+          seq: ++window.__interceptorSeq
+        });
+        throw e;
+      }
+    };
+  }
+
+  // 拦截 XMLHttpRequest
+  if (window.XMLHttpRequest) {
+    const origOpen = XMLHttpRequest.prototype.open;
+    const origSend = XMLHttpRequest.prototype.send;
+    XMLHttpRequest.prototype.open = function() {
+      this.__interceptedMethod = (arguments[0] || 'GET').toUpperCase();
+      this.__interceptedUrl = arguments[1] || '';
+      return origOpen.apply(this, arguments);
+    };
+    XMLHttpRequest.prototype.send = function() {
+      const xhr = this;
+      const url = xhr.__interceptedUrl || '';
+      const method = xhr.__interceptedMethod || 'GET';
+      const origOnload = xhr.onload;
+      const origOnreadystatechange = xhr.onreadystatechange;
+      xhr.onreadystatechange = function() {
+        if (xhr.readyState === 4) {
+          const st = xhr.status;
+          if (st >= 400 && url && !url.match(/\\\\.(css|js|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot|map|webp)(\\\\?|#|$)/i) && !url.match(/\\/favicon/i)) {
+            window.__interceptedApiResponses.push({
+              url: url, method: method, status: st,
+              ts: Date.now(), body: (xhr.responseText || '').slice(0,200),
+              seq: ++window.__interceptorSeq
+            });
+          }
+        }
+        if (origOnreadystatechange) origOnreadystatechange.apply(xhr, arguments);
+        if (origOnload && xhr.readyState === 4) origOnload.apply(xhr, arguments);
+      };
+      return origSend.apply(xhr, arguments);
+    };
+  }
+})();
+`;
+        await target.context().addInitScript(interceptorCode);
+        // 对当前已存在的页面也直接注入（addInitScript 只对新页面生效）
+        await target.evaluate(interceptorCode).catch(() => {});
+        console.error('[runBrowserFullRegression] Runtime JS interceptor installed via addInitScript + evaluate');
+      }
+    } catch (e) {
+      console.error('[runBrowserFullRegression] JS interceptor setup failed (non-fatal):', e.message);
+    }
+  }
+  function snapshotLocalLogs() {
+    return {
+      console: localLogs.console.length,
+      page: localLogs.page.length,
+      network: localLogs.network.length
+    };
+  }
+  function deltaAndClear(sinceTime) {
+    // 自上次记录到现在新出现的错误
+    const dc = localLogs.console.filter(e => e.ts >= sinceTime);
+    const dp = localLogs.page.filter(e => e.ts >= sinceTime);
+    const dn = localLogs.network.filter(e => e.ts >= sinceTime);
+    return { console: dc, page: dp, network: dn };
+  }
+
+  async function captureErrors(sinceTs) {
+    const errs = { consoleErrors: 0, networkErrors: 0, pageError: null, errorText: null, items: [] };
+    try {
+      const bodyText = await target.evaluate(() => document.body?.innerText || '');
+      const m = bodyText.match(/加载失败|系统内部错误|Internal Server Error|出错了|服务器繁忙|服务器错误|500\s*Error/i);
+      if (m) errs.errorText = m[0];
+    } catch (_) {}
+    // 优先使用 localLogs（更可信），其次合并全局 getRuntimeLogs
+    const combined = { console: [], page: [], network: [] };
+    const since = sinceTs || 0;
+    combined.console = localLogs.console.filter(e => e.ts >= since);
+    combined.page = localLogs.page.filter(e => e.ts >= since);
+    combined.network = localLogs.network.filter(e => e.ts >= since);
+
+    // 读取运行时 JS 拦截器（第三层）捕获的数据
+    // 会被 addInitScript 注入到每个页面
+    try {
+      const intercepted = await target.evaluate(() => {
+        if (!window.__interceptedApiResponses || !window.__interceptedApiResponses.length) return [];
+        const items = window.__interceptedApiResponses.slice(0);
+        const lastSeq = window.__interceptorLastReadSeq || 0;
+        window.__interceptorLastReadSeq = items.reduce((max, item) => Math.max(max, item.seq || 0), lastSeq);
+        return items.filter(item => (item.seq || 0) > lastSeq);
+      }).catch(() => []);
+      for (const item of intercepted) {
+        combined.network.push({ url: item.url, method: item.method, status: item.status, ts: item.ts, source: 'js' });
+        localLogs.network.push({ url: item.url, method: item.method, status: item.status, ts: item.ts, source: 'js' });
+      }
+    } catch (_) {}
+
+    // ===== 第四层：Performance API 扫描（通用兜底） =====
+    // 原理：Performance API 记录了所有已完成的资源请求，包括状态码。
+    // 这层作为 CDP 和 JS 拦截器的兜底，捕获任何遗漏的网络错误。
+    // 参考：OODA 循环的 Observe 阶段 — 使用所有可用工具观察系统状态
+    try {
+      const perfEntries = await target.evaluate(() => {
+        return performance.getEntriesByType('resource')
+          .filter(e => e.responseStatus >= 400)
+          .map(e => ({ url: e.name, status: e.responseStatus, initiatorType: e.initiatorType }));
+      }).catch(() => []);
+      for (const pe of perfEntries) {
+        const exists = combined.network.some(n => n.url === pe.url && n.status === pe.status);
+        if (!exists) {
+          combined.network.push({ url: pe.url, method: 'PERF', status: pe.status, ts: Date.now(), source: 'perf' });
+          localLogs.network.push({ url: pe.url, method: 'PERF', status: pe.status, ts: Date.now(), source: 'perf' });
+        }
+      }
+    } catch (_) {}
+
+    errs.consoleErrors = combined.console.length;
+    errs.networkErrors = combined.network.length;
+    errs.pageError = combined.page.length > 0 ? combined.page[0].message : null;
+    errs.items = [
+      ...combined.console.slice(0, 20).map(e => ({ type: 'console', msg: e.message })),
+      ...combined.network.slice(0, 20).map(e => ({ type: 'network', msg: `${e.method || '?'} ${e.url || '?'} ${e.status || ''}` })),
+      ...combined.page.slice(0, 5).map(e => ({ type: 'page', msg: e.message }))
+    ];
+    return errs;
+  }
+
+  function resetLogs() {
+    localLogs.console.length = 0;
+    localLogs.page.length = 0;
+    localLogs.network.length = 0;
+  }
+
+  async function tryClick(selOrText, isSelector) {
+    // 三级点击策略
+    if (isSelector && selOrText) {
+      try { await target.evaluate((s) => { const el = document.querySelector(s); if (el) el.click(); }, selOrText); return true; } catch (_) {}
+    }
+    if (!isSelector && selOrText && selOrText.length > 0 && selOrText.length < 100) {
+      try { const el = await target.locator('text="' + selOrText.replace(/"/g, '\\"') + '"').first(); await el.click({ timeout: 3000 }); return true; } catch (_) {}
+    }
+    if (isSelector && selOrText) {
+      try { await target.click(selOrText, { timeout: 3000 }); return true; } catch (_) {}
+    }
+    return false;
+  }
+
+  let totalClicked = 0;
+
+  try {
+    // 已默认填充 url，不再强制要求
+
+    // ===== 关键：在导航前安装监听器（先安装了再 goto） =====
+    await installListeners();
+
+    // 先导航到目标页面（这是用户能看到真实页面的关键）
+    await target.goto(targetUrl, { waitUntil: 'networkidle', timeout: 30000 });
+    // 等待页面渲染稳定 + 让用户看到实际页面内容
+    await new Promise(r => setTimeout(r, 3000));
+    // 📸 首页截图
+    try { const buf = await target.screenshot({ type: 'png', fullPage: false }); result.captureEvidence.screenshots.push({ stage: 'home', label: '首页', data: buf.toString('base64').slice(0, 500) }); } catch (_) {}
+
+    // 验证页面前提：确实加载了内容，不是空白页
+    let pageTitle = '';
+    try { pageTitle = await target.title(); } catch (_) {}
+    if (!pageTitle || pageTitle === '') {
+      // 尝试再等待并检查 body
+      await new Promise(r => setTimeout(r, 2000));
+      try { pageTitle = await target.title(); } catch (_) {}
+    }
+    // 通过 Performance API 直接诊断所有网络请求（不依赖任何事件监听器）
+    let perfErrors = [];
+    try {
+      perfErrors = await target.evaluate(() => {
+        const entries = performance.getEntriesByType('resource');
+        const errors = [];
+        for (const e of entries) {
+          // Performance API 中 fetch/XHR 通过 transferSize 和 responseStatus 判断
+          const status = e.responseStatus || 0;
+          if (status >= 400) {
+            errors.push({ url: e.name, status, initiatorType: e.initiatorType });
+          }
+        }
+        return errors;
+      }).catch(() => []);
+    } catch (_) {}
+    // 把初始错误快照存入 result.captureEvidence
+    const initialSnap = snapshotLocalLogs();
+    result.captureEvidence.runtimeLogsBeforeReset = initialSnap;
+    result.captureEvidence.capturedSample = [
+      ...localLogs.console.slice(0, 3).map(e => ({ type: 'console', msg: e.message })),
+      ...localLogs.network.slice(0, 3).map(e => ({ type: 'network', msg: `${e.method} ${e.url} ${e.status}` })),
+      ...localLogs.page.slice(0, 3).map(e => ({ type: 'page', msg: e.message }))
+    ];
+    result.captureEvidence.initialLogs = { console: localLogs.console.length, page: localLogs.page.length, network: localLogs.network.length };
+    result.captureEvidence.initialSample = result.captureEvidence.capturedSample.slice(0, 10);
+    // 注入 CDP/CDP session 状态标记和 Performance API 诊断结果
+    result.captureEvidence.cdpSessionCreated = !!cdpSession;
+    if (perfErrors.length > 0) {
+      result.captureEvidence.performanceApiErrors = perfErrors;
+      result.captureEvidence.capturedSample.unshift(...perfErrors.map(e => ({ type: 'network', msg: `PerformanceAPI: ${e.url} ${e.status}` })));
+      // 同时补入 localLogs 防止遗漏
+      for (const pe of perfErrors) {
+        localLogs.network.push({ url: pe.url, method: '?', status: pe.status, ts: Date.now(), source: 'perf' });
+      }
+    }
+
+    // 解析相对 URL
+    function resolveUrl(href) {
+      try { return new URL(href, target.url()).href; } catch (_) { return null; }
+    }
+    function isSameOriginNav(href) {
+      try {
+        const current = new URL(target.url());
+        const t = new URL(href, current.href);
+        return t.origin === current.origin && t.pathname + t.hash + t.search !== current.pathname + current.hash + current.search;
+      } catch (_) { return false; }
+    }
+
+    // ====== 阶段 1：从首页发现所有导航链接 ======
+    let homepageLinks = [];
+    try {
+      homepageLinks = await target.evaluate(() => {
+        const items = [];
+        const seenHref = new Set(), seenText = new Set();
+        document.querySelectorAll('a[href]').forEach(a => {
+          const href = a.getAttribute('href');
+          const text = (a.textContent || '').trim();
+          if (href && !href.startsWith('javascript:') && !href.startsWith('data:') && !seenHref.has(href)) {
+            seenHref.add(href);
+            items.push({ href, text, tag: 'a', isButton: false });
+          }
+        });
+        document.querySelectorAll('button, [role="button"], .btn, [onclick]').forEach(b => {
+          const text = (b.textContent || '').trim();
+          const href = b.getAttribute('data-href') || b.getAttribute('data-url') || '';
+          if (text && !seenText.has(text)) {
+            seenText.add(text);
+            items.push({ href, text, tag: b.tagName ? b.tagName.toLowerCase() : 'button', isButton: true });
+          }
+        });
+        return items;
+      });
+    } catch (_) {}
+
+    // 分类：导航链接 vs 页面动作
+    const navItems = [];
+    const actionItems = [];
+    const seenNavUrls = new Set();
+    for (const item of homepageLinks) {
+      if (item.href && isSameOriginNav(item.href)) {
+        const resolved = resolveUrl(item.href);
+        const key = resolved ? resolved.replace(/\/+$/, '').replace(/#$/, '') : item.href;
+        if (resolved && !seenNavUrls.has(key)) {
+          seenNavUrls.add(key);
+          navItems.push({ text: item.text, href: item.href, resolvedUrl: resolved, tag: item.tag });
+        }
+      } else {
+        actionItems.push(item);
+      }
+    }
+
+    result.summary.totalFunctions = navItems.length + actionItems.length;
+
+    // ====== 阶段 2：BFS 遍历每个导航页面 ======
+    // 先回到首页确保起点正确
+    await target.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
+    await new Promise(r => setTimeout(r, 1000));
+
+    for (let ni = 0; ni < navItems.length && !isTimeout() && totalClicked < maxItems; ni++) {
+      const nav = navItems[ni];
+      await resetLogs();
+
+      const pageDetail = {
+        function: `导航: ${nav.text || nav.resolvedUrl}`,
+        text: nav.text || '',
+        category: '导航页面',
+        urlBefore: target.url(), urlAfter: '',
+        navigated: false, returned: false, passed: true,
+        consoleErrors: 0, networkErrors: 0, pageError: null, errorText: null,
+        subFunctions: [], subClicked: 0, subPassed: 0, subFailed: 0
+      };
+
+      try {
+        if (isTimeout()) break;
+        console.error('[runBrowserFullRegression] 📄 导航到页面:', nav.text || nav.resolvedUrl);
+        // 📸 页面导航截图
+        try { const buf = await target.screenshot({ type: 'png', fullPage: false }); result.captureEvidence.screenshots.push({ stage: 'nav', label: nav.text || nav.resolvedUrl, data: buf.toString('base64').slice(0, 500) }); } catch (_) {}
+        await target.goto(nav.resolvedUrl, { waitUntil: 'networkidle', timeout: 15000 });
+        await new Promise(r => setTimeout(r, 1000));
+        pageDetail.navigated = true;
+        pageDetail.urlAfter = target.url();
+
+        const navActionTs = Date.now() - 1000; // 误差缓冲
+        const navErrs = await captureErrors(0); // 导航后捕获所有累积错误
+        pageDetail.consoleErrors = navErrs.consoleErrors;
+        pageDetail.networkErrors = navErrs.networkErrors;
+        pageDetail.pageError = navErrs.pageError;
+        pageDetail.errorText = navErrs.errorText;
+        for (const e of navErrs.items) {
+          result.blockingIssues.push({ function: `导航: ${nav.text || nav.resolvedUrl}`, url: pageDetail.urlAfter, issue: e.type === 'console' ? 'console_error' : 'network_error', detail: e.msg });
+        }
+
+        // 扫描该子页面上的所有可交互元素（排除导航链接）
+        let subFunctions = [];
+        try {
+          subFunctions = await target.evaluate(() => {
+            const items = [];
+            const seen = new Set();
+            const qs = 'a[href], button, [role="button"], .btn, [onclick], input[type="submit"], input[type="button"]';
+            document.querySelectorAll(qs).forEach(el => {
+              const tag = (el.tagName || '').toLowerCase();
+              const text = (el.textContent || '').trim() || el.getAttribute('value') || el.getAttribute('aria-label') || '';
+              const href = el.getAttribute('href') || '';
+              const key = text || href;
+              if (key && !seen.has(key)) {
+                seen.add(key);
+                let sel = '';
+                if (el.id) sel = '#' + el.id.replace(/[:"\s]/g, '\\$&');
+                else if (el.getAttribute('data-testid')) sel = '[data-testid="' + el.getAttribute('data-testid') + '"]';
+                else {
+                  const cls = Array.from(el.classList).filter(c => !c.startsWith('_') && !c.startsWith('ng-') && !c.startsWith('ant-')).slice(0, 1).map(c => '.' + c.replace(/[:"\s]/g, '\\$&')).join('');
+                  sel = tag + cls || tag;
+                }
+                items.push({ text, href, tag, selector: sel });
+              }
+            });
+            return items;
+          });
+        } catch (_) {}
+
+        // 过滤掉同源导航链接（避免再次导航到其他页面），保留动作按钮
+        // [重要] 限制每页最多 2 个子功能，保留 API 配额给 select 角色切换测试（阶段 3.5）
+        const uniqueActions = subFunctions.filter(f => {
+          if (f.href) { try { const u = new URL(f.href, target.url()); if (u.origin === new URL(target.url()).origin && u.pathname !== new URL(target.url()).pathname) return false; } catch (_) {} }
+          return true;
+        }).slice(0, 2);
+
+        pageDetail.subFunctions = uniqueActions.map(f => f.text || f.selector);
+
+        // 点击每个独特功能
+        for (let fi = 0; fi < uniqueActions.length && !isTimeout() && totalClicked < maxItems; fi++) {
+          await new Promise(r => setTimeout(r, clickDelay));
+          const fn = uniqueActions[fi];
+          const subDetail = {
+            function: `${nav.text || '页面'} > ${fn.text || fn.selector || `功能${fi+1}`}`,
+            text: fn.text || '', selector: fn.selector || '',
+            category: '页面功能', urlBefore: target.url(), urlAfter: '',
+            navigated: false, returned: false, passed: true,
+            consoleErrors: 0, networkErrors: 0, pageError: null, errorText: null, error: null
+          };
+
+          try {
+            await resetLogs();
+            console.error('[runBrowserFullRegression] 🖱️ 点击:', fn.selector || fn.text || `功能${fi+1}`);
+            let clicked = await tryClick(fn.selector, true);
+            if (!clicked) clicked = await tryClick(fn.text, false);
+            if (!clicked && fn.selector) clicked = await tryClick(fn.selector, true);
+
+            if (!clicked) {
+              subDetail.passed = false; subDetail.error = '无法定位点击';
+              totalClicked++;
+              result.details.push(subDetail);
+              pageDetail.subFailed++;
+              continue;
+            }
+
+            try { await target.waitForLoadState('networkidle', { timeout: 5000 }); } catch (_) { await new Promise(r => setTimeout(r, 1500)); }
+            await new Promise(r => setTimeout(r, 500));
+
+            subDetail.urlAfter = target.url();
+            subDetail.navigated = subDetail.urlAfter !== subDetail.urlBefore;
+
+            // 捕获本次点击期间产生的错误（自点击前的那个时戳起）
+            const clickSinceTs = Date.now() - 2000; // 2秒误差缓冲，覆盖点击前后
+            const funcErrs = await captureErrors(clickSinceTs);
+            subDetail.consoleErrors = funcErrs.consoleErrors;
+            subDetail.networkErrors = funcErrs.networkErrors;
+            subDetail.pageError = funcErrs.pageError;
+            subDetail.errorText = funcErrs.errorText;
+            // 记录 per-action 证据
+            result.captureEvidence.perActionBreakdown.push({
+              function: subDetail.function,
+              consoleErrors: funcErrs.consoleErrors,
+              networkErrors: funcErrs.networkErrors,
+              pageError: funcErrs.pageError,
+              errorText: funcErrs.errorText,
+              sample: funcErrs.items.slice(0, 3)
+            });
+            for (const e of funcErrs.items) {
+              result.blockingIssues.push({ function: subDetail.function, url: subDetail.urlAfter, issue: e.type === 'console' ? 'console_error' : 'network_error', detail: e.msg });
+            }
+
+            // ===== 深度交互：像人类一样探索 =====
+            // 点击一个功能后，检查页面是否有表单/弹窗，尝试完整的业务流程操作
+            // 人类行为：点击"新增代运营授权" → 填写表单 → 提交 → 看结果
+            // BFS 只点击不填写的表面覆盖，深度交互才能触发深层错误（表单提价 403/500、验证错误等）
+            try {
+              const deepForms = await target.evaluate(() => {
+                const inputs = document.querySelectorAll('input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="checkbox"]):not([type="radio"]), textarea');
+                const selects = document.querySelectorAll('select');
+                const submitBtns = document.querySelectorAll('input[type="submit"], button[type="submit"]');
+                if ((inputs.length + selects.length) > 0 && submitBtns.length > 0) {
+                  return { hasForm: true, inputs: inputs.length, selects: selects.length, submits: submitBtns.length };
+                }
+                const modals = document.querySelectorAll('[class*="modal"], [class*="dialog"], [class*="popup"], [class*="overlay"]');
+                const modalVisible = Array.from(modals).some(m => m.offsetParent !== null || (m.style && m.style.display !== 'none'));
+                if (modalVisible) return { hasModal: true, modalCount: modals.length };
+                return { hasForm: false, inputs: inputs.length, selects: selects.length, submits: submitBtns.length };
+              }).catch(() => ({}));
+              if (deepForms.hasForm) {
+                // 填写表单
+                await target.evaluate(() => {
+                  document.querySelectorAll('input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="checkbox"]):not([type="radio"]), textarea').forEach(inp => {
+                    const t = (inp.type || 'text').toLowerCase(); const n = (inp.name || '').toLowerCase(); const p = (inp.placeholder || '').toLowerCase();
+                    if (t === 'email') inp.value = 'test@example.com';
+                    else if (t === 'tel') inp.value = '13800138000';
+                    else if (/phone|mobile|number/.test(n)) inp.value = '13800138000';
+                    else if (/name/.test(n) || /name/.test(p)) inp.value = '测试用户';
+                    else if (/amount/.test(n) || /amount/.test(p)) inp.value = '100';
+                    else inp.value = 't_' + Date.now().toString(36);
+                  });
+                  document.querySelectorAll('select').forEach(sel => { const ops = Array.from(sel.options).filter(o => !o.disabled && o.value); if (ops.length > 0) sel.value = ops[0].value; });
+                  document.querySelectorAll('input[type="checkbox"]').forEach(cb => { cb.checked = true; });
+                }).catch(() => {});
+                await new Promise(r => setTimeout(r, 500));
+                subDetail._deepInteraction = { type: 'form_fill', inputs: deepForms.inputs, selects: deepForms.selects };
+                const submitted = await target.evaluate(() => { const btn = document.querySelector('input[type="submit"], button[type="submit"]'); if (btn) { btn.click(); return true; } return false; }).catch(() => false);
+                if (submitted) {
+                  try { await target.waitForLoadState('networkidle', { timeout: 8000 }); } catch (_) {}
+                  await new Promise(r => setTimeout(r, 1500));
+                  subDetail._deepInteraction.submitted = true;
+                  const submitErrs = await captureErrors(Date.now() - 3000);
+                  for (const e of submitErrs.items) {
+                    result.blockingIssues.push({ function: `${subDetail.function}>表单提交`, url: target.url(), issue: e.type === 'console' ? 'console_error' : 'network_error', detail: `[表单提交] ${e.msg}` });
+                  }
+                  if (submitErrs.items.length > 0) {
+                    subDetail.consoleErrors += submitErrs.consoleErrors;
+                    subDetail.networkErrors += submitErrs.networkErrors;
+                    subDetail._deepInteraction.submitErrors = submitErrs.items.length;
+                    subDetail._deepInteraction.submitErrorSample = submitErrs.items.slice(0, 3);
+                  }
+                }
+              }
+            } catch (_) {}
+
+            if (subDetail.navigated) {
+              try { await target.goBack({ waitUntil: 'networkidle', timeout: 10000 }); subDetail.returned = true; } catch (_) { subDetail.returned = false; }
+            } else {
+              subDetail.returned = true;
+            }
+            subDetail.passed = subDetail.consoleErrors === 0 && subDetail.networkErrors === 0 && !subDetail.pageError && !subDetail.errorText;
+
+          } catch (e) { subDetail.passed = false; subDetail.error = e.message; }
+
+          totalClicked++;
+          pageDetail.subClicked++;
+          if (subDetail.passed) pageDetail.subPassed++; else pageDetail.subFailed++;
+          result.details.push(subDetail);
+        }
+
+        pageDetail.passed = pageDetail.consoleErrors === 0 && pageDetail.networkErrors === 0 && !pageDetail.pageError && !pageDetail.errorText && pageDetail.subFailed === 0;
+
+      } catch (e) { pageDetail.passed = false; pageDetail.error = e.message; }
+
+      // 返回首页
+      try { await target.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }); await new Promise(r => setTimeout(r, 1500)); } catch (_) {}
+      result.details.push(pageDetail);
+    }
+
+    // ====== 阶段 3：点击首页自身的非导航功能（已回到首页） ======
+    // 这些是纯按钮/操作，不是导航链接
+    // 包含 select 下拉菜单（如角色切换），逐一选择每个 option 验证
+    result.captureEvidence._reachedStage3 = true;
+    const homeActions = [];
+    try {
+      const rawHomeActions = await target.evaluate(() => {
+        const items = []; const seen = new Set();
+        document.querySelectorAll('button, [role="button"], .btn, [onclick], input[type="submit"], input[type="button"]').forEach(el => {
+          const text = (el.textContent || '').trim() || el.getAttribute('value') || el.getAttribute('aria-label') || '';
+          if (text && !seen.has(text)) {
+            seen.add(text);
+            let sel = '';
+            if (el.id) sel = '#' + el.id.replace(/[:"\s]/g, '\\$&');
+            else { const cls = Array.from(el.classList).filter(c => !c.startsWith('_') && !c.startsWith('ng-')).slice(0, 1).map(c => '.' + c.replace(/[:"\s]/g, '\\$&')).join(''); sel = (el.tagName || '').toLowerCase() + cls || ''; }
+            items.push({ text, selector: sel, tag: 'button' });
+          }
+        });
+        // 也发现 select 下拉菜单（如角色切换），记录可选的每个 option
+        document.querySelectorAll('select').forEach(sel => {
+          const selId = sel.id ? '#' + sel.id.replace(/[:"\s]/g, '\\$&') : '';
+          const selName = sel.name || sel.id || 'select';
+          const options = sel.querySelectorAll('option');
+          const optGroups = {};
+          options.forEach(opt => {
+            const groupLabel = opt.closest('optgroup')?.getAttribute('label') || '';
+            const label = (groupLabel ? groupLabel + ' > ' : '') + (opt.textContent || '').trim();
+            if (label && !seen.has(label)) {
+              seen.add(label);
+              items.push({ text: label, selector: selId || selName, tag: 'select', value: opt.getAttribute('value') || '' });
+            }
+          });
+        });
+        return items;
+      });
+      // 过滤掉已经在 navItems 中处理过的（即导航按钮）
+      // 同时过滤掉 select 选项——它们会触发角色/状态变更，交给阶段 3.5 做独立测试
+      // 参考：SRE 排错铁律二 — 一次只改变一个变量，select 状态变更应在隔离环境中测试
+      const navTexts = new Set(navItems.map(n => n.text));
+      const beforeFilter = rawHomeActions.length;
+      const selectCount = rawHomeActions.filter(i => i.tag === 'select').length;
+      for (const item of rawHomeActions) {
+        if (!navTexts.has(item.text) && item.tag !== 'select') homeActions.push(item);
+      }
+      result.captureEvidence._debugSelect = { totalRaw: beforeFilter, selectOptionsFound: selectCount, homeActionsAfter: homeActions.length, selectInHome: 0, stage3Skip: true, reason: 'select选项移入阶段3.5独立测试，避免污染状态' };
+    } catch (e) { result.captureEvidence._debugSelect = { error: e.message }; }
+
+    // ====== SPA 内容变化跟踪：记录首页基线 DOM 快照 ======
+    let baseDomFingerprint = null;
+    try {
+      baseDomFingerprint = await target.evaluate(() => {
+        const allEls = document.querySelectorAll('body *');
+        let visibleCount = 0;
+        for (const el of allEls) {
+          if (visibleCount >= 500) break;
+          try { const s = window.getComputedStyle(el); if (s.display !== 'none' && s.visibility !== 'hidden' && el.offsetParent !== null) visibleCount++; } catch (_) {}
+        }
+        const mainText = (document.body.innerText || '').trim().slice(0, 2000);
+        const hash = mainText.length + '_' + mainText.slice(0, 100);
+        return { visibleCount, textHash: hash };
+      });
+    } catch (_) {}
+
+    for (let hi = 0; hi < homeActions.length && !isTimeout() && totalClicked < maxItems; hi++) {
+      await new Promise(r => setTimeout(r, clickDelay));
+      const fn = homeActions[hi];
+      const detail = {
+        function: `首页 > ${fn.text || fn.selector || `功能${hi+1}`}`,
+        text: fn.text || '', selector: fn.selector || '',
+        category: '首页功能', urlBefore: target.url(), urlAfter: '',
+        navigated: false, returned: false, passed: true,
+        consoleErrors: 0, networkErrors: 0, pageError: null, errorText: null, error: null
+      };
+
+      try {
+        await resetLogs();
+        let clicked = false;
+        if (fn.tag === 'select' && fn.selector && fn.value) {
+          // select 下拉菜单：先重置到首页确保基线一致
+          // 原则（一次只改变一个变量）：每次 select 都从首页重新出发，避免上个操作污染状态
+          // 参考：SRE 排错铁律二 — 先修第一个错误（每次测试独立，互不干扰）
+          try {
+            await target.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
+            await new Promise(r => setTimeout(r, 1500));
+            await resetLogs();
+          } catch (_) {}
+          // 使用 selectOption 而非点击
+          try {
+            console.error('[runBrowserFullRegression] 🔽 select选项:', fn.text, `(value=${fn.value})`);
+            await target.selectOption(fn.selector, fn.value, { timeout: 5000 });
+            clicked = true;
+          } catch (_) {
+            try { await target.selectOption(fn.selector, { value: fn.value }, { timeout: 3000 }); clicked = true; } catch (_) {}
+          }
+        } else {
+          console.error('[runBrowserFullRegression] 🖱️ 首页点击:', fn.text || fn.selector);
+          clicked = await tryClick(fn.selector, true);
+          if (!clicked) clicked = await tryClick(fn.text, false);
+          if (!clicked && fn.selector) clicked = await tryClick(fn.selector, true);
+        }
+
+        if (!clicked) { detail.passed = false; detail.error = '无法定位点击'; totalClicked++; result.details.push(detail); continue; }
+
+        try { await target.waitForLoadState('networkidle', { timeout: 5000 }); } catch (_) { await new Promise(r => setTimeout(r, 1500)); }
+        await new Promise(r => setTimeout(r, 500));
+
+        detail.urlAfter = target.url();
+
+        // ====== SPA 页面内容变化检测：URL 未变但 DOM 显著变化 ======
+        // 传统 goTo/goBack 无法追踪 SPA 的 JS 驱动导航
+        // 通过对比点击前后 DOM 可见元素数和文本特征来判断页面是否切换
+        // 参考：OODA 循环 Observe 阶段 — 不仅看 URL，还要看页面真实状态
+        let spaNavigated = false;
+        let spaNewContent = null;
+        let fpDelta = 0;
+        if (!detail.navigated && baseDomFingerprint) {
+          try {
+            const newFp = await target.evaluate(() => {
+              const allEls = document.querySelectorAll('body *');
+              let visibleCount = 0;
+              for (const el of allEls) {
+                if (visibleCount >= 500) break;
+                try { const s = window.getComputedStyle(el); if (s.display !== 'none' && s.visibility !== 'hidden' && el.offsetParent !== null) visibleCount++; } catch (_) {}
+              }
+              const mainText = (document.body.innerText || '').trim().slice(0, 2000);
+              const hash = mainText.length + '_' + mainText.slice(0, 100);
+              return { visibleCount, textHash: hash };
+            });
+            const elemDelta = Math.abs(newFp.visibleCount - baseDomFingerprint.visibleCount);
+            fpDelta = elemDelta;
+            const textChanged = newFp.textHash !== baseDomFingerprint.textHash;
+            // 阈值判断：元素数差 > 15 或文本哈希变化视为 SPA 导航
+            // 但排除纯 UI 切换（如主题、通知面板）— 这些通常元素数差 < 80 且不改变核心内容
+            if ((elemDelta > 50 || textChanged) && elemDelta < 500) {
+              spaNavigated = true;
+              // 扫描新页面中的可交互元素
+              spaNewContent = await target.evaluate(() => {
+                const items = [];
+                const candidates = document.querySelectorAll('button, a[href]:not([href="#"]), [role="button"], [tabindex]:not([tabindex="-1"])');
+                for (const el of candidates) {
+                  try {
+                    if (el.offsetParent === null) continue;
+                    const text = (el.textContent || '').trim();
+                    if (!text || text.length > 25 || text.length < 1) continue;
+                    const id = el.id ? '#' + el.id : '';
+                    const cls = Array.from(el.classList).filter(c => !c.startsWith('_') && c !== 'nav-item' && c !== 'btn').slice(0, 2).map(c => '.' + c).join('');
+                    const sel = id || (el.tagName.toLowerCase() + cls) || '';
+                    if (sel) items.push({ text, selector: sel, tag: el.tagName.toLowerCase() });
+                    if (items.length >= 3) break;
+                  } catch (_) {}
+                }
+                return items;
+              }).catch(() => null);
+            }
+          } catch (_) {}
+        }
+        detail.navigated = (detail.urlAfter !== detail.urlBefore) || spaNavigated;
+        if (spaNavigated) {
+          detail._spa = true;
+          result.summary.pagesVisited = (result.summary.pagesVisited || 0) + 1;
+          console.error('[runBrowserFullRegression] 🔄 SPA页面变化:', fn.text || fn.selector, `(元素差: ${fpDelta})`);
+        }
+
+        const homeClickSinceTs = Date.now() - 2000;
+        const errs = await captureErrors(homeClickSinceTs);
+        detail.consoleErrors = errs.consoleErrors; detail.networkErrors = errs.networkErrors;
+        detail.pageError = errs.pageError; detail.errorText = errs.errorText;
+        result.captureEvidence.perActionBreakdown.push({
+          function: detail.function,
+          consoleErrors: errs.consoleErrors,
+          networkErrors: errs.networkErrors,
+          pageError: errs.pageError,
+          errorText: errs.errorText,
+          sample: errs.items.slice(0, 3)
+        });
+        for (const e of errs.items) {
+          result.blockingIssues.push({ function: detail.function, url: detail.urlAfter, issue: e.type === 'console' ? 'console_error' : 'network_error', detail: e.msg });
+        }
+
+        // SPA 返回：尝试点击新页面中的可交互元素（深度 2 探索），再尝试返回
+        if (spaNavigated && spaNewContent && spaNewContent.length > 0) {
+          try {
+            const targetEl = spaNewContent[0];
+            console.error('[runBrowserFullRegression] 🔍 SPA深度探索:', targetEl.text);
+            try { await target.evaluate((sel) => { const el = document.querySelector(sel); if (el) el.click(); }, targetEl.selector); } catch (_) {}
+            try { await target.waitForLoadState('networkidle', { timeout: 5000 }); } catch (_) { await new Promise(r => setTimeout(r, 1500)); }
+            await new Promise(r => setTimeout(r, 500));
+          } catch (_) {}
+        }
+
+        // 返回：URL 变化用 goBack，SPA 变化点击同一按钮切换回
+        if (detail.urlAfter !== detail.urlBefore) {
+          try { await target.goBack({ waitUntil: 'networkidle', timeout: 10000 }); detail.returned = true; } catch (_) { detail.returned = false; }
+        } else if (spaNavigated) {
+          // SPA 返回：点击同一个按钮 toggle 回去
+          try {
+            if (fn.selector) {
+              await target.evaluate((sel) => { const el = document.querySelector(sel); if (el) el.click(); }, fn.selector);
+              try { await target.waitForLoadState('networkidle', { timeout: 5000 }); } catch (_) { await new Promise(r => setTimeout(r, 1500)); }
+              await new Promise(r => setTimeout(r, 500));
+              detail.returned = true;
+            }
+          } catch (_) { detail.returned = false; }
+        } else {
+          detail.returned = true;
+        }
+
+        detail.passed = detail.consoleErrors === 0 && detail.networkErrors === 0 && !detail.pageError && !detail.errorText;
+
+      } catch (e) { detail.passed = false; detail.error = e.message; }
+
+      totalClicked++;
+      result.details.push(detail);
+    }
+
+    // ====== 阶段 3.5：通用 select 状态变更独立测试 ======
+    //
+    // 设计原理（从底层模式出发）：
+    //   通用模式：SelectChange → StateChange → NewAPIRequests → PermissionErrors(4xx)
+    //   这个模式适用于 ANY 页面上的 ANY select 元素，不限于特定角色或页面。
+    //
+    // [重要] 阶段 3.5 前冷却期：
+    //   BFS 遍历（阶段 1-3）消耗了大量 API 配额，此时服务端可能已限流（429）。
+    //   如果直接测试 select 选项，所有响应都会被 429 掩盖，无法看到真实错误（如 403/500）。
+    //   因此必须在阶段 3.5 前等待限流清除。
+    //   参考：Exponential Backoff 策略 — 退避等待后再试
+    try {
+      // 先扫描当前是否有 429 限流
+      const preCheckErrs = await captureErrors(Date.now() - 5000);
+      const hasRecent429 = preCheckErrs.items.some(i => /429|too many|rate limit/i.test(i.msg || ''));
+      result.captureEvidence._selectCooldownPreCheck = { hasRecent429, pre429Count: preCheckErrs.items.filter(i => /429/i.test(i.msg || '')).length };
+      if (hasRecent429) {
+        // 检测到限流，等待 30 秒让服务端恢复
+        // 指数退避策略：检测到限流后至少等 30 秒
+        console.error('[runBrowserFullRegression] ⏳ 检测到限流429，等待30秒冷却...');
+        await new Promise(r => setTimeout(r, 30000));
+        console.error('[runBrowserFullRegression] ✅ 冷却完成，开始 select 状态测试');
+      }
+    } catch (_) {}
+
+    // 设计原理（续）：
+    //   通用模式：SelectChange → StateChange → NewAPIRequests → PermissionErrors(4xx)
+    //   这个模式适用于 ANY 页面上的 ANY select 元素，不限于特定角色或页面。
+    //
+    // 为什么需要独立测试（区别于阶段3的遍历）：
+    //   阶段3的遍历在一个循环中依次尝试所有选项，但 select 切换会改变页面状态，
+    //   导致后续选项无法正确执行（SRE 排错铁律：一次只改变一个变量）。
+    //   本阶段为每个 select 选项重置到首页基线，独立测试。
+    //
+    // 融入的运维排错方法论：
+    //   - OODA 循环：Observe（重置+截图）→ Orient（检测状态变化）→ Decide（分类错误模式）→ Act（记录证据）
+    //   - 故障模式目录：403 select → 权限变更 → 新 API 请求 → 403 拒绝
+    //   - 一次只改变一个变量：每个选项从干净首页重新出发
+    //
+    // 这个测试不限于"角色切换"，它适用于所有 select 下拉框的状态变更检测。
+    try {
+      // 先获取页面上所有 select 及其选项
+      const allSelectsInfo = await target.evaluate(() => {
+        return Array.from(document.querySelectorAll('select')).map(sel => {
+          const selId = sel.id ? '#' + sel.id : '';
+          const selName = sel.name || sel.id || 'select';
+          return {
+            selector: selId || selName,
+            options: Array.from(sel.options).map(o => ({ text: o.text, value: o.getAttribute('value') || o.value }))
+          };
+        });
+      }).catch(() => []);
+      result.captureEvidence._selectStateTest = { selectCount: allSelectsInfo.length, totalTested: 0, errorPatterns: [] };
+
+      // 对每个 select 的每个 option 做独立测试
+      // 注意：select 状态测试不受 maxItems 限制（是独立测试而非 BFS 点击数）
+      // 只受 timeout 全局超时保护，避免提前退出
+      // 间隔原则：每个操作之间等待 3 秒，避免触发服务端限流（429）
+      // 参考：OODA 循环 — Act 后 Observe，给服务端足够时间恢复
+      for (const selInfo of allSelectsInfo) {
+        for (const opt of selInfo.options) {
+          if (isTimeout()) break;
+          if (!opt.value && !opt.text) continue; // 跳过空选项
+
+          // 每个选项之间等待 3 秒，避免频繁操作触发限流
+          // SRE 排错铁律三：一次只改变一个变量——包括时间维度上的隔离
+          await new Promise(r => setTimeout(r, 3000));
+
+          // Observe: 重置到首页基线（一次只改变一个变量）
+          try {
+            await target.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
+            await new Promise(r => setTimeout(r, 1500));
+          } catch (_) { continue; }
+          await resetLogs();
+          const urlBefore = target.url();
+
+          // Act: 选中选项
+          let selected = false;
+          console.error('[runBrowserFullRegression] 🔽 阶段3.5 select选项:', selInfo.selector, '→', opt.text || opt.value);
+          try {
+            await target.selectOption(selInfo.selector, opt.value, { timeout: 5000 });
+            selected = true;
+          } catch (_) {
+            try { await target.selectOption(selInfo.selector, { value: opt.value }, { timeout: 3000 }); selected = true; } catch (_) {}
+          }
+          if (!selected) continue;
+
+          try { await target.waitForLoadState('networkidle', { timeout: 8000 }); } catch (_) { await new Promise(r => setTimeout(r, 2000)); }
+          await new Promise(r => setTimeout(r, 500));
+          const urlAfter = target.url();
+          const navigated = urlAfter !== urlBefore;
+
+          // 📸 select 选项测试截图
+          try { const buf = await target.screenshot({ type: 'png', fullPage: false }); result.captureEvidence.screenshots.push({ stage: 'select', label: `${selInfo.selector} → ${opt.text || opt.value}`, data: buf.toString('base64').slice(0, 500) }); } catch (_) {}
+
+          // Orient + Decide: 捕获错误并分类
+          const sinceTs = Date.now() - 3000;
+          const errs = await captureErrors(sinceTs);
+
+          // ===== 后选择深度探索：角色切换后扫描页面，发现隐藏错误 =====
+          // 有些错误只在角色切换后访问特定页面时才暴露（如"服务商预览"页面500）
+          // 这里自动点击一个导航按钮，模拟人类切换角色后浏览功能的行为
+          // 参考：OODA 循环 Orient 阶段 — 切换视角（角色）后重新观察系统
+          try {
+            // 先检查前一步的网络错误中是否有 429，如果有则跳过深度探索（限流中，额外请求只会触发更多 429）
+            const deepSkip = errs.items.some(i => /429|too many requests|rate limit/i.test(i.msg || ''));
+            if (!deepSkip) {
+              // 查找页面上的可点击导航项（第一个非触发器的元素）
+              const pageNavItem = await target.evaluate(() => {
+                const navs = document.querySelectorAll('button, a[href], [role="button"], .nav-item, .btn');
+                for (const el of navs) {
+                  const text = (el.textContent || '').trim();
+                  const tag = (el.tagName || '').toLowerCase();
+                  const href = el.getAttribute('href') || '';
+                  // 跳过 select 触发器、主题切换、通知、聊天等系统UI
+                  if (/theme|notif|chat|mobile-menu|close|☰|🌙|🔔|💬|✕|roleSelect|select/i.test(el.id || '') || /theme|notif|chat/i.test(el.className || '')) continue;
+                  if (text && text.length > 0 && text.length < 20) {
+                    let sel = '';
+                    if (el.id) sel = '#' + el.id.replace(/[:"\s]/g, '\\$&');
+                    else if (el.getAttribute('data-testid')) sel = '[data-testid="' + el.getAttribute('data-testid') + '"]';
+                    else { const cls = Array.from(el.classList).filter(c => !c.startsWith('_')).slice(0, 1).map(c => '.' + c.replace(/[:"\s]/g, '\\$&')).join(''); sel = tag + cls || tag; }
+                    return { text, selector: sel, tag };
+                  }
+                }
+                return null;
+              }).catch(() => null);
+              if (pageNavItem) {
+                console.error('[runBrowserFullRegression] 🔍 角色切换后深度探索:', pageNavItem.text);
+                try {
+                  await target.evaluate((sel) => { const el = document.querySelector(sel); if (el) el.click(); }, pageNavItem.selector);
+                  try { await target.waitForLoadState('networkidle', { timeout: 6000 }); } catch (_) { await new Promise(r => setTimeout(r, 2000)); }
+                  await new Promise(r => setTimeout(r, 1000));
+                  // 用 Performance API 扫描是否有角色切换后独有的错误（如 500）
+                  const perfScan = await target.evaluate(() => {
+                    return performance.getEntriesByType('resource')
+                      .filter(e => e.responseStatus >= 400)
+                      .map(e => ({ url: e.name, status: e.responseStatus }));
+                  }).catch(() => []);
+                  const newErrors = perfScan.filter(pe => !errs.items.some(e => e.msg && e.msg.includes(pe.url)));
+                  for (const ne of newErrors) {
+                    const msg = `[深度探索] ${ne.url} ${ne.status}`;
+                    errs.items.push({ type: 'network', msg });
+                    if (ne.status >= 500) errs.networkErrors++;
+                    else if (ne.status >= 400) errs.networkErrors++;
+                  }
+                  result.captureEvidence._selectDeepExploration = result.captureEvidence._selectDeepExploration || [];
+                  result.captureEvidence._selectDeepExploration.push({
+                    option: opt.text || opt.value,
+                    navItem: pageNavItem.text,
+                    foundErrors: newErrors.length,
+                    sample: newErrors.slice(0, 3)
+                  });
+                } catch (_) {}
+              }
+            }
+          } catch (_) {}
+
+          // 如果大量错误是 429，说明服务端限流了，等待后重试一次
+          const hasRateLimit = errs.items.some(i => /429|too many requests|rate limit/i.test(i.msg || ''));
+          if (hasRateLimit) {
+            await new Promise(r => setTimeout(r, 5000)); // 等 5 秒
+            // 重新捕获（不重新操作，用 Performance API 看是否有新状态）
+            const retryErrs = await captureErrors(sinceTs);
+            // 如果重试后还是有大量 429，跳过这个选项
+            const stillRateLimited = retryErrs.items.filter(i => /429|too many requests|rate limit/i.test(i.msg || '')).length > 2;
+            if (!stillRateLimited) {
+              // 重试后限流解除，重新初始化
+              try {
+                await target.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
+                await new Promise(r => setTimeout(r, 1500));
+                await resetLogs();
+                await target.selectOption(selInfo.selector, opt.value, { timeout: 5000 });
+                try { await target.waitForLoadState('networkidle', { timeout: 8000 }); } catch (_) { await new Promise(r => setTimeout(r, 2000)); }
+                await new Promise(r => setTimeout(r, 500));
+                const retrySinceTs = Date.now() - 3000;
+                const retryErrs2 = await captureErrors(retrySinceTs);
+                // 用重试后的结果覆盖
+                Object.assign(errs, retryErrs2);
+              } catch (_) {}
+            }
+          }
+
+          // 错误模式分类（通用模式检测，不限于任何页面）
+          // 注意：5xx 检测使用末尾锚定和精确模式，避免匹配 IP 地址（如 192.168.500.1）和端口号（如 :5000）
+          // 真实 5xx 状态码的特征：位于消息末尾（网络条目格式）、括号内、或包含明确的服务端错误关键词
+          const patterns = [];
+          const has403 = errs.items.some(i => /403|forbidden|禁止访问/i.test(i.msg || ''));
+          const has401 = errs.items.some(i => /401|unauthorized|未授权/i.test(i.msg || ''));
+          const has5xx = errs.items.some(i => {
+            const msg = i.msg || '';
+            // 网络条目格式: "METHOD URL STATUS" — 状态码在末尾
+            if (/ (50[0-9])\s*$/.test(msg)) return true;
+            // 控制台格式: "(500)" 或 "status 500" 或 "HTTP 500"
+            if (/\(50[0-9]\)/i.test(msg)) return true;
+            if (/[sS]tatus\s*[:：]?\s*50[0-9]\b/.test(msg)) return true;
+            // 明确的服务端错误文本
+            if (/\b(server error|Internal Server Error)\b/i.test(msg)) return true;
+            if (/服务器错误/i.test(msg)) return true;
+            return false;
+          });
+          const hasConsole = errs.consoleErrors > 0;
+          // 429 属于限流，不是应用逻辑错误，单独记录但不作为 blocking error
+          const rateLimited = errs.items.filter(i => /429|too many requests|rate limit/i.test(i.msg || '')).length;
+          if (has403) patterns.push('permission_denied(403)');
+          if (has401) patterns.push('auth_required(401)');
+          if (has5xx) patterns.push('server_error(5xx)');
+          if (hasConsole && !has403 && !has401 && !has5xx && rateLimited === 0) patterns.push('console_error');
+
+          if (patterns.length > 0) {
+            result.captureEvidence._selectStateTest.errorPatterns.push({
+              selectSelector: selInfo.selector,
+              option: opt,
+              patterns: patterns,
+              navigated: navigated,
+              errors: {
+                console: errs.consoleErrors,
+                network: errs.networkErrors,
+                sample: errs.items.slice(0, 3)
+              }
+            });
+          }
+
+          // 记录详情（passed 判定排除 429 限流，只反映真实错误）
+          const non429Errors = errs.items.filter(i => !/429|too many requests|rate limit/i.test(i.msg || ''));
+          const hasRealErrors = non429Errors.length > 0;
+          const detail = {
+            function: `状态变更测试 > ${selInfo.selector} > ${opt.text || opt.value}`,
+            text: opt.text || '', selector: selInfo.selector,
+            category: '状态变更测试', urlBefore, urlAfter,
+            navigated, returned: false, passed: !hasRealErrors && patterns.length === 0,
+            consoleErrors: errs.consoleErrors, networkErrors: errs.networkErrors,
+            pageError: errs.pageError, errorText: errs.errorText,
+            error: hasRealErrors ? `真实错误: ${non429Errors.length} 条 (${non429Errors.slice(0, 3).map(e => { const m = e.msg || ''; return m.match(/ (40[0-9]|50[0-9])$/)?.[1] || m.match(/\(40[0-9]|50[0-9]\)/)?.[0] || 'err'; }).join(', ')})` : (patterns.length > 0 ? `检测到: ${patterns.join(', ')}` : null)
+          };
+          if (navigated) { try { await target.goBack({ waitUntil: 'networkidle', timeout: 10000 }); detail.returned = true; } catch (_) { detail.returned = false; } }
+          else { detail.returned = true; }
+
+          // 有错误模式时记录到 blockingIssues
+          for (const pattern of patterns) {
+            result.blockingIssues.push({
+              function: detail.function, url: urlAfter,
+              issue: `state_change_error`,
+              detail: `[${pattern}] 选择 ${selInfo.selector} > ${opt.text || opt.value} 后触发 ${errs.networkErrors} 个网络错误, ${errs.consoleErrors} 个控制台错误`
+            });
+          }
+          // 也记录详细的 error items
+          for (const e of errs.items) {
+            result.blockingIssues.push({ function: detail.function, url: urlAfter, issue: e.type === 'console' ? 'console_error' : 'network_error', detail: e.msg });
+          }
+
+          totalClicked++;
+          result.details.push(detail);
+          result.summary.totalFunctions++;
+          result.captureEvidence._selectStateTest.totalTested++;
+          result.captureEvidence.perActionBreakdown.push({
+            function: detail.function,
+            consoleErrors: errs.consoleErrors,
+            networkErrors: errs.networkErrors,
+            pageError: errs.pageError,
+            errorText: errs.errorText,
+            sample: errs.items.slice(0, 3)
+          });
+        }
+        if (isTimeout() || totalClicked >= maxItems) break;
+      }
+    } catch (e) {
+      result.captureEvidence._selectStateTest = { error: e.message };
+    }
+
+    // ====== 汇总统计 ======
+    result.summary.clicked = totalClicked;
+    result.summary.passed = result.details.filter(d => d.passed).length;
+    result.summary.failed = result.details.filter(d => !d.passed).length;
+    result.summary.skipped = Math.max(0, result.summary.totalFunctions - totalClicked);
+    result.summary.pagesVisited = navItems.length + 1;
+
+    // ====== 捕获证据汇总 ======
+    // 这些数字能证明我们确实捕获到错误，而不是漏报
+    const finalSnap = snapshotLocalLogs();
+    result.captureEvidence.capturedTotalErrors = finalSnap.console + finalSnap.page + finalSnap.network;
+    result.captureEvidence.capturedErrorTypes = { console: finalSnap.console, page: finalSnap.page, network: finalSnap.network };
+    // 取最多前 30 条错误样本
+    result.captureEvidence.capturedSampleFull = [
+      ...localLogs.console.slice(0, 10).map(e => ({ type: 'console', msg: e.message })),
+      ...localLogs.network.slice(0, 15).map(e => ({ type: 'network', msg: `${e.method || ''} ${e.url || ''} ${e.status || ''}`, status: e.status })),
+      ...localLogs.page.slice(0, 5).map(e => ({ type: 'page', msg: e.message }))
+    ];
+
+    // ====== 闭环分析 ======
+    const navDetailItems = result.details.filter(d => d.navigated);
+    result.closedLoop.navigableFunctions = navDetailItems.length;
+    result.closedLoop.returnableFunctions = navDetailItems.filter(d => d.returned).length;
+    result.closedLoop.loopScore = navDetailItems.length > 0
+      ? Math.round((result.closedLoop.returnableFunctions / navDetailItems.length) * 100)
+      : 100;
+    result.closedLoop.loopComplete = result.closedLoop.loopScore >= 90;
+
+    result.passed = result.blockingIssues.length === 0 && totalClicked > 0;
+
+    // ====== Performance API 最终扫描 ======
+    // 用 Performance API 检查是否有遗漏的 403/500 等错误（如角色切换后的 settlements API）
+    try {
+      const perfResources = await target.evaluate(() => {
+        return performance.getEntriesByType('resource')
+          .filter(e => e.responseStatus >= 400)
+          .map(e => ({ url: e.name, status: e.responseStatus, initiatorType: e.initiatorType }));
+      }).catch(() => []);
+      if (perfResources.length > 0) {
+        result.captureEvidence.performanceFinalScan = perfResources;
+        for (const pr of perfResources) {
+          if (pr.status >= 400) {  // 检查所有 >=400 的状态码，不只是 403
+            const exists = result.blockingIssues.some(b => b.detail && b.detail.includes(pr.url));
+            if (!exists) {
+              result.blockingIssues.push({
+                function: 'performance_final_scan',
+                url: pr.url,
+                issue: pr.status >= 500 ? 'server_error' : 'network_error',
+                detail: `PerformanceAPI: ${pr.url} ${pr.status}`
+              });
+            }
+          }
+        }
+        // 补充到 capturedSampleFull
+        for (const pr of perfResources) {
+          if (!result.captureEvidence.capturedSampleFull.some(s => s.msg && s.msg.includes(pr.url))) {
+            result.captureEvidence.capturedSampleFull.push({ type: 'network', msg: `PerformanceAPI: ${pr.url} ${pr.status}`, status: pr.status });
+          }
+        }
+      }
+    } catch (_) {}
+
+    // ====== 永久累加器最终扫描 ======
+    // 底层原理：resetLogs() 清空 localLogs 会导致操作间隙的错误永久丢失
+    // permanentErrors 永不清除，这里扫描所有遗漏的 403/401/500 等错误
+    // 参考：SRE 排错铁律二 — 永不丢失证据
+    try {
+      const allPermErrors = [
+        ...permanentErrors.console.map(e => ({ type: 'console', msg: e.message, ts: e.ts })),
+        ...permanentErrors.network.map(e => ({ type: 'network', msg: `${e.method || ''} ${e.url || ''} ${e.status || ''}`, status: e.status, url: e.url, ts: e.ts })),
+        ...permanentErrors.page.map(e => ({ type: 'page', msg: e.message, ts: e.ts }))
+      ];
+      result.captureEvidence.permanentErrorCount = allPermErrors.length;
+      result.captureEvidence.permanentErrorSample = allPermErrors.slice(-20); // 取最后 20 条
+
+      // 从 permanentErrors 中找出在 blockingIssues 中没有记录的 403/401/500
+      const blockingUrls = new Set(
+        result.blockingIssues
+          .filter(b => b.detail)
+          .map(b => {
+            const m = b.detail.match(/(https?:\/\/[^\s]+)/);
+            return m ? m[1] : null;
+          })
+          .filter(Boolean)
+      );
+
+      for (const ne of permanentErrors.network) {
+        if ((ne.status === 403 || ne.status === 401 || (ne.status >= 500 && ne.status < 600)) && ne.url) {
+          if (!blockingUrls.has(ne.url)) {
+            result.blockingIssues.push({
+              function: 'permanent_accumulator_scan',
+              url: ne.url,
+              issue: ne.status >= 500 ? 'server_error' : 'network_error',
+              detail: `[${ne.source}] ${ne.method || ''} ${ne.url} ${ne.status}`
+            });
+            blockingUrls.add(ne.url);
+          }
+        }
+      }
+    } catch (_) {}
+
+  } catch (err) {
+    result.passed = false;
+    result.error = err.message;
+  }
+  // CDP session 清理
+  if (cdpSession) { try { cdpSession.detach(); } catch (_) {} cdpSession = null; }
+
+  // ===== 最终过滤：去除假阳性错误 =====
+  // 1. 429 Rate Limit — 测试工具自身触发的限流，不是应用 Bug
+  // 2. IP 地址中的 5xx 被误匹配为状态码（如 192.168.50x.x、:5000 端口等）
+  // 3. 重复错误（相同 URL + 相同状态码只保留一条）
+  try {
+    const unique = new Map(); // key: url+status → 去重
+    const filtered = [];
+    const removedCounts = { rateLimit: 0, false5xxFromIP: 0, duplicate: 0 };
+    for (const bi of result.blockingIssues) {
+      const detail = bi.detail || '';
+      // 跳过 429 限流
+      if (/429|too many requests|rate limit/i.test(detail)) { removedCounts.rateLimit++; continue; }
+      // 跳过 IP 地址中的假 5xx（安全问题：IP 如 192.168.500.1 或端口如 :5000 会被误匹配为 500）
+      // 判断规则：如果 detail 中包含 "\d+\.50[0-9]\." 或 ":\d*50[0-9]" 这类 IP/端口模式，
+      // 且不是以 " 50[0-9]"（末尾状态码）或 "(50[0-9])" 或 "status 50[0-9]" 结尾，则排除
+      if (/server_error|5xx/i.test(bi.issue || '')) {
+        const ipFalsePositive = /\d+\.50[0-9]\./.test(detail) || /:\d*50[0-9]\b/.test(detail);
+        const isRealStatus = / (50[0-9])\s*$/.test(detail) || /\(50[0-9]\)/.test(detail) || /[sS]tatus\s*[:：]?\s*50[0-9]\b/.test(detail);
+        if (ipFalsePositive && !isRealStatus) { removedCounts.false5xxFromIP++; continue; }
+      }
+      // 去重：提取 URL 和状态码做精确去重
+      let dedupKey = `${bi.url || ''}|${bi.issue || ''}`;
+      // 从 detail 中提取状态码（如 "GET /api/xxx 403" → "403"）
+      const statusMatch = detail.match(/ (50[0-9]|40[0-9]|429)\s*$/);
+      if (statusMatch) dedupKey += `|${statusMatch[1]}`;
+      else dedupKey += `|${detail.slice(0, 80)}`; // fallback: 用 detail 前缀
+      if (unique.has(dedupKey)) { removedCounts.duplicate++; continue; }
+      unique.set(dedupKey, true);
+      filtered.push(bi);
+    }
+    result.blockingIssues = filtered;
+    result.captureEvidence._postFilter = removedCounts;
+    // 更新 passed 状态（只有真错误才算）
+    result.passed = result.blockingIssues.length === 0;
+  } catch (_) {}
+
+  return result;
 }
 
 async function callTool(name, args = {}) {
@@ -5995,6 +7736,8 @@ async function callTool(name, args = {}) {
       return text(JSON.stringify(await getPageLinks(args), null, 2));
     case 'browser_traverse_menu':
       return text(JSON.stringify(await traverseMenu(args), null, 2));
+    case 'browser_full_regression':
+      return text(JSON.stringify(await runBrowserFullRegression(args), null, 2));
     case 'auto_fix_pipeline': {
       const maxIterations = Math.min(args.maxIterations || 3, 3);
       const autoConfirm = args.autoConfirm !== false;
@@ -6149,6 +7892,107 @@ async function callTool(name, args = {}) {
         evidencePaths: iterations.map(i => i.evidencePath).filter(Boolean)
       }, null, 2));
     }
+    case 'skill_mcp_validate':
+      try {
+        const { skillName: validateSkillName, mode = 'strict' } = args;
+        const skillToolsPath = path.join(PROJECT_ROOT, '.trae', 'skills', validateSkillName, 'SKILL.tools.json');
+        if (!fs.existsSync(skillToolsPath)) {
+          return text(JSON.stringify({ passed: false, error: `Skill ${validateSkillName} 的 SKILL.tools.json 不存在` }, null, 2));
+        }
+        const skillTools = JSON.parse(fs.readFileSync(skillToolsPath, 'utf8'));
+        const toolFiles = fs.readdirSync(TOOLS_DIR).filter(f => f.endsWith('.json'));
+        const availableTools = toolFiles.map(f => path.basename(f, '.json'));
+        const availableSet = new Set(availableTools);
+        const missingTools = [];
+        const referencedTools = Object.keys(skillTools.tools);
+        for (const toolName of referencedTools) {
+          if (!availableSet.has(toolName)) {
+            missingTools.push({
+              toolName,
+              phase: skillTools.tools[toolName].phase,
+              missingType: availableTools.includes(toolName) ? 'schema_mismatch' : 'not_found'
+            });
+          }
+        }
+        const capabilityIssues = [];
+        if (skillTools.capabilities) {
+          for (const cap of skillTools.capabilities) {
+            const capMissing = cap.requiredTools.filter(t => !availableSet.has(t));
+            if (capMissing.length > 0) {
+              capabilityIssues.push({
+                capability: cap.name,
+                description: cap.description,
+                missingTools: capMissing
+              });
+            }
+          }
+        }
+        const passed = missingTools.length === 0 && capabilityIssues.length === 0;
+        const result = {
+          passed: mode === 'strict' ? passed : true,
+          mode,
+          skillName: validateSkillName,
+          missingTools,
+          capabilityIssues,
+          availableTools,
+          totalReferenced: referencedTools.length,
+          totalAvailable: availableTools.length
+        };
+        if (mode === 'warn' && !passed) {
+          result.warning = 'Skill-MCP 存在不一致，已标记警告';
+        }
+        return text(JSON.stringify(result, null, 2));
+      } catch (err) {
+        return text(JSON.stringify({ passed: false, error: err.message }, null, 2));
+      }
+    case 'skill_mcp_sync':
+      try {
+        const { skillName: syncSkillName, dryRun = true } = args;
+        const skillToolsPath = path.join(PROJECT_ROOT, '.trae', 'skills', syncSkillName, 'SKILL.tools.json');
+        if (!fs.existsSync(skillToolsPath)) {
+          return text(JSON.stringify({ passed: false, error: `Skill ${syncSkillName} 的 SKILL.tools.json 不存在` }, null, 2));
+        }
+        const skillTools = JSON.parse(fs.readFileSync(skillToolsPath, 'utf8'));
+        const toolFiles = fs.readdirSync(TOOLS_DIR).filter(f => f.endsWith('.json'));
+        const actualTools = toolFiles.map(f => path.basename(f, '.json'));
+        const actualSet = new Set(actualTools);
+        const skillToolsList = Object.keys(skillTools.tools);
+        const newTools = actualTools.filter(t => !skillToolsList.includes(t));
+        const removedTools = skillToolsList.filter(t => !actualSet.has(t));
+        const diff = {
+          skillName: syncSkillName,
+          toolsInSkill: skillToolsList.length,
+          toolsInMcp: actualTools.length,
+          added: newTools,
+          removed: removedTools,
+          hasChanges: newTools.length > 0 || removedTools.length > 0
+        };
+        if (dryRun) {
+          return text(JSON.stringify({ ...diff, dryRun: true, message: 'dryRun=true，仅预览变更，未写入文件' }, null, 2));
+        }
+        const mappingPath = path.join(PROJECT_ROOT, '.trae', 'mcp-server', 'docs', 'skills', 'skill-mcp-mapping.md');
+        if (!fs.existsSync(mappingPath)) {
+          return text(JSON.stringify({ ...diff, updated: false, error: `mapping.md 不存在：${mappingPath}` }, null, 2));
+        }
+        let mapping = fs.readFileSync(mappingPath, 'utf8');
+        const now = new Date().toISOString().slice(0, 10);
+        mapping = mapping.replace(/> 更新日期: .+/, `> 更新日期: ${now}`);
+        if (diff.hasChanges) {
+          let summary = '\n\n#### 自动同步变更\n\n';
+          summary += `> 同步时间: ${new Date().toISOString()}\n\n`;
+          if (diff.added.length > 0) {
+            summary += `**新增工具**: ${diff.added.join(', ')}\n\n`;
+          }
+          if (diff.removed.length > 0) {
+            summary += `**移除工具**: ${diff.removed.join(', ')}\n\n`;
+          }
+          mapping += summary;
+        }
+        fs.writeFileSync(mappingPath, mapping, 'utf8');
+        return text(JSON.stringify({ ...diff, updated: true, dryRun: false, mappingPath }, null, 2));
+      } catch (err) {
+        return text(JSON.stringify({ passed: false, error: err.message }, null, 2));
+      }
     default:
       return { isError: true, content: [{ type: 'text', text: `未知工具：${name}` }] };
     }
