@@ -5780,7 +5780,7 @@ async function callTool(name, args = {}) {
       const urlBefore = target.url();
       ensureArtifactsDir();
       const stamp = Date.now();
-      const beforePath = path.join(ARTIFACTS_DIR, `click-audit-before-${safeArtifactName(label)}-${stamp}.png`);
+      const beforePath = path.join(SCREENSHOT_DIR, `click-audit-before-${safeArtifactName(label)}-${stamp}.png`);
       await screenshotWithRedaction(target, beforePath);
       
       // 2. 执行点击
@@ -5808,7 +5808,7 @@ async function callTool(name, args = {}) {
       // 4. 点击后截图
       let urlAfter;
       try { urlAfter = target.url(); } catch (_) { urlAfter = urlBefore; }
-      const afterPath = path.join(ARTIFACTS_DIR, `click-audit-after-${safeArtifactName(label)}-${stamp}.png`);
+      const afterPath = path.join(SCREENSHOT_DIR, `click-audit-after-${safeArtifactName(label)}-${stamp}.png`);
       await screenshotWithRedaction(target, afterPath);
       
       // 5. 截图对比（pixelmatch）
@@ -5824,7 +5824,7 @@ async function callTool(name, args = {}) {
           diffRatio = diffPixels / (beforePng.width * beforePng.height);
           visualChanged = diffRatio > 0.05;
           if (visualChanged) {
-            diffPath = path.join(ARTIFACTS_DIR, `click-audit-diff-${safeArtifactName(label)}-${stamp}.png`);
+            diffPath = path.join(SCREENSHOT_DIR, `click-audit-diff-${safeArtifactName(label)}-${stamp}.png`);
             fs.writeFileSync(diffPath, PNG.sync.write(diff));
           }
         } else {
