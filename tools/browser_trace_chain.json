@@ -1,0 +1,29 @@
+{
+  "name": "browser_trace_chain",
+  "description": "全链路调用链追溯：从 trace_id 或时间点追溯前端→API→后端的完整请求链路，聚合每个 trace 的请求/响应体和关联的 console 错误",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "traceId": {
+        "type": "string",
+        "description": "精确的 trace_id/request_id 查询"
+      },
+      "since": {
+        "type": "string",
+        "description": "时间点 (ISO格式)，只返回该时间之后的链路"
+      },
+      "url": {
+        "type": "string",
+        "description": "URL 包含过滤"
+      },
+      "statusMin": {
+        "type": "number",
+        "description": "最小 HTTP 状态码过滤（如 400 只显示错误请求）"
+      },
+      "includeBackendLogs": {
+        "type": "boolean",
+        "description": "是否同时从后端服务器 grep 日志（需要 SSH 免密）"
+      }
+    }
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "name": "mcp_health_check",
+  "description": "检查 MCP 自身健康状态：工具注册完整性、schema 合法性、证据目录可写性、当前会话和 checkpoint 状态。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {}
+  }
+}

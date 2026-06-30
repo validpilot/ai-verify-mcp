@@ -1,0 +1,27 @@
+{
+  "name": "validation_matrix",
+  "description": "执行角色 × 功能权限矩阵验证。每个角色使用独立 session，按功能步骤执行并检查预期允许/禁止结果，失败时自动调查并生成矩阵报告数据。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "name": { "type": "string", "description": "矩阵验证名称" },
+      "roles": {
+        "type": "array",
+        "description": "角色列表，每个角色可包含 name、sessionName、url、setupSteps",
+        "items": { "type": "object" }
+      },
+      "features": {
+        "type": "array",
+        "description": "功能列表，每个功能可包含 name、steps、stepsByRole、expected、expectedByRole、assertions、assertionsByRole、focus",
+        "items": { "type": "object" }
+      },
+      "clearArtifacts": { "type": "boolean", "description": "执行前是否清理证据产物，默认 false" },
+      "clearErrors": { "type": "boolean", "description": "执行前是否清空错误 checkpoint，默认 true" },
+      "instrument": { "type": "boolean", "description": "是否注入运行时探针，默认 true" },
+      "har": { "type": "boolean", "description": "是否导出 HAR JSON，默认 true" },
+      "investigateOnFailure": { "type": "boolean", "description": "失败时是否自动 debug_investigate，默认 true" },
+      "continueOnFailure": { "type": "boolean", "description": "单元失败后是否继续执行后续功能，默认 false" }
+    },
+    "required": ["roles", "features"]
+  }
+}

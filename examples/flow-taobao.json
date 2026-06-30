@@ -1,0 +1,13 @@
+{
+  "name": "淘宝假发销量排名验证",
+  "goal": "打开淘宝 → 搜索假发 → 截图搜索结果",
+  "steps": [
+    { "type": "open", "url": "https://www.taobao.com" },
+    { "type": "screenshot", "name": "淘宝首页" },
+    { "type": "type", "selector": "#q", "text": "假发 女 销量排名" },
+    { "type": "screenshot", "name": "输入搜索词后" },
+    { "type": "click", "selector": "button.btn-search" },
+    { "type": "wait", "ms": 3000 },
+    { "type": "screenshot", "name": "搜索结果页" }
+  ]
+}

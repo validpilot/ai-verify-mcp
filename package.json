@@ -1,0 +1,95 @@
+{
+  "name": "@validpilot/ai-verify-mcp",
+  "version": "1.2.0",
+  "description": "AI 编程验证平台。让 AI 代码生成结果可验证、可信赖。MCP 协议原生支持，证据驱动。",
+  "main": "server.js",
+  "publishConfig": {
+    "access": "public"
+  },
+  "author": "ValidPilot Team <validpilot@outlook.com>",
+  "bugs": {
+    "url": "https://github.com/validpilot/ai-verify-mcp/issues"
+  },
+  "homepage": "https://github.com/validpilot/ai-verify-mcp#readme",
+  "bin": {
+    "ai-verify": "bin/validpilot.js",
+    "ai-verify-mcp": "bin/validpilot.js"
+  },
+  "files": [
+    "bin/",
+    "engines/",
+    "hands/",
+    "brain/",
+    "core/",
+    "tools/",
+    "rules/",
+    "docs/",
+    "examples/demo/",
+    "server.js",
+    "start-http.js",
+    "standalone-start.js",
+    "README.md",
+    "CHANGELOG.md",
+    "CONTRIBUTING.md",
+    "SECURITY.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "ai",
+    "verify",
+    "mcp",
+    "validation",
+    "proof",
+    "evidence",
+    "agent",
+    "browser-automation",
+    "playwright",
+    "web-testing",
+    "visual-regression",
+    "screenshot",
+    "debugging",
+    "mcp-server",
+    "cursor",
+    "claude",
+    "windsurf",
+    "copilot",
+    "ai-coding",
+    "code-verification"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/validpilot/ai-verify-mcp"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "http": "node start-http.js",
+    "cli": "node bin/validpilot.js",
+    "validate": "node bin/validpilot.js health",
+    "test": "node --test test/*.test.js",
+    "test:e2e": "node --test test/e2e.integration.js",
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs",
+    "pack:dry": "npm pack --dry-run",
+    "prepublishOnly": "node bin/validpilot.js health && npm pack --dry-run"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "axe-core": "^4.12.1",
+    "chrome-launcher": "^1.2.1",
+    "dotenv": "^17.4.2",
+    "lighthouse": "^13.4.0",
+    "pixelmatch": "^7.2.0",
+    "playwright": "^1.61.1"
+  },
+  "devDependencies": {
+    "gif-encoder-2": "^1.0.5",
+    "omggif": "^1.0.10",
+    "pngjs": "^7.0.0",
+    "vitepress": "^1.6.4"
+  }
+}

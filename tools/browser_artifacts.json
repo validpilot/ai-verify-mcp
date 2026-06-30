@@ -1,0 +1,8 @@
+{
+  "name": "browser_artifacts",
+  "description": "列出当前 MCP 浏览器验证产生的证据产物：截图、trace.zip、HAR、HTML reports、visual 视觉产物、日志文件和当前 checkpoint。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {}
+  }
+}

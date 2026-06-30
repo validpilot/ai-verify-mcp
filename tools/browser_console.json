@@ -1,0 +1,26 @@
+{
+  "name": "browser_console",
+  "description": "查看浏览器控制台日志，支持按类型过滤(level: log/warning/error/debug/info)。\n\n覆盖范围：所有 console.error/warn/log/debug、window.onerror 同步异常、unhandledrejection 未处理 Promise 拒绝。\n\n边界说明：\n- 跨域脚本(Script error.)：当 <script> 标签指向第三方域名且缺少 crossorigin=\"anonymous\" 属性时，只能显示 'Script error.' 而无法获取详情。已自动检测并标记 crossOrigin:true。\n- 极端早期错误：在 addInitScript 执行前发生的 inline <script> 内联同步错误可能遗漏。CDP 层 page.on('console') 可捕获大部分，但 document.write() 中的错误可能被页面渲染流程吞没。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "level": {
+        "type": "string",
+        "enum": ["log", "warning", "error", "debug", "info", "all"],
+        "description": "控制台日志级别过滤，默认为all"
+      },
+      "since": {
+        "type": "string",
+        "description": "时间过滤起始点，ISO时间戳或时间描述（如'5m'表示最近5分钟）"
+      },
+      "limit": {
+        "type": "number",
+        "description": "返回日志数量限制，默认50"
+      },
+      "urlContains": {
+        "type": "string",
+        "description": "按URL关键字过滤"
+      }
+    }
+  }
+}

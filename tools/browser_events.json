@@ -1,0 +1,15 @@
+{
+  "name": "browser_events",
+  "description": "查看 browser_instrument 捕获的运行时事件流，支持按事件类型、URL、方法、状态码过滤。输出会自动脱敏。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "type": { "type": "string", "description": "事件类型，如 fetch_start/fetch_end/xhr_end/click/input/console/window_error/unhandledrejection/route/storage_set" },
+      "urlContains": { "type": "string", "description": "只返回页面 URL 或请求 URL 包含该关键字的事件" },
+      "method": { "type": "string", "description": "只返回指定 HTTP 方法的 fetch/xhr 事件" },
+      "statusMin": { "type": "number", "description": "只返回状态码大于等于该值的网络事件" },
+      "since": { "type": "string", "description": "ISO 时间戳，只返回该时间之后的事件" },
+      "limit": { "type": "number", "description": "最多返回事件条数，默认 100" }
+    }
+  }
+}

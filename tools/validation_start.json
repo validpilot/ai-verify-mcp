@@ -1,0 +1,12 @@
+{
+  "name": "validation_start",
+  "description": "启动端到端验证流程",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "targetUrl": {"type": "string", "description": "目标验证页面URL"},
+      "testScenarios": {"type": "array", "items": {"type": "string"}, "description": "测试场景列表"}
+    },
+    "required": ["targetUrl", "testScenarios"]
+  }
+}

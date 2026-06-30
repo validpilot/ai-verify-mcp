@@ -1,0 +1,37 @@
+{
+  "name": "benchmark_run",
+  "description": "执行 MCP 工具的性能基准测试。对指定的工具多次调用并记录每次耗时，结果保存到 benchmarks/ 目录。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "tool": {
+        "type": "string",
+        "description": "要测试的工具名称，如 browser_errors_aggregate"
+      },
+      "args": {
+        "type": "object",
+        "description": "传递给工具的参数字典",
+        "default": {}
+      },
+      "runs": {
+        "type": "integer",
+        "description": "执行次数",
+        "default": 5,
+        "minimum": 1,
+        "maximum": 50
+      },
+      "warmup": {
+        "type": "integer",
+        "description": "预热执行次数（不计入统计）",
+        "default": 1,
+        "minimum": 0,
+        "maximum": 5
+      },
+      "name": {
+        "type": "string",
+        "description": "基准测试名称（用于保存文件名），默认自动生成"
+      }
+    },
+    "required": ["tool"]
+  }
+}

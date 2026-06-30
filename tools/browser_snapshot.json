@@ -1,0 +1,8 @@
+{
+  "name": "browser_snapshot",
+  "description": "获取当前真实浏览器页面的 URL、标题、可见文本、表单元素与按钮快照",
+  "inputSchema": {
+    "type": "object",
+    "properties": {}
+  }
+}

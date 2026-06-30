@@ -1,0 +1,61 @@
+{
+  "name": "browser_batch",
+  "description": "批量执行多个浏览器操作，每个步骤包含type(操作类型: click/type/hover/scroll/screenshot等)、selector(选择器)、text(输入文本)等参数。支持最多20个操作。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "steps": {
+        "type": "array",
+        "description": "操作步骤数组，每个步骤包含type、selector、text等参数",
+        "items": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["click", "type", "hover", "scroll", "screenshot", "wait", "press_key", "select"],
+              "description": "操作类型"
+            },
+            "selector": {
+              "type": "string",
+              "description": "元素选择器"
+            },
+            "text": {
+              "type": "string",
+              "description": "输入文本（type操作时使用）"
+            },
+            "value": {
+              "type": "string",
+              "description": "下拉选项值（select操作时使用）"
+            },
+            "key": {
+              "type": "string",
+              "description": "按键名称（press_key操作时使用）"
+            },
+            "ms": {
+              "type": "number",
+              "description": "等待毫秒数（wait操作时使用）"
+            },
+            "direction": {
+              "type": "string",
+              "description": "滚动方向（scroll操作时使用）"
+            },
+            "distance": {
+              "type": "number",
+              "description": "滚动距离（scroll操作时使用）"
+            },
+            "name": {
+              "type": "string",
+              "description": "截图名称（screenshot操作时使用）"
+            }
+          },
+          "required": ["type"]
+        }
+      },
+      "maxSteps": {
+        "type": "number",
+        "description": "最大操作步骤数，默认20"
+      }
+    },
+    "required": ["steps"]
+  }
+}

@@ -1,0 +1,27 @@
+[
+  {
+    "action": "open",
+    "args": { "url": "examples/demo/index.html" },
+    "expect": "clean demo 页面加载成功，且不产生 console error/pageerror/失败网络请求"
+  },
+  {
+    "action": "check",
+    "args": { "selector": "[data-testid=\"demo-action\"]", "checks": ["no_top_errors"] },
+    "expect": "主按钮存在且当前无 top browser errors"
+  },
+  {
+    "action": "click",
+    "args": { "selector": "[data-testid=\"demo-action\"]" },
+    "expect": "点击主按钮不产生 runtime error"
+  },
+  {
+    "action": "check",
+    "args": { "selector": "#status[data-state=\"success\"]", "checks": ["no_top_errors"] },
+    "expect": "状态元素变为成功状态且仍无 top browser errors"
+  },
+  {
+    "action": "report",
+    "args": { "format": "short" },
+    "expect": "输出 business_pass 用短报告，pass=true 且 Top errors 为空"
+  }
+]

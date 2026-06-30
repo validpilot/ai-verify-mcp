@@ -1,0 +1,18 @@
+{
+  "name": "browser_full_audit",
+  "description": "对当前页面执行全量错误审计，聚合所有错误来源（CDP console + 注入脚本 + 网络 4xx/5xx + 响应体静默失败 + 资源加载错误 + 未处理的 Promise 拒绝 + 跨域脚本错误）。\n\n返回分层报告：\n- summary: 各类别错误计数\n- consoleErrors: CDP 控制台错误列表\n- injectedErrors: 注入脚本捕获的错误列表（含堆栈）\n- networkErrors: HTTP 4xx/5xx 请求列表\n- silentFailures: HTTP 200 但响应体含 SQL 错误/异常信息的请求\n- resourceErrors: 资源加载失败（img/script/link 加载错误）\n- unhandledRejections: 未处理的 Promise 拒绝\n- crossOriginErrors: 跨域脚本错误（Script error.）\n- runtimeErrors: 运行时 JS 异常（含堆栈）\n- diagnostics: 诊断建议\n\n使用场景：在页面加载完成后或交互操作后，调用此工具进行全面健康检查。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "since": {
+        "type": "string",
+        "description": "ISO 时间戳，只返回该时间之后的错误。默认返回所有未清除的错误"
+      },
+      "includeWarnings": {
+        "type": "boolean",
+        "default": false,
+        "description": "是否包含 console.warn 级别的消息"
+      }
+    }
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "name": "browser_trace_stop",
+  "description": "停止 Playwright Trace 录制并保存 trace.zip，可用 Playwright Trace Viewer 回放。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "name": { "type": "string", "description": "保存的 Trace 文件名，不含扩展名；默认使用 start 时的名称" }
+    }
+  }
+}

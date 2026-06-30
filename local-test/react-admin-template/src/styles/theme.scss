@@ -1,0 +1,40 @@
+:root {
+  /*默认白色主题取值*/
+  --theme-color: #141414;
+  --theme-backgroundColor: #fff;
+  --theme-logo-bgColor: #001529;
+  --theme-logo-color: #1677ff;
+  --theme-layout-bgColor: #f4f9fd;
+  --theme-login-left-bgColor: #f0f5ff;
+}
+
+/*黑色主题对应的变量取值*/
+.dark {
+  --theme-color: #fff;
+  --theme-backgroundColor: #141414;
+  --theme-logo-bgColor: #141414;
+  --theme-logo-color: #1677ff;
+  --theme-layout-bgColor: #000000;
+  --theme-login-left-bgColor: #141414;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+/* 进入dark模式和退出dark模式时，两个图像的位置顺序正好相反 */
+html.dark::view-transition-old(root) {
+  z-index: 1;
+}
+html.dark::view-transition-new(root) {
+  z-index: 999;
+}
+
+::view-transition-old(root) {
+  z-index: 999;
+}
+::view-transition-new(root) {
+  z-index: 1;
+}

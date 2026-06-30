@@ -1,0 +1,16 @@
+{
+  "name": "browser_locator_suggest",
+  "description": "基于已有 selector 命中的元素或 target 文本查找可见元素，按可访问属性生成更稳定的推荐选择器、评分、风险和 fallback 列表。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "selector": { "type": "string", "description": "已有选择器，命中元素后基于其属性生成推荐" },
+      "target": { "type": "string", "description": "无 selector 时按可见文本查找目标元素" },
+      "sessionName": { "type": "string", "description": "浏览器会话名称" }
+    },
+    "anyOf": [
+      { "required": ["selector"] },
+      { "required": ["target"] }
+    ]
+  }
+}

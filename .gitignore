@@ -1,0 +1,42 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build output
+dist/
+build/
+lib/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Test artifacts
+reports/
+screenshots/
+traces/
+visual/actual/
+visual/diff/
+artifacts/
+
+# Runtime data
+.browser-profiles/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Trae IDE
+.trae/

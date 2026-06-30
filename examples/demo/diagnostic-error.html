@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ValidPilot Diagnostic Error Demo</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 760px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+    main { border: 1px solid #d0d7de; border-radius: 12px; padding: 24px; }
+    button { padding: 8px 14px; border-radius: 8px; border: 1px solid #8250df; background: #8250df; color: white; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>ValidPilot Diagnostic Error Demo</h1>
+    <p>此页面包含故意的控制台错误与警告，仅用于验证错误聚合、根因分析和修复建议，不作为 business_pass 默认样例。</p>
+    <button id="demo-action" data-testid="demo-action" type="button">触发诊断状态</button>
+    <p id="status" role="status">等待操作</p>
+  </main>
+  <script>
+    console.error('Demo: intentional error #1 — 模拟未捕获的类型错误');
+    console.warn('Demo: intentional warning — 模拟废弃 API 调用');
+    console.error('Demo: intentional error #2 — 模拟网络请求失败');
+    document.getElementById('demo-action').addEventListener('click', function () {
+      document.getElementById('status').textContent = '已触发诊断状态';
+    });
+  </script>
+</body>
+</html>

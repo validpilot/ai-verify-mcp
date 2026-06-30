@@ -1,0 +1,22 @@
+[
+  {
+    "action": "open",
+    "args": { "url": "examples/demo/diagnostic-error.html" },
+    "expect": "diagnostic error demo 页面加载成功"
+  },
+  {
+    "action": "summary",
+    "args": { "mode": "low-token" },
+    "expect": "返回控制台摘要，包含至少 2 条 error 和 1 条 warn"
+  },
+  {
+    "action": "check",
+    "args": { "selector": "[data-testid=\"demo-action\"]" },
+    "expect": "诊断样例主按钮存在且可见"
+  },
+  {
+    "action": "report",
+    "args": { "format": "short" },
+    "expect": "输出错误聚合用轻量报告，包含 Top errors 摘要及 artifact 路径"
+  }
+]

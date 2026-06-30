@@ -1,0 +1,12 @@
+{
+  "name": "browser_locator_validate",
+  "description": "验证选择器稳定性，统计匹配数量、可见数量，并按 role/label/placeholder/data-testid/text/id/css/xpath 等规则输出分数、风险、警告和建议。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "selector": { "type": "string", "description": "要验证的 Playwright/CSS/text/role 选择器" },
+      "sessionName": { "type": "string", "description": "浏览器会话名称" }
+    },
+    "required": ["selector"]
+  }
+}

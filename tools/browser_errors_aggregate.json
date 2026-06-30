@@ -1,0 +1,12 @@
+{
+  "name": "browser_errors_aggregate",
+  "description": "收集或接收浏览器 Console/Network/PageError/DOM 摘要，去重聚合并返回 Top errors；默认不返回完整日志。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "limit": { "type": "number", "description": "Top errors 数量，默认 5" },
+      "includeCurrentPage": { "type": "boolean", "description": "是否优先读取当前页面低 Token 证据，默认 true" },
+      "evidence": { "type": "object", "description": "可选外部证据摘要" }
+    }
+  }
+}

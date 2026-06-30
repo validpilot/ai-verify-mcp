@@ -1,0 +1,17 @@
+{
+  "name": "browser_network_detail",
+  "description": "查看本轮网络请求详情，包括请求头、响应头、请求体、响应体摘要、耗时和失败原因。输出自动脱敏。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "contains": { "type": "string", "description": "URL 过滤关键字，兼容旧参数" },
+      "urlContains": { "type": "string", "description": "URL 过滤关键字" },
+      "method": { "type": "string", "description": "HTTP 方法，如 GET/POST/PUT" },
+      "statusMin": { "type": "number", "description": "只返回状态码大于等于该值的记录" },
+      "statusMax": { "type": "number", "description": "只返回状态码小于等于该值的记录" },
+      "since": { "type": "string", "description": "ISO 时间戳，只返回该时间之后的记录" },
+      "currentOnly": { "type": "boolean", "description": "是否只返回当前 checkpoint 之后的记录，默认 true" },
+      "limit": { "type": "number", "description": "最多返回记录条数，默认 50" }
+    }
+  }
+}

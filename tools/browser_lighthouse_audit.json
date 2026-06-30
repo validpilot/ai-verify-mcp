@@ -1,0 +1,30 @@
+{
+  "name": "browser_lighthouse_audit",
+  "description": "对当前页面执行 Google Lighthouse 审计，返回性能（Performance）、可访问性（Accessibility）、最佳实践（Best Practices）、SEO 评分及关键诊断建议。\n\n审计类别：\n- performance: 性能评分 + LCP/FID/CLS/TBT/SI 核心指标\n- accessibility: 可访问性评分 + 违反的 WCAG 准则\n- best_practices: 最佳实践评分 + HTTPS/CSP/Doctype 等检查\n- seo: SEO 评分 + meta/canonical/viewport 检查\n\n每次审计会启动一个独立的 Headless Chrome 实例（不干扰当前浏览器会话），审计完成后自动关闭。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "url": {
+        "type": "string",
+        "description": "要审计的 URL。默认为当前浏览器页面的 URL"
+      },
+      "categories": {
+        "type": "array",
+        "items": { "type": "string", "enum": ["performance", "accessibility", "best_practices", "seo"] },
+        "default": ["performance", "accessibility", "best_practices", "seo"],
+        "description": "要审计的类别，默认全部"
+      },
+      "formFactor": {
+        "type": "string",
+        "enum": ["mobile", "desktop"],
+        "default": "desktop",
+        "description": "模拟设备类型"
+      },
+      "throttling": {
+        "type": "boolean",
+        "default": false,
+        "description": "是否模拟网络节流（3G 模拟），仅 mobile 模式下推荐启用"
+      }
+    }
+  }
+}

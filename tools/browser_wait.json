@@ -1,0 +1,18 @@
+{
+  "name": "browser_wait",
+  "description": "等待真实浏览器达到指定状态：元素出现/隐藏、文本出现、URL 包含、加载状态或固定时间。用于稳定异步流程。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "selector": { "type": "string", "description": "要等待的 CSS 选择器" },
+      "state": { "type": "string", "description": "选择器状态：attached/detached/visible/hidden，默认 visible" },
+      "text": { "type": "string", "description": "要等待出现的页面文本" },
+      "exact": { "type": "boolean", "description": "文本是否精确匹配，默认 false" },
+      "nth": { "type": "number", "description": "当文本匹配多个元素时选择第几个，默认 0" },
+      "urlContains": { "type": "string", "description": "等待当前 URL 包含该字符串" },
+      "loadState": { "type": "string", "description": "等待加载状态：load/domcontentloaded/networkidle" },
+      "ms": { "type": "number", "description": "固定等待毫秒数" },
+      "timeout": { "type": "number", "description": "超时时间，默认 10000ms" }
+    }
+  }
+}

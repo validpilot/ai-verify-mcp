@@ -1,0 +1,31 @@
+{
+  "name": "browser_scroll",
+  "description": "滚动页面或元素到指定位置，支持 scrollIntoView 和像素滚动",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "selector": {
+        "type": "string",
+        "description": "要滚动到的目标元素选择器，与 scrollIntoView 配合使用"
+      },
+      "scrollIntoView": {
+        "type": "boolean",
+        "description": "是否滚动到 selector 指定的元素，默认 true（指定 selector 时）"
+      },
+      "x": {
+        "type": "number",
+        "description": "横向滚动像素值（不指定 selector 时使用）"
+      },
+      "y": {
+        "type": "number",
+        "description": "纵向滚动像素值（不指定 selector 时使用）"
+      },
+      "behavior": {
+        "type": "string",
+        "enum": ["auto", "smooth"],
+        "description": "滚动行为，默认 auto"
+      }
+    },
+    "required": []
+  }
+}

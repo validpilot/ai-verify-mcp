@@ -1,0 +1,14 @@
+{
+  "name": "error_fix_suggestion",
+  "description": "基于 errorSummary 和 contextFiles 返回最多 3 个最小修复建议；不自动改码。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "errorSummary": { "description": "错误摘要，可为字符串或对象" },
+      "contextFiles": { "type": "array", "items": { "type": "string" } },
+      "file": { "type": "string" },
+      "maxSuggestions": { "description": "返回建议的最大数量（默认 3）", "type": "number" }
+    },
+    "required": ["errorSummary"]
+  }
+}

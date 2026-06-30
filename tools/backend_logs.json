@@ -1,0 +1,26 @@
+{
+  "name": "backend_logs",
+  "description": "从后端服务器获取 Docker 容器日志，按 trace_id/关键字过滤。用于将前端请求 trace_id 对应到后端日志行",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "traceId": {
+        "type": "string",
+        "description": "按 trace_id/request_id 过滤日志"
+      },
+      "service": {
+        "type": "string",
+        "description": "容器名过滤（如 gateway / orders / postgres），不传则查所有容器"
+      },
+      "since": {
+        "type": "string",
+        "description": "只返回指定时间后的日志 (ISO格式)"
+      },
+      "lines": {
+        "type": "number",
+        "description": "返回行数上限（默认 50）"
+      }
+    },
+    "required": ["traceId"]
+  }
+}

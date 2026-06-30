@@ -1,0 +1,29 @@
+{
+  "name": "validation_check",
+  "description": "执行单项浏览器健康检查：可打开 URL、等待条件、执行断言、截图留证，并统计本轮错误。支持 deploy_verify 类型执行部署验证（API端点检查、Console错误检查、CSS变量检查、静态资源检查）。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "name": { "type": "string", "description": "检查名称" },
+      "url": { "type": "string", "description": "可选，检查前打开的 URL" },
+      "wait": { "type": "object", "description": "可选，browser_wait 参数" },
+      "assertions": { "type": "object", "description": "browser_assert 参数" },
+      "textContains": { "type": "string", "description": "快捷断言：页面包含文本" },
+      "selectorVisible": { "type": "string", "description": "快捷断言：元素可见" },
+      "urlContains": { "type": "string", "description": "快捷断言：URL 包含文本" },
+      "noErrors": { "type": "boolean", "description": "是否要求本轮无错误，默认 true" },
+      "clearErrors": { "type": "boolean", "description": "检查前是否清空错误 checkpoint，默认 true" },
+      "instrument": { "type": "boolean", "description": "是否注入运行时探针，默认 false" },
+      "evidence": { "type": "boolean", "description": "是否保存步骤证据，默认 true" },
+      "check_type": {
+        "type": "string",
+        "enum": ["standard", "deploy_verify"],
+        "description": "检查类型：standard 为标准浏览器检查（默认），deploy_verify 为部署验证（通过 HTTP 执行 API 端点/Console/CSS/静态资源检查，无需浏览器）"
+      },
+      "targetUrl": {
+        "type": "string",
+        "description": "deploy_verify 类型的目标 URL，如 http://localhost:3000"
+      }
+    }
+  }
+}

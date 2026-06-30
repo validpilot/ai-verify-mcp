@@ -1,0 +1,11 @@
+{
+  "name": "browser_artifacts_clear",
+  "description": "清理截图、Trace、HAR、reports 和 visual 证据产物。默认不清理 MCP 日志，默认清理 visual 产物。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "includeLogs": { "type": "boolean", "description": "是否同时清空 validation.log，默认 false" },
+      "includeVisual": { "type": "boolean", "description": "是否清理 visual 产物，默认 true" }
+    }
+  }
+}

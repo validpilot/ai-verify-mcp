@@ -1,0 +1,30 @@
+{
+  "name": "browser_find_element",
+  "description": "智能元素定位基础版：按文本描述或角色查找页面元素，返回CSS选择器、置信度、元素信息。多策略匹配（精确文本>包含文本>placeholder>aria-label>title/alt>模糊匹配），只返回可见元素，结果按置信度降序排列。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "text": {
+        "type": "string",
+        "description": "要查找的元素文本"
+      },
+      "role": {
+        "type": "string",
+        "description": "元素角色：button/link/input/textbox/checkbox/radio/combobox 等（可选）"
+      },
+      "tagName": {
+        "type": "string",
+        "description": "标签名过滤，如 button/a/input/div 等（可选）"
+      },
+      "onlyVisible": {
+        "type": "boolean",
+        "description": "只返回可见元素，默认 true"
+      },
+      "limit": {
+        "type": "number",
+        "description": "返回数量，默认 5"
+      }
+    },
+    "required": ["text"]
+  }
+}

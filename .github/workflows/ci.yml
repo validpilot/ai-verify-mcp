@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [20.x]
+    env:
+      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install --ignore-scripts
+
+      - name: Syntax check
+        run: node -c server.js
+
+      - name: Run unit tests
+        run: npm test
+
+      - name: Verify tool schemas
+        run: node -e "
+          const fs = require('fs');
+          const tools = fs.readdirSync('./tools').filter(f => f.endsWith('.json'));
+          const src = fs.readFileSync('./server.js', 'utf8');
+          let missing = [];
+          for (const t of tools) {
+            const name = t.replace('.json', '');
+            if (!src.includes('case \\\`' + name + '\\\`') && !src.includes('case \"' + name + '\"') && !src.includes(\"case '\" + name + \"'\")) {
+              missing.push(name);
+            }
+          }
+          console.log('Total tools:', tools.length);
+          if (missing.length > 0) {
+            console.log('Missing handlers:', missing);
+            process.exit(1);
+          } else {
+            console.log('All tools have handlers');
+          }
+        "
+
+      - name: Verify package.json files
+        run: |
+          npm pack --dry-run 2>&1 | head -20
+
+      - name: Lint package
+        run: node -e "
+          const pkg = require('./package.json');
+          const required = ['name', 'version', 'description', 'main', 'license', 'repository', 'bin', 'files'];
+          for (const r of required) {
+            if (!pkg[r]) { console.log('Missing:', r); process.exit(1); }
+          }
+          console.log('package.json is valid');
+        "

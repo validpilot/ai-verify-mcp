@@ -1,0 +1,8 @@
+{
+  "name": "validation_report_export",
+  "description": "将最近一次 validation_check/run/matrix/suite 结果导出为本地静态 HTML 报告，包含摘要、结果表、失败分析和 artifacts 链接，输出到 .trae/mcp-server/reports/validation-<timestamp>.html。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {}
+  }
+}

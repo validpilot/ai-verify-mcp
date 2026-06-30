@@ -1,0 +1,57 @@
+# 临时开发文件 — 不发布
+req_*.json
+mcp_request.json
+# 辅助工具
+invoke.ps1
+test-http.ps1
+
+# 调试/演示脚本（纵深防御）
+demo-*
+validation-report.md
+
+# 测试与校验脚本（不影响运行）
+test/
+test-*.js
+test-*.mjs
+check-tools*.js
+check-schema.js
+
+# 产物目录
+artifacts/
+
+# 本地环境/缓存
+.cache/
+.logs/
+.validpilot/
+.browser-profiles/
+# NPM
+.npmrc
+.npm/
+node_modules/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+*.swp
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# CI/CD（暂未启用）
+.github/
+.circleci/
+.travis.yml
+
+# 额外临时文件
+local-test/
+click-test.js
+test_403.js
+keep-running.bat
+.trae/
+docs/.vitepress/dist/

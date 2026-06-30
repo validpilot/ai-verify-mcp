@@ -1,0 +1,14 @@
+{
+  "name": "browser_trace_start",
+  "description": "开始录制 Playwright Trace，用于生成可回放的浏览器调试证据包。建议在 browser_flow 前调用。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "name": { "type": "string", "description": "Trace 名称，不含扩展名" },
+      "screenshots": { "type": "boolean", "description": "是否记录每步截图，默认 true" },
+      "snapshots": { "type": "boolean", "description": "是否记录 DOM 快照，默认 true" },
+      "sources": { "type": "boolean", "description": "是否记录源码，默认 false" },
+      "headless": { "type": "boolean", "description": "无浏览器时是否以 headless 模式打开，默认 false" }
+    }
+  }
+}

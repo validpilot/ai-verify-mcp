@@ -1,0 +1,20 @@
+{
+  "name": "browser_visual_compare",
+  "description": "截取当前页面 actual PNG，与同名视觉基线对比并生成 diff PNG，返回 diffPixels、diffRatio、passed 和产物路径。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "name": { "type": "string", "description": "要对比的基线名称，不含扩展名" },
+      "selector": { "type": "string", "description": "可选 CSS 选择器；需与基线截图范围一致" },
+      "fullPage": { "type": "boolean", "description": "是否全页截图，默认 true；selector 存在时忽略" },
+      "maskSelectors": {
+        "type": "array",
+        "description": "截图前额外遮挡/脱敏的 CSS 选择器列表，用于忽略动态区域",
+        "items": { "type": "string" }
+      },
+      "maxDiffPixelRatio": { "type": "number", "description": "允许的最大差异像素比例，默认 0.01" },
+      "sessionName": { "type": "string", "description": "浏览器会话名称，默认当前活跃会话" }
+    },
+    "required": ["name"]
+  }
+}

@@ -1,0 +1,62 @@
+{
+  "name": "browser_deep_interact",
+  "description": "深层交互验证工具。在页面上检测弹窗/对话框/表单，智能填充表单字段并提交，执行业务流程（如新增授权、提交订单），以及模拟人类浏览行为。支持四种模式：detect（检测 UI 状态）、form（智能填表+提交）、workflow（执行业务流程流程）、explore（像人类一样探索）。用于发现表单提交 403/500、弹窗加载失败、验证错误等深层问题。",
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "mode": {
+        "type": "string",
+        "enum": ["detect", "form", "workflow", "explore"],
+        "default": "detect",
+        "description": "操作模式: detect=检测UI状态, form=智能填表并提交, workflow=执行预定义业务流程, explore=模拟人类浏览行为"
+      },
+      "url": {
+        "type": "string",
+        "description": "目标页面 URL（不指定则使用当前页面）"
+      },
+      "workflow": {
+        "type": "array",
+        "description": "workflow 模式下的流程步骤定义。每步支持: click(点击), fill_form(填表), wait(等待), wait_modal(等弹窗), close_modal(关弹窗), scroll(滚动), hover(悬停), verify(验证)",
+        "items": {
+          "type": "object",
+          "properties": {
+            "action": { "type": "string", "enum": ["click", "fill_form", "wait", "wait_modal", "close_modal", "scroll", "hover", "verify"] },
+            "text": { "type": "string", "description": "通过文本定位元素" },
+            "selector": { "type": "string", "description": "通过 CSS 选择器定位元素" },
+            "submit": { "type": "boolean", "default": true, "description": "fill_form 模式下是否提交" },
+            "duration": { "type": "number", "description": "wait 模式的等待毫秒数" },
+            "timeout": { "type": "number", "description": "超时毫秒数" },
+            "critical": { "type": "boolean", "default": false, "description": "失败是否阻断整个流程" },
+            "condition": { "type": "object", "description": "verify 模式的验证条件" }
+          }
+        }
+      },
+      "fillFields": {
+        "type": "boolean",
+        "default": true,
+        "description": "form/explore 模式下是否填充表单字段"
+      },
+      "submit": {
+        "type": "boolean",
+        "default": true,
+        "description": "form 模式下检测到表单后是否提交"
+      },
+      "maxActions": {
+        "type": "number",
+        "default": 15,
+        "maximum": 50,
+        "description": "explore 模式下的最大操作数"
+      },
+      "interactModals": {
+        "type": "boolean",
+        "default": true,
+        "description": "explore 模式下是否自动交互弹窗"
+      },
+      "visible": {
+        "type": "boolean",
+        "default": true,
+        "description": "是否显示浏览器窗口"
+      }
+    }
+  }
+}

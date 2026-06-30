@@ -1,0 +1,17 @@
+{
+  "name": "browser_errors",
+  "description": "统一查看本轮错误：Console Error、PageError、HTTP 4xx/5xx、静默失败（200响应体含SQL错误）。默认只统计当前checkpoint之后的新错误。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "includeWarnings": { "type": "boolean", "description": "是否包含warning/warn日志，默认false" },
+      "limit": { "type": "number", "description": "MCP服务错误日志最多返回条数，默认50" },
+      "since": { "type": "string", "description": "ISO时间戳，只返回该时间之后的错误" },
+      "currentOnly": { "type": "boolean", "description": "是否只返回当前checkpoint之后的错误，默认true" },
+      "urlContains": { "type": "string", "description": "只返回URL包含该关键字的网络错误" },
+      "method": { "type": "string", "description": "只返回指定HTTP方法的网络错误" },
+      "statusMin": { "type": "number", "description": "只返回状态码大于等于该值的网络记录" },
+      "statusMax": { "type": "number", "description": "只返回状态码小于等于该值的网络记录" }
+    }
+  }
+}

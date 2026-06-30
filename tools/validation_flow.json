@@ -1,0 +1,55 @@
+{
+  "name": "validation_flow",
+  "description": "多步流程验证工具，按步骤依次执行 navigate/click/type/wait/eval/screenshot 等操作，支持失败可配置继续执行。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "steps": {
+        "type": "array",
+        "description": "验证步骤列表",
+        "items": {
+          "type": "object",
+          "properties": {
+            "action": {
+              "type": "string",
+              "description": "步骤操作类型：navigate/click/type/wait/eval/screenshot",
+              "enum": ["navigate", "click", "type", "wait", "eval", "screenshot"]
+            },
+            "url": {
+              "type": "string",
+              "description": "navigate 步骤的目标 URL"
+            },
+            "selector": {
+              "type": "string",
+              "description": "click/type 步骤的 CSS 选择器"
+            },
+            "value": {
+              "type": "string",
+              "description": "type 步骤的输入文本，或 wait 步骤的等待时间（毫秒字符串）"
+            },
+            "expression": {
+              "type": "string",
+              "description": "eval 步骤的 JS 表达式"
+            },
+            "name": {
+              "type": "string",
+              "description": "步骤名称，用于标识和错误报告"
+            }
+          },
+          "required": ["action"]
+        }
+      },
+      "continueOnFailure": {
+        "type": "boolean",
+        "description": "某步骤失败后是否继续执行后续步骤，默认 false",
+        "default": false
+      },
+      "timeout": {
+        "type": "number",
+        "description": "整个流程超时时间（毫秒），默认 30000",
+        "default": 30000
+      }
+    },
+    "required": ["steps"]
+  }
+}

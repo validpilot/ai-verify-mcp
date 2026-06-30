@@ -1,0 +1,8 @@
+{
+  "name": "browser_sessions",
+  "description": "列出当前所有浏览器会话，显示活跃会话、URL、创建时间、最后使用时间和 trace 状态。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {}
+  }
+}

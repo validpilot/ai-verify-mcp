@@ -1,0 +1,12 @@
+{
+  "name": "browser_open",
+  "description": "打开真实可视化浏览器并导航到目标 URL",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "url": { "type": "string", "description": "要打开的页面 URL" },
+      "headless": { "type": "boolean", "description": "是否无头模式，默认 false，建议可视化验证使用 false" }
+    },
+    "required": ["url"]
+  }
+}

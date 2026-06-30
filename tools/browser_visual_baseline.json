@@ -1,0 +1,19 @@
+{
+  "name": "browser_visual_baseline",
+  "description": "为当前页面或指定元素创建视觉回归基线 PNG，默认全页截图并遮挡密码、token、apiKey 等敏感输入。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "name": { "type": "string", "description": "基线名称，不含扩展名" },
+      "selector": { "type": "string", "description": "可选 CSS 选择器；指定后只截取该元素" },
+      "fullPage": { "type": "boolean", "description": "是否全页截图，默认 true；selector 存在时忽略" },
+      "maskSelectors": {
+        "type": "array",
+        "description": "截图前额外遮挡/脱敏的 CSS 选择器列表",
+        "items": { "type": "string" }
+      },
+      "sessionName": { "type": "string", "description": "浏览器会话名称，默认当前活跃会话" }
+    },
+    "required": ["name"]
+  }
+}

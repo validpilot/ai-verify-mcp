@@ -1,0 +1,10 @@
+{
+  "name": "browser_storage",
+  "description": "查看当前页面 localStorage、sessionStorage 或 cookie，辅助定位登录态和状态问题",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "scope": { "type": "string", "description": "localStorage、sessionStorage、cookies 或 all，默认 all" }
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "name": "fix_verify",
+  "description": "执行低 Token 修复验证，返回修复前后摘要对比、pass/fail、Top errors 和 artifact 路径。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "url": { "type": "string" },
+      "beforeSummary": { "type": "object" },
+      "afterSummary": { "type": "object" },
+      "timeout": { "type": "number" },
+      "captureScreenshots": { "type": "boolean", "description": "是否自动截图，默认 true" },
+      "checkDomElements": { "type": "array", "items": { "type": "string" }, "description": "指定要检查的存在性元素选择器列表" }
+    }
+  }
+}

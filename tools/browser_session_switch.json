@@ -1,0 +1,12 @@
+{
+  "name": "browser_session_switch",
+  "description": "切换当前活跃浏览器会话。后续未指定 sessionName 的浏览器工具会作用于该会话。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "name": { "type": "string", "description": "要切换到的会话名称" },
+      "sessionName": { "type": "string", "description": "会话名称别名" }
+    },
+    "required": ["name"]
+  }
+}
