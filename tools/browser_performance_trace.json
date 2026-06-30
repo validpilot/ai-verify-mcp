@@ -1,0 +1,96 @@
+{
+  "name": "browser_performance_trace",
+  "description": "记录完整的性能轨迹（Paint/Timing/Resource），输出 HAR 格式和结构化性能数据。支持 W3C Performance Timeline API，获取 FP/FCP/LCP/CLS 等核心指标。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "url": {
+        "type": "string",
+        "description": "要追踪性能的目标 URL。如果不提供则使用当前页面。"
+      },
+      "categories": {
+        "type": "array",
+        "items": { "type": "string" },
+        "default": ["navigation", "resource", "paint", "longtask"],
+        "description": "要记录的性能类别"
+      },
+      "duration": {
+        "type": "number",
+        "default": 5000,
+        "description": "追踪持续时间（毫秒）"
+      },
+      "enableScreenshots": {
+        "type": "boolean",
+        "default": false,
+        "description": "是否在追踪期间定期截图"
+      },
+      "exportHar": {
+        "type": "boolean",
+        "default": true,
+        "description": "是否导出 HAR 格式数据"
+      }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "success": { "type": "boolean" },
+      "url": { "type": "string" },
+      "duration": { "type": "number" },
+      "metrics": {
+        "type": "object",
+        "properties": {
+          "firstPaint": { "type": "number", "description": "首次绘制时间 (ms)" },
+          "firstContentfulPaint": { "type": "number", "description": "首次内容绘制时间 (ms)" },
+          "largestContentfulPaint": { "type": "number", "description": "最大内容绘制时间 (ms)" },
+          "cumulativeLayoutShift": { "type": "number", "description": "累积布局偏移分数" },
+          "domContentLoaded": { "type": "number", "description": "DOM 内容加载完成时间 (ms)" },
+          "load": { "type": "number", "description": "页面加载时间 (ms)" },
+          "firstInputDelay": { "type": "number", "description": "首次输入延迟 (ms)" },
+          "totalBlockingTime": { "type": "number", "description": "总阻塞时间 (ms)" },
+          "speedIndex": { "type": "number", "description": "速度指数" }
+        }
+      },
+      "resourceCount": { "type": "number", "description": "资源数量" },
+      "resourceTypes": {
+        "type": "object",
+        "description": "按类型统计的资源数量"
+      },
+      "slowRequests": {
+        "type": "array",
+        "description": "慢请求（>1s）",
+        "items": {
+          "type": "object",
+          "properties": {
+            "url": { "type": "string" },
+            "duration": { "type": "number" },
+            "size": { "type": "number" },
+            "type": { "type": "string" }
+          }
+        }
+      },
+      "entries": {
+        "type": "array",
+        "description": "所有性能条目"
+      },
+      "har": {
+        "type": "object",
+        "description": "HAR 格式数据（如果 enableHar=true）"
+      },
+      "screenshots": {
+        "type": "array",
+        "description": "追踪期间的截图路径（如果 enableScreenshots=true）"
+      },
+      "grade": {
+        "type": "string",
+        "enum": ["A", "B", "C", "D", "F"],
+        "description": "性能等级"
+      },
+      "recommendations": {
+        "type": "array",
+        "description": "优化建议",
+        "items": { "type": "string" }
+      }
+    }
+  }
+}

@@ -1,0 +1,56 @@
+[
+  {
+    "action": "navigate",
+    "url": "https://example.com/products"
+  },
+  {
+    "action": "wait",
+    "ms": 2000
+  },
+  {
+    "action": "screenshot",
+    "name": "product-list"
+  },
+  {
+    "action": "click",
+    "selector": ".product-item:first-child .add-to-cart, .product:first-child .btn-add"
+  },
+  {
+    "action": "wait",
+    "ms": 1500
+  },
+  {
+    "action": "screenshot",
+    "name": "after-add-to-cart"
+  },
+  {
+    "action": "click",
+    "selector": ".cart-icon, .shopping-cart, #cart-btn, [class*=\"cart\"]"
+  },
+  {
+    "action": "wait",
+    "ms": 2000
+  },
+  {
+    "action": "screenshot",
+    "name": "cart-view"
+  },
+  {
+    "action": "eval",
+    "expression": "() => { const items = document.querySelectorAll('.cart-item, .shopping-cart-item'); return items.length > 0; }",
+    "expected": true,
+    "description": "购物车中有商品"
+  },
+  {
+    "action": "click",
+    "selector": ".checkout-btn, #checkout, [class*=\"checkout\"]"
+  },
+  {
+    "action": "wait",
+    "ms": 3000
+  },
+  {
+    "action": "screenshot",
+    "name": "checkout-page"
+  }
+]

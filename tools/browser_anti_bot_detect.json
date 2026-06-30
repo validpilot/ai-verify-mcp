@@ -1,0 +1,77 @@
+{
+  "name": "browser_anti_bot_detect",
+  "description": "检测页面反爬机制（Cloudflare/JS Challenge/验证码/CAPTCHA等），提供绕过建议和缓解方案。支持检测主流反爬服务并给出风险评估。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "url": {
+        "type": "string",
+        "description": "要检测的目标 URL。如果不提供则使用当前页面。"
+      },
+      "checkHeaders": {
+        "type": "boolean",
+        "default": true,
+        "description": "是否检查响应头中的反爬信号"
+      },
+      "checkJsChallenges": {
+        "type": "boolean",
+        "default": true,
+        "description": "是否检测 JS Challenge"
+      },
+      "checkCaptcha": {
+        "type": "boolean",
+        "default": true,
+        "description": "是否检测验证码"
+      },
+      "checkFingerprint": {
+        "type": "boolean",
+        "default": true,
+        "description": "是否检测浏览器指纹"
+      }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "success": { "type": "boolean" },
+      "url": { "type": "string" },
+      "detected": {
+        "type": "array",
+        "description": "检测到的反爬机制列表",
+        "items": {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string", "description": "反爬类型：cloudflare/js_challenge/captcha/fingerprint/recaptcha/hcaptcha/aws_waf/custom" },
+            "name": { "type": "string", "description": "反爬服务名称" },
+            "confidence": { "type": "number", "description": "置信度 0-100" },
+            "evidence": { "type": "string", "description": "检测证据" },
+            "risk": { "type": "string", "enum": ["low", "medium", "high", "critical"], "description": "风险等级" }
+          }
+        }
+      },
+      "riskLevel": {
+        "type": "string",
+        "enum": ["none", "low", "medium", "high", "critical"],
+        "description": "总体风险等级"
+      },
+      "recommendations": {
+        "type": "array",
+        "description": "绕过建议",
+        "items": { "type": "string" }
+      },
+      "headers": {
+        "type": "object",
+        "description": "相关响应头"
+      },
+      "pageInfo": {
+        "type": "object",
+        "description": "页面信息",
+        "properties": {
+          "title": { "type": "string" },
+          "hasChallenge": { "type": "boolean" },
+          "challengeType": { "type": "string" }
+        }
+      }
+    }
+  }
+}

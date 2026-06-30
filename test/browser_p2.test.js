@@ -6,7 +6,32 @@ const fs = require('fs');
 const path = require('path');
 
 const TOOLS_DIR = path.join(__dirname, '..', 'tools');
-const SERVER_FILE = path.join(__dirname, '..', 'server.js');
+const HANDLERS_DIR = path.join(__dirname, '..', 'handlers');
+
+// Build toolNames from handler modules
+const handlers = [
+  require('../handlers/browser'),
+  require('../handlers/session'),
+  require('../handlers/evidence'),
+  require('../handlers/network'),
+  require('../handlers/validation'),
+  require('../handlers/diagnose'),
+  require('../handlers/visual'),
+  require('../handlers/locator'),
+  require('../handlers/system'),
+];
+
+function buildToolNames() {
+  const names = new Set();
+  for (const h of handlers) {
+    for (const name of h.tools) {
+      names.add(name);
+    }
+  }
+  return names;
+}
+
+const toolNames = buildToolNames();
 
 // ============================================================
 // browser_network
@@ -41,9 +66,8 @@ describe('browser_network', () => {
     assert.equal(props.currentOnly.type, 'boolean');
   });
 
-  test('server.js 包含 browser_network 的 case 处理器', () => {
-    const src = fs.readFileSync(SERVER_FILE, 'utf8');
-    assert.ok(src.includes("case 'browser_network'"));
+  test('toolNames 中包含 browser_network（已注册到 MCP）', () => {
+    assert.ok(toolNames.has('browser_network'), '工具 browser_network 应在 toolNames 中');
   });
 });
 
@@ -81,9 +105,8 @@ describe('browser_network_detail', () => {
     assert.equal(props.limit.type, 'number');
   });
 
-  test('server.js 包含 browser_network_detail 的 case 处理器', () => {
-    const src = fs.readFileSync(SERVER_FILE, 'utf8');
-    assert.ok(src.includes("case 'browser_network_detail'"));
+  test('toolNames 中包含 browser_network_detail（已注册到 MCP）', () => {
+    assert.ok(toolNames.has('browser_network_detail'), '工具 browser_network_detail 应在 toolNames 中');
   });
 });
 
@@ -117,10 +140,10 @@ describe('browser_console', () => {
     assert.equal(props.urlContains.type, 'string');
   });
 
-  test('server.js 包含 browser_console 且按 level 过滤逻辑', () => {
-    const src = fs.readFileSync(SERVER_FILE, 'utf8');
-    assert.ok(src.includes("case 'browser_console'"));
-    assert.ok(src.includes('.filter(item => item.type === level)'));
+  test('toolNames 中包含 browser_console 且 handler 按 level 过滤', () => {
+    assert.ok(toolNames.has('browser_console'), '工具 browser_console 应在 toolNames 中');
+    const handlerSrc = fs.readFileSync(path.join(HANDLERS_DIR, 'network.js'), 'utf8');
+    assert.ok(handlerSrc.includes('.filter(item => item.type === level)'));
   });
 });
 
@@ -157,9 +180,8 @@ describe('browser_errors', () => {
     assert.equal(props.statusMax.type, 'number');
   });
 
-  test('server.js 包含 browser_errors 的 case 处理器', () => {
-    const src = fs.readFileSync(SERVER_FILE, 'utf8');
-    assert.ok(src.includes("case 'browser_errors'"));
+  test('toolNames 中包含 browser_errors（已注册到 MCP）', () => {
+    assert.ok(toolNames.has('browser_errors'), '工具 browser_errors 应在 toolNames 中');
   });
 });
 
@@ -188,9 +210,9 @@ describe('browser_errors_aggregate', () => {
     assert.equal(props.evidence.type, 'object');
   });
 
-  test('server.js 包含 browser_errors_aggregate 并调用 errorAggregator.aggregateErrors', () => {
-    const src = fs.readFileSync(SERVER_FILE, 'utf8');
-    assert.ok(src.includes("case 'browser_errors_aggregate'"));
-    assert.ok(src.includes('aggregateErrors'));
+  test('toolNames 中包含 browser_errors_aggregate 且 handler 调用 aggregateErrors', () => {
+    assert.ok(toolNames.has('browser_errors_aggregate'), '工具 browser_errors_aggregate 应在 toolNames 中');
+    const handlerSrc = fs.readFileSync(path.join(HANDLERS_DIR, 'diagnose.js'), 'utf8');
+    assert.ok(handlerSrc.includes('aggregateErrors'));
   });
 });

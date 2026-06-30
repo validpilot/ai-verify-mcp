@@ -1,7 +1,7 @@
 {
   "name": "browser_deep_interact",
   "description": "深层交互验证工具。在页面上检测弹窗/对话框/表单，智能填充表单字段并提交，执行业务流程（如新增授权、提交订单），以及模拟人类浏览行为。支持四种模式：detect（检测 UI 状态）、form（智能填表+提交）、workflow（执行业务流程流程）、explore（像人类一样探索）。用于发现表单提交 403/500、弹窗加载失败、验证错误等深层问题。",
-  "input_schema": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "mode": {

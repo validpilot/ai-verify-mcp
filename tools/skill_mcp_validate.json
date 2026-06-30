@@ -1,7 +1,7 @@
 {
   "name": "skill_mcp_validate",
   "description": "自动校验 Skill 定义的工具依赖是否与 MCP 服务器实际可用工具一致",
-  "input_schema": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "skillName": { "type": "string", "description": "Skill 名称，如 browser-dev-full-validation-skill" },

@@ -2,7 +2,7 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { collectRawErrors, aggregateErrors, errorSummaryMd } = require('../brain/error_aggregator');
+const { collectRawErrors, aggregateErrors, errorSummaryMd, classifyError, ERROR_PATTERNS } = require('../brain/error_aggregator');
 
 describe('collectRawErrors', () => {
   it('returns empty array for empty input', () => {
@@ -190,5 +190,85 @@ describe('errorSummaryMd', () => {
     });
     assert.ok(md.includes('Status: fail'));
     assert.ok(md.includes('[1x'));
+  });
+});
+
+describe('classifyError', () => {
+  it('should detect ResizeObserver error pattern', () => {
+    const result = classifyError({ text: 'ResizeObserver loop limit exceeded' });
+    assert.ok(result);
+    assert.equal(result.category, 'layout');
+    assert.ok(result.suggestion.includes('重排'));
+  });
+
+  it('should detect ERR_CONNECTION_REFUSED pattern', () => {
+    const result = classifyError({ text: 'Failed to load resource: net::ERR_CONNECTION_REFUSED' });
+    assert.ok(result);
+    assert.equal(result.category, 'network');
+    assert.ok(result.suggestion.includes('后端API'));
+  });
+
+  it('should detect CORS pattern', () => {
+    const result = classifyError({ text: 'has been blocked by CORS policy: No \'Access-Control-Allow-Origin\'' });
+    assert.ok(result);
+    assert.equal(result.category, 'network');
+    assert.ok(result.affectedTarget, '跨域');
+  });
+
+  it('should detect Hydration failed pattern', () => {
+    const result = classifyError({ text: 'Hydration failed because the initial UI does not match' });
+    assert.ok(result);
+    assert.equal(result.category, 'framework');
+    assert.ok(result.suggestion.includes('水合'));
+  });
+
+  it('should detect WebSocket failed pattern', () => {
+    const result = classifyError({ text: 'WebSocket connection to wss://example.com failed' });
+    assert.ok(result);
+    assert.equal(result.category, 'network');
+    assert.equal(result.affectedTarget, 'WebSocket');
+  });
+
+  it('should return null for unrecognized patterns', () => {
+    const result = classifyError({ text: 'Some random text without matching' });
+    assert.equal(result, null);
+  });
+
+  it('should detect Mixed Content security pattern', () => {
+    const result = classifyError({ text: 'Mixed Content: The page was loaded over HTTPS' });
+    assert.ok(result);
+    assert.equal(result.category, 'security');
+    assert.equal(result.severity, undefined);
+  });
+});
+
+describe('aggregateErrors with pattern classification', () => {
+  it('should attach category to topErrors when pattern matches', () => {
+    const input = {
+      console: {
+        recent: [
+          { type: 'error', text: 'ResizeObserver loop limit exceeded', url: 'http://ex.com/app.js' }
+        ]
+      }
+    };
+    const result = aggregateErrors(input);
+    assert.equal(result.topErrors.length, 1);
+    assert.equal(result.topErrors[0].category, 'layout');
+    assert.ok(result.topErrors[0].suggestion.includes('重排'));
+    assert.equal(result.topErrors[0].affectedTarget, 'CSS布局');
+  });
+
+  it('should attach network category for CORS errors in aggregateErrors', () => {
+    const input = {
+      console: {
+        recent: [
+          { type: 'error', text: 'blocked by CORS policy: No \'Access-Control-Allow-Origin\'', url: 'http://ex.com/api' }
+        ]
+      }
+    };
+    const result = aggregateErrors(input);
+    assert.equal(result.topErrors.length, 1);
+    assert.equal(result.topErrors[0].category, 'network');
+    assert.equal(result.topErrors[0].affectedTarget, '跨域');
   });
 });

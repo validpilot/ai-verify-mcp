@@ -1,10 +1,17 @@
 {
   "name": "validation_matrix",
-  "description": "执行角色 × 功能权限矩阵验证。每个角色使用独立 session，按功能步骤执行并检查预期允许/禁止结果，失败时自动调查并生成矩阵报告数据。",
+  "description": "执行多维度验证矩阵（功能/视觉/性能/a11y），输出综合评分报告。支持角色×功能权限矩阵验证，每个角色使用独立 session。",
   "inputSchema": {
     "type": "object",
     "properties": {
       "name": { "type": "string", "description": "矩阵验证名称" },
+      "url": { "type": "string", "description": "目标页面 URL" },
+      "dimensions": {
+        "type": "array",
+        "description": "验证维度列表，可选：functional、visual、performance、a11y",
+        "items": { "type": "string" },
+        "default": ["functional", "visual", "performance", "a11y"]
+      },
       "roles": {
         "type": "array",
         "description": "角色列表，每个角色可包含 name、sessionName、url、setupSteps",
@@ -15,13 +22,49 @@
         "description": "功能列表，每个功能可包含 name、steps、stepsByRole、expected、expectedByRole、assertions、assertionsByRole、focus",
         "items": { "type": "object" }
       },
+      "visualBaseline": { "type": "string", "description": "视觉基线截图路径（可选）" },
+      "performanceThreshold": { "type": "number", "description": "性能阈值（LCP ms），默认 2500" },
+      "a11yStandard": { "type": "string", "description": "a11y 标准级别：wcag-a / wcag-aa / wcag-aaa", "default": "wcag-aa" },
       "clearArtifacts": { "type": "boolean", "description": "执行前是否清理证据产物，默认 false" },
       "clearErrors": { "type": "boolean", "description": "执行前是否清空错误 checkpoint，默认 true" },
       "instrument": { "type": "boolean", "description": "是否注入运行时探针，默认 true" },
       "har": { "type": "boolean", "description": "是否导出 HAR JSON，默认 true" },
       "investigateOnFailure": { "type": "boolean", "description": "失败时是否自动 debug_investigate，默认 true" },
-      "continueOnFailure": { "type": "boolean", "description": "单元失败后是否继续执行后续功能，默认 false" }
+      "continueOnFailure": { "type": "boolean", "description": "单元失败后是否继续执行后续功能，默认 false" },
+      "outputFormat": { "type": "string", "description": "输出格式：json / markdown", "default": "json" }
     },
-    "required": ["roles", "features"]
+    "required": ["url", "roles", "features"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "success": { "type": "boolean" },
+      "name": { "type": "string" },
+      "url": { "type": "string" },
+      "overallScore": { "type": "number", "description": "综合评分 0-100" },
+      "grade": { "type": "string", "description": "等级 A/B/C/D/F" },
+      "dimensions": {
+        "type": "object",
+        "properties": {
+          "functional": { "type": "object", "description": "功能维度评分" },
+          "visual": { "type": "object", "description": "视觉维度评分" },
+          "performance": { "type": "object", "description": "性能维度评分" },
+          "a11y": { "type": "object", "description": "无障碍维度评分" }
+        }
+      },
+      "roleMatrix": {
+        "type": "array",
+        "description": "角色×功能矩阵结果"
+      },
+      "recommendations": {
+        "type": "array",
+        "items": { "type": "string" }
+      },
+      "artifacts": {
+        "type": "array",
+        "items": { "type": "string" }
+      },
+      "timestamp": { "type": "string" }
+    }
   }
 }

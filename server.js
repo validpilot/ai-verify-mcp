@@ -1,4 +1,4 @@
-try { require('dotenv').config(); } catch(e) {}
+try { require('dotenv').config(); } catch(e) { console.warn('[ValidPilot] dotenv not loaded:', e.message); }
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
@@ -16,14 +16,39 @@ const browserOperator = require('./hands/browser_operator');
 const evidenceCollector = require('./hands/evidence_collector');
 const deepInteractor = require('./hands/deep_interactor');
 const errorAggregator = require('./brain/error_aggregator');
+const { StateManager } = require('./core/state');
+const Logger = require('./core/logger');
+const logger = new Logger();
+const TraceManager = require('./core/trace');
+const traceManager = new TraceManager();
+
+// Handler modules (callTool dispatch routing)
+const handlerBrowser = require('./handlers/browser');
+const handlerSession = require('./handlers/session');
+const handlerEvidence = require('./handlers/evidence');
+const handlerNetwork = require('./handlers/network');
+const handlerValidation = require('./handlers/validation');
+const handlerDiagnose = require('./handlers/diagnose');
+const handlerVisual = require('./handlers/visual');
+const handlerLocator = require('./handlers/locator');
+const handlerSystem = require('./handlers/system');
+
+const allHandlers = [
+  handlerBrowser, handlerSession, handlerEvidence, handlerNetwork,
+  handlerValidation, handlerDiagnose, handlerVisual, handlerLocator, handlerSystem
+];
+
+const handlerMap = new Map();
+for (const h of allHandlers) {
+  for (const name of h.tools) {
+    handlerMap.set(name, h);
+  }
+}
 
 const TOOLS_DIR = path.join(__dirname, 'tools');
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
 const VALIDATIONS_DIR = path.join(PROJECT_ROOT, '.trae', 'validations');
-const LOG_FILE = path.join(__dirname, 'validation.log');
-const MAX_LOG_SIZE = 10 * 1024 * 1024;
-const MAX_LOG_FILES = 5;
-let lastLogRotateCheck = 0;
+const LOG_FILE = Logger.LOG_FILE;
 const SCREENSHOT_DIR = path.join(__dirname, 'screenshots');
 const TRACE_DIR = path.join(__dirname, 'traces');
 const HAR_DIR = path.join(__dirname, 'har');
@@ -40,7 +65,8 @@ let lastQualityChecks = {
   performance: null
 };
 let lastValidationRun = null;
-const requestStartTimes = new Map();
+
+const stateManager = new StateManager();
 
 // 会话管理
 const MAX_SESSIONS = 2;
@@ -51,10 +77,6 @@ let sessionCounter = 0;
 let browser = null;
 let page = null;
 let browserSessionId = 0;
-let consoleLogs = [];
-let networkLogs = [];
-let pageErrors = [];
-let currentCheckpoint = new Date().toISOString();
 let backendProbeResults = []; // 后端主动探测缓存，由 browser_open 异步触发填充
 let eventCheckpoint = new Date().toISOString();
 let instrumentationEnabled = false;
@@ -126,24 +148,6 @@ function trimTraceLogs() {
 const BROWSER_POOL_SIZE = 2; // 最多保留2个实例
 const browserPool = new Map(); // poolId -> { browser, context, page, createdAt }
 
-function findTraceId(headers) {
-  if (!headers) return null;
-  for (const key of TRACE_HEADER_NAMES) {
-    const val = headers[key] || headers[key.toLowerCase()];
-    if (val) return val;
-  }
-  // 也检查下划线版本
-  for (const key of TRACE_HEADER_NAMES) {
-    const underscoreKey = key.replace(/-/g, '_');
-    const val = headers[underscoreKey] || headers[underscoreKey.toLowerCase()];
-    if (val) return val;
-  }
-  return null;
-}
-function trimTraceLogs() {
-  if (traceLogs.length > 1000) traceLogs = traceLogs.slice(-500);
-}
-
 const SENSITIVE_KEY_RE = /(password|passwd|pwd|token|secret|authorization|cookie|apikey|api_key|api-key|key)$/i;
 const SENSITIVE_TEXT_PATTERNS = [
   /Bearer\s+[A-Za-z0-9._~+\/-]+=*/gi,
@@ -176,153 +180,52 @@ function redact(value, key = '') {
   return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, redact(v, k)]));
 }
 
-function rotateLogs() {
-  try {
-    for (let i = MAX_LOG_FILES - 1; i >= 1; i--) {
-      const oldFile = `${LOG_FILE}.${i}`;
-      const newFile = `${LOG_FILE}.${i + 1}`;
-      if (fs.existsSync(oldFile)) {
-        if (i === MAX_LOG_FILES - 1 && fs.existsSync(newFile)) {
-          fs.unlinkSync(newFile);
-        }
-        fs.renameSync(oldFile, newFile);
-      }
-    }
-    if (fs.existsSync(LOG_FILE)) {
-      fs.renameSync(LOG_FILE, `${LOG_FILE}.1`);
-    }
-  } catch (_) {}
-}
-
-function log(level, message, details = {}) {
-  const entry = { timestamp: new Date().toISOString(), level, message, ...redact(details) };
-  try {
-    const now = Date.now();
-    if (now - lastLogRotateCheck > 60000) {
-      lastLogRotateCheck = now;
-      try {
-        const stats = fs.statSync(LOG_FILE);
-        if (stats.size > MAX_LOG_SIZE) {
-          rotateLogs();
-        }
-      } catch (_) {}
-    }
-    fs.appendFileSync(LOG_FILE, JSON.stringify(entry) + '\n');
-  } catch (_) {}
-}
-
-function loadTools() {
-  const tools = [];
-  try {
-    for (const file of fs.readdirSync(TOOLS_DIR)) {
-      if (!file.endsWith('.json')) continue;
-      const tool = JSON.parse(fs.readFileSync(path.join(TOOLS_DIR, file), 'utf8'));
-      if (tool.input_schema && !tool.inputSchema) {
-        tool.inputSchema = tool.input_schema;
-        delete tool.input_schema;
-      }
-      tools.push(tool);
-    }
-  } catch (error) {
-    log('ERROR', '加载工具失败', { error: error.message });
-  }
-  return tools;
-}
-
-const tools = loadTools();
+const tools = stateManager.loadTools(TOOLS_DIR, log);
 const toolNames = new Set(tools.map(tool => tool.name));
-
-function resetRuntimeLogs() {
-  consoleLogs = [];
-  networkLogs = [];
-  pageErrors = [];
-  currentCheckpoint = new Date().toISOString();
-  log('INFO', 'runtime logs cleared', { checkpoint: currentCheckpoint });
-}
-
-function parseSince(args = {}) {
-  if (args.since) return new Date(args.since).getTime();
-  if (args.currentOnly !== false) return new Date(currentCheckpoint).getTime();
-  return 0;
-}
-
-function filterBySince(items, args = {}) {
-  const since = parseSince(args);
-  return items.filter(item => !since || new Date(item.timestamp || 0).getTime() >= since);
-}
-
-function filterNetwork(items, args = {}) {
-  let records = filterBySince(items, args);
-  const contains = args.urlContains || args.contains;
-  if (contains) records = records.filter(item => item.url && item.url.includes(contains));
-  if (args.method) records = records.filter(item => item.method === args.method);
-  if (typeof args.statusMin === 'number') records = records.filter(item => Number(item.status || 0) >= args.statusMin);
-  if (typeof args.statusMax === 'number') records = records.filter(item => Number(item.status || 0) <= args.statusMax);
-  return records;
-}
 
 // ===== 浏览器预热 =====
 async function warmupBrowser() {
   try {
-    log('INFO', '预热浏览器...', {});
+    logger.log('INFO', '预热浏览器...', {});
     const wBrowser = await chromium.launch({ headless: true });
     const wContext = await wBrowser.newContext({ viewport: { width: 1280, height: 720 } });
     const wPage = await wContext.newPage();
     await wPage.goto('about:blank', { waitUntil: 'domcontentloaded', timeout: 10000 });
     const poolId = '__warmup__';
     browserPool.set(poolId, { browser: wBrowser, context: wContext, page: wPage, createdAt: Date.now() });
-    log('INFO', '浏览器预热完成', {});
+    logger.log('INFO', '浏览器预热完成', {});
     return poolId;
   } catch (error) {
-    log('WARN', '浏览器预热失败，将在首次open时启动', { error: error.message });
+    logger.log('WARN', '浏览器预热失败，将在首次open时启动', { error: error.message });
     return null;
   }
 }
 
-const MAX_LOG_ENTRIES = 500;
-
-// 日志边界控制
 function trimLogs() {
-  if (consoleLogs.length > MAX_LOG_ENTRIES) {
-    consoleLogs = consoleLogs.slice(-MAX_LOG_ENTRIES);
-  }
-  if (networkLogs.length > MAX_LOG_ENTRIES) {
-    networkLogs = networkLogs.slice(-MAX_LOG_ENTRIES);
-  }
-  if (pageErrors.length > MAX_LOG_ENTRIES / 2) {
-    pageErrors = pageErrors.slice(-Math.floor(MAX_LOG_ENTRIES / 2));
-  }
+  stateManager.trimLogs();
   if (imageErrors.length > 50) {
     imageErrors = imageErrors.slice(-50);
-  }
-  // 清理 requestStartTimes 中超过 5 分钟的记录
-  const now = Date.now();
-  const MAX_REQUEST_AGE = 5 * 60 * 1000;
-  for (const [request, startTime] of requestStartTimes.entries()) {
-    if (now - startTime > MAX_REQUEST_AGE) {
-      requestStartTimes.delete(request);
-    }
   }
 }
 
 // 给页面挂载监听器
 function setupPageListeners(targetPage) {
-  resetRuntimeLogs();
+  stateManager.resetRuntimeLogs(log);
 
   targetPage.on('console', msg => {
-    consoleLogs.push(redact({ source: 'console', type: msg.type(), text: msg.text(), location: msg.location(), timestamp: new Date().toISOString() }));
+    stateManager.consoleLogs.push(redact({ source: 'console', type: msg.type(), text: msg.text(), location: msg.location(), timestamp: new Date().toISOString() }));
     trimLogs();
   });
 
   targetPage.on('pageerror', error => {
     const entry = redact({ source: 'pageerror', type: 'error', text: error.message, stack: error.stack, timestamp: new Date().toISOString() });
-    pageErrors.push(entry);
-    consoleLogs.push(entry);
+    stateManager.pageErrors.push(entry);
+    stateManager.consoleLogs.push(entry);
     trimLogs();
   });
 
   targetPage.on('request', request => {
-    requestStartTimes.set(request, Date.now());
+    stateManager.requestStartTimes.set(request, Date.now());
     // 前端可能已经在 fetch/XHR 内 inject 了 traceparent；这里把请求侧的 traceparent 也记入 traceLogs
     try {
       const reqHeaders = request.headers();
@@ -350,8 +253,8 @@ function setupPageListeners(targetPage) {
 
   targetPage.on('response', response => {
     const request = response.request();
-    const startedAt = requestStartTimes.get(request);
-    requestStartTimes.delete(request);
+    const startedAt = stateManager.requestStartTimes.get(request);
+    stateManager.requestStartTimes.delete(request);
     const respHeaders = response.headers();
     // 全链路追踪：提取 trace_id (W3C traceparent 优先)
     const traceInfo = findTraceId(respHeaders);
@@ -369,7 +272,7 @@ function setupPageListeners(targetPage) {
       responseHeaders: respHeaders,
       requestBody: request.postData() || undefined
     });
-    networkLogs.push(entry);
+    stateManager.networkLogs.push(entry);
     trimLogs();
     // 记录 trace_id 映射 -> integration
     if (traceInfo?.traceId) {
@@ -396,9 +299,9 @@ function setupPageListeners(targetPage) {
   });
 
   targetPage.on('requestfailed', request => {
-    const startedAt = requestStartTimes.get(request);
-    requestStartTimes.delete(request);
-    networkLogs.push(redact({
+    const startedAt = stateManager.requestStartTimes.get(request);
+    stateManager.requestStartTimes.delete(request);
+    stateManager.networkLogs.push(redact({
       source: 'network',
       url: request.url(),
       method: request.method(),
@@ -540,11 +443,11 @@ async function analyzeScreenshotForErrors(target, imagePath) {
 
     // 2. 截取当前 console 错误
     const sinceTime = new Date(timeCheckpoint).getTime();
-    const newConsoleErrors = consoleLogs
+    const newConsoleErrors = stateManager.consoleLogs
       .filter(e => new Date(e.timestamp || 0).getTime() > sinceTime && (e.type === 'error' || e.type === 'warning'))
       .slice(-10);
 
-    const newPageErrors = pageErrors
+    const newPageErrors = stateManager.pageErrors
       .filter(e => new Date(e.timestamp || 0).getTime() > sinceTime)
       .slice(-10);
 
@@ -583,7 +486,7 @@ async function analyzeScreenshotForErrors(target, imagePath) {
       if (imageErrors.length > 50) imageErrors.splice(0, imageErrors.length - 50);
 
       // 同时记录到日志文件
-      log('ERROR', '截图检测到错误', {
+      logger.log('ERROR', '截图检测到错误', {
         image: imagePath,
         visibleCount: visibleErrors.length,
         consoleCount: newConsoleErrors.length,
@@ -596,7 +499,7 @@ async function analyzeScreenshotForErrors(target, imagePath) {
 
     return analysis;
   } catch (error) {
-    log('WARN', '截图错误分析失败', { image: imagePath, error: error.message });
+    logger.log('WARN', '截图错误分析失败', { image: imagePath, error: error.message });
     return { image: imagePath, timestamp: new Date().toISOString(), error: error.message, hasErrors: false, errorCount: 0, visibleErrors: [], consoleErrors: [], pageErrors: [] };
   }
 }
@@ -626,7 +529,7 @@ async function ensurePage(args = {}) {
         browserPool.delete(id);
         setupPageListeners(page);
         browserSessionId += 1;
-        log('INFO', '复用池中浏览器', { poolId: id });
+        logger.log('INFO', '复用池中浏览器', { poolId: id });
         return { target: page, reused: true, sessionId: browserSessionId };
       } catch (e) {
         // 池中页面已死，移除
@@ -670,7 +573,7 @@ async function ensurePage(args = {}) {
   browserSessionId += 1;
   setupPageListeners(page);
   // 注入全局错误捕获脚本（用 __mcpInstrumented 防重，多次调用安全）
-  installInstrumentation(page).catch(e => log('WARN', 'installInstrumentation 失败', { error: e.message }));
+  installInstrumentation(page).catch(e => logger.log('WARN', 'installInstrumentation 失败', { error: e.message }));
 
   return { target: page, reused, sessionId: browserSessionId };
 }
@@ -791,7 +694,7 @@ async function probeKnownEndpoints(target, options = {}) {
 }
 
 async function runFullAudit(args = {}) {
-  const since = args.since || currentCheckpoint;
+  const since = args.since || stateManager.currentCheckpoint;
   const includeWarnings = args.includeWarnings === true;
   const includeProbe = args.includeProbe !== false;  // 默认开启后端探测
   const sinceTime = new Date(since).getTime();
@@ -812,15 +715,15 @@ async function runFullAudit(args = {}) {
   };
 
   // 1. CDP console errors
-  const cdpErrors = filterByTime(consoleLogs).filter(e => e.type === 'error' || (includeWarnings && (e.type === 'warning' || e.type === 'warn')));
+  const cdpErrors = filterByTime(stateManager.consoleLogs).filter(e => e.type === 'error' || (includeWarnings && (e.type === 'warning' || e.type === 'warn')));
   result.consoleErrors = cdpErrors.map(e => ({ text: (e.text || '').slice(0, 300), source: e.source, timestamp: e.timestamp }));
 
   // 2. CDP page errors
-  const pageErr = filterByTime(pageErrors);
+  const pageErr = filterByTime(stateManager.pageErrors);
   result.runtimeErrors = pageErr.map(e => ({ message: (e.text || '').slice(0, 300), stack: (e.stack || '').slice(0, 500), timestamp: e.timestamp }));
 
   // 3. Network 4xx/5xx
-  const netErr = filterByTime(networkLogs).filter(e => e.status >= 400);
+  const netErr = filterByTime(stateManager.networkLogs).filter(e => e.status >= 400);
   result.networkErrors = netErr.map(e => ({ url: (e.url || '').slice(0, 150), status: e.status, method: e.method || 'GET', text: (e.text || '').slice(0, 200), timestamp: e.timestamp }));
 
   // 4. Silent failures (200 body with error)
@@ -1047,15 +950,15 @@ async function fetchBackendLogs(args = {}) {
 // 在操作后等待并捕获新出现的错误
 async function postActionErrorCheck(target, actionName, selector) {
   try {
-    const beforeCheckpoint = currentCheckpoint;
+    const beforeCheckpoint = stateManager.currentCheckpoint;
     
     // 等待错误浮现（300ms足够捕获大多数错误）
     await new Promise(r => setTimeout(r, 300)).catch(() => {});
     
     const afterCheckpoint = new Date().toISOString();
-    const newConsoleErrors = consoleLogs.filter(e => new Date(e.timestamp || 0).getTime() > new Date(beforeCheckpoint).getTime());
-    const newPageErrors = pageErrors.filter(e => new Date(e.timestamp || 0).getTime() > new Date(beforeCheckpoint).getTime());
-    const newNetworkErrors = networkLogs.filter(e => e.status >= 400 && new Date(e.timestamp || 0).getTime() > new Date(beforeCheckpoint).getTime());
+    const newConsoleErrors = stateManager.consoleLogs.filter(e => new Date(e.timestamp || 0).getTime() > new Date(beforeCheckpoint).getTime());
+    const newPageErrors = stateManager.pageErrors.filter(e => new Date(e.timestamp || 0).getTime() > new Date(beforeCheckpoint).getTime());
+    const newNetworkErrors = stateManager.networkLogs.filter(e => e.status >= 400 && new Date(e.timestamp || 0).getTime() > new Date(beforeCheckpoint).getTime());
     
     // 从注入脚本的 window.__mcpEvents 直接读取 console 错误（不依赖 CDP 事件循环）
     let injectedConsoleErrors = [];
@@ -1099,7 +1002,7 @@ async function postActionErrorCheck(target, actionName, selector) {
     };
     
     if (hasNewErrors) {
-      log('WARN', `操作 "${actionName}(${selector})" 后检测到 ${totalNewErrors} 个新错误`, {
+      logger.log('WARN', `操作 "${actionName}(${selector})" 后检测到 ${totalNewErrors} 个新错误`, {
         console: dedupedConsole.length,
         injected: injectedConsoleErrors.length,
         pageError: newPageErrors.length,
@@ -1116,27 +1019,6 @@ async function postActionErrorCheck(target, actionName, selector) {
     };
   } catch (_) {
     return { detected: false, count: 0, console: [], page: [], network: [] };
-  }
-}
-
-function readRecentMcpErrors(args = {}) {
-  const limit = args.limit || 50;
-  const includeWarnings = args.includeWarnings === true;
-  const since = parseSince(args);
-  try {
-    if (!fs.existsSync(LOG_FILE)) return [];
-    return fs.readFileSync(LOG_FILE, 'utf8')
-      .split(/\r?\n/)
-      .filter(Boolean)
-      .slice(-500)
-      .map(line => {
-        try { return JSON.parse(line); } catch (_) { return null; }
-      })
-      .filter(item => item && (item.level === 'ERROR' || (includeWarnings && item.level === 'WARN')))
-      .filter(item => !since || new Date(item.timestamp || 0).getTime() >= since)
-      .slice(-limit);
-  } catch (error) {
-    return [{ source: 'mcp-log', level: 'ERROR', message: '读取 MCP 日志失败', error: error.message, timestamp: new Date().toISOString() }];
   }
 }
 
@@ -1157,7 +1039,7 @@ const RESPONSE_BODY_ERROR_PATTERNS = [
 ];
 
 function detectSilentFailures(args = {}) {
-  return filterNetwork(networkLogs, args)
+  return stateManager.filterNetwork(stateManager.networkLogs, args)
     .filter(item => {
       // Only check 2xx/3xx responses that have a body
       if (!item.responseBody || item.status < 200 || item.status >= 400) return false;
@@ -1195,19 +1077,19 @@ function getUnifiedErrors(args = {}) {
   const includeWarnings = args.includeWarnings === true;
   const includeBackendProbe = args.includeBackendProbe !== false;
   const currentUrl = page && !page.isClosed() ? page.url() : '';
-  const consoleErrors = filterBySince(consoleLogs, args).filter(item => item.type === 'error' || (includeWarnings && ['warning', 'warn'].includes(item.type)));
-  const pageErrorRecords = filterBySince(pageErrors, args);
-  const networkErrors = filterNetwork(networkLogs, args).filter(item => item.failed || item.status >= 400);
+  const consoleErrors = stateManager.filterBySince(stateManager.consoleLogs, args).filter(item => item.type === 'error' || (includeWarnings && ['warning', 'warn'].includes(item.type)));
+  const pageErrorRecords = stateManager.filterBySince(stateManager.pageErrors, args);
+  const networkErrors = stateManager.filterNetwork(stateManager.networkLogs, args).filter(item => item.failed || item.status >= 400);
   const silentFailErrors = detectSilentFailures(args);
   const mcpErrors = readRecentMcpErrors(args).map(item => ({ source: 'mcp', ...item }));
-  const imageErrorRecords = filterBySince(imageErrors, args).filter(e => e.hasErrors);
+  const imageErrorRecords = stateManager.filterBySince(imageErrors, args).filter(e => e.hasErrors);
   const total = consoleErrors.length + pageErrorRecords.length + networkErrors.length + silentFailErrors.length + mcpErrors.length + imageErrorRecords.length;
   const byLevel = {
     error: consoleErrors.filter(e => e.type === 'error').length + pageErrorRecords.length + networkErrors.filter(e => e.status >= 500 || e.failed).length + silentFailErrors.length + mcpErrors.length + imageErrorRecords.length,
     warning: consoleErrors.filter(e => ['warning', 'warn'].includes(e.type)).length + networkErrors.filter(e => e.status >= 400 && e.status < 500 && !e.failed).length
   };
   return redact({
-    checkpoint: currentCheckpoint,
+    checkpoint: stateManager.currentCheckpoint,
     currentUrl,
     lastAction,
     imageErrorCount: imageErrorRecords.length,
@@ -1295,7 +1177,7 @@ async function getStorageSnapshot(target, scope = 'all') {
 
 async function buildDebugReport(target, args = {}) {
   const pageInfo = await target.evaluate(() => ({ url: location.href, title: document.title, readyState: document.readyState, route: location.hash || location.pathname, bodyText: document.body.innerText.slice(0, 3000) }));
-  const report = { generatedAt: new Date().toISOString(), checkpoint: currentCheckpoint, page: pageInfo, lastAction, errors: getUnifiedErrors({ ...args, includeWarnings: true }) };
+  const report = { generatedAt: new Date().toISOString(), checkpoint: stateManager.currentCheckpoint, page: pageInfo, lastAction, errors: getUnifiedErrors({ ...args, includeWarnings: true }) };
   if (args.includeDom !== false) {
     const domStats = await target.evaluate(() => {
       const all = document.querySelectorAll('*');
@@ -1380,7 +1262,7 @@ async function captureStepEvidence(target, label = 'step', args = {}) {
   if (args.autoAnalyze !== false) {
     const analysis = await analyzeScreenshotForErrors(target, screenshotPath).catch(() => null);
     if (analysis && analysis.hasErrors) {
-      log('WARN', `步骤 "${label}" 检测到错误`, { errorCount: analysis.errorCount });
+      logger.log('WARN', `步骤 "${label}" 检测到错误`, { errorCount: analysis.errorCount });
     }
   }
 
@@ -1490,7 +1372,7 @@ async function assertPage(target, args = {}) {
         };
       }
     } catch (e) {
-      log('WARN', '断言失败自动截图失败', { error: e.message });
+      logger.log('WARN', '断言失败自动截图失败', { error: e.message });
     }
   }
 
@@ -1498,7 +1380,7 @@ async function assertPage(target, args = {}) {
 }
 
 async function runFlow(target, args = {}) {
-  if (args.clearErrors !== false) resetRuntimeLogs();
+  if (args.clearErrors !== false) stateManager.resetRuntimeLogs(log);
   const steps = Array.isArray(args.steps) ? args.steps : [];
   const results = [];
   for (let index = 0; index < steps.length; index += 1) {
@@ -1511,7 +1393,7 @@ async function runFlow(target, args = {}) {
       else if (step.type === 'wait') await waitForCondition(target, step);
       else if (step.type === 'assert') results.push({ label, assertion: await assertPage(target, step) });
       else if (step.type === 'eval') await callTool('browser_eval', step);
-      else if (step.type === 'clearErrors') resetRuntimeLogs();
+      else if (step.type === 'clearErrors') stateManager.resetRuntimeLogs(log);
       else if (step.type === 'step') await callTool('browser_step', step);
       else if (step.type === 'screenshot') await callTool('browser_screenshot', step);
       else if (step.type === 'snapshot') await callTool('browser_snapshot', step);
@@ -1531,7 +1413,7 @@ async function runFlow(target, args = {}) {
     }
   }
   const errors = getUnifiedErrors({ currentOnly: true });
-  return redact({ passed: results.every(item => item.ok !== false && (!item.assertion || item.assertion.passed)), checkpoint: currentCheckpoint, results, errors });
+  return redact({ passed: results.every(item => item.ok !== false && (!item.assertion || item.assertion.passed)), checkpoint: stateManager.currentCheckpoint, results, errors });
 }
 
 function listFilesRecursive(dir, baseDir = dir) {
@@ -1553,7 +1435,7 @@ function listFilesRecursive(dir, baseDir = dir) {
 function getArtifacts() {
   ensureArtifactsDir();
   return redact({
-    checkpoint: currentCheckpoint,
+    checkpoint: stateManager.currentCheckpoint,
     traceActive,
     currentTraceName,
     screenshots: listFilesRecursive(SCREENSHOT_DIR).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
@@ -1711,7 +1593,7 @@ async function runA11yCheck(target, args = {}) {
   try {
     const result = await Promise.race([scanPromise, timeoutPromise]);
     const cost = Date.now() - startTime;
-    log('PERF', `a11y_check完成`, { cost: `${cost}ms`, violations: result.violations?.length || 0 });
+    logger.log('PERF', `a11y_check完成`, { cost: `${cost}ms`, violations: result.violations?.length || 0 });
 
     if (result.error) {
       const output = redact({ passed: false, error: result.error, timestamp: new Date().toISOString() });
@@ -1731,7 +1613,7 @@ async function runA11yCheck(target, args = {}) {
     return output;
   } catch (e) {
     const cost = Date.now() - startTime;
-    log('PERF', `a11y_check超时`, { cost: `${cost}ms`, error: e.message });
+    logger.log('PERF', `a11y_check超时`, { cost: `${cost}ms`, error: e.message });
     const output = redact({ error: e.message, timeout: true, partial: true, timestamp: new Date().toISOString() });
     lastQualityChecks.a11y = output;
     return output;
@@ -1815,13 +1697,13 @@ async function runPerformanceCheck(target, args = {}) {
   try {
     const result = await Promise.race([perfPromise, timeoutPromise]);
     const cost = Date.now() - startTime;
-    log('PERF', `performance_check完成`, { cost: `${cost}ms`, metrics: result.metrics });
+    logger.log('PERF', `performance_check完成`, { cost: `${cost}ms`, metrics: result.metrics });
     const output = redact({ ...result, timestamp: new Date().toISOString() });
     lastQualityChecks.performance = output;
     return output;
   } catch (e) {
     const cost = Date.now() - startTime;
-    log('PERF', `performance_check超时`, { cost: `${cost}ms`, error: e.message });
+    logger.log('PERF', `performance_check超时`, { cost: `${cost}ms`, error: e.message });
     const output = redact({ error: e.message, timeout: true, timestamp: new Date().toISOString() });
     lastQualityChecks.performance = output;
     return output;
@@ -1841,7 +1723,7 @@ async function runLighthouseAudit(args = {}) {
       return { error: '未指定 URL', success: false };
     }
 
-    log('INFO', 'Lighthouse审计开始', { url, categories: args.categories });
+    logger.log('INFO', 'Lighthouse审计开始', { url, categories: args.categories });
 
     // 使用 Playwright 的 Chromium 路径
     const { chromium } = require('playwright');
@@ -1888,6 +1770,26 @@ async function runLighthouseAudit(args = {}) {
         auditRefs: category.auditRefs?.filter(r => !r.group?.includes('hidden')).length || 0
       };
     }
+
+    // 评分等级计算（新增）
+    const scoreGrade = (score) => {
+      if (score === null) return 'N/A';
+      if (score >= 90) return 'A';
+      if (score >= 80) return 'B';
+      if (score >= 70) return 'C';
+      if (score >= 60) return 'D';
+      return 'F';
+    };
+    const scoreValues = Object.values(scores);
+    const avgScore = scoreValues.length > 0
+      ? Math.round(scoreValues.reduce((a, b) => a + b, 0) / scoreValues.length)
+      : 0;
+    const summary = {
+      overallScore: avgScore,
+      grade: scoreGrade(avgScore),
+      passedAudits: Object.values(lhr.audits).filter(a => a.score === 1).length,
+      failedAudits: Object.values(lhr.audits).filter(a => a.score !== null && a.score < 1).length,
+    };
 
     // 提取关键审计指标
     const keyAuditIds = {
@@ -1940,10 +1842,14 @@ async function runLighthouseAudit(args = {}) {
       totalAudits: Object.keys(lhr.audits).length
     };
 
-    log('INFO', 'Lighthouse审计完成', { scores });
-    return result;
+    logger.log('INFO', 'Lighthouse审计完成', { scores });
+    return {
+      success: true, url, categories, scores, categoriesDetail, metrics, diagnostics,
+      finalUrl: runnerResult.finalUrl || url, generatedTime: new Date().toISOString(),
+      summary,  // 新增
+    };
   } catch (error) {
-    log('ERROR', 'Lighthouse审计失败', { error: error.message });
+    logger.log('ERROR', 'Lighthouse审计失败', { error: error.message });
     return { error: `Lighthouse 审计失败: ${error.message}`, success: false };
   }
 }
@@ -2286,7 +2192,7 @@ async function runValidationElement(target, args = {}) {
   const selector = args.selector;
   if (!selector) throw new Error('selector is required');
 
-  log('PERF', 'validation_element开始', { selector });
+  logger.log('PERF', 'validation_element开始', { selector });
 
   const checks = [];
   const fail = (name, expected, actual) => checks.push({ name, pass: false, expected, actual });
@@ -2370,7 +2276,7 @@ async function runValidationElement(target, args = {}) {
   }
 
   const cost = Date.now() - startTime;
-  log('PERF', 'validation_element完成', { cost: `${cost}ms`, passed: assertionPassed });
+  logger.log('PERF', 'validation_element完成', { cost: `${cost}ms`, passed: assertionPassed });
 
   const evidence = args.evidence === false ? null : await captureStepEvidence(target, args.name || 'validation-element', { screenshot: args.screenshot ?? !assertionPassed, snapshot: args.snapshot });
 
@@ -2398,7 +2304,7 @@ async function runValidationQuickRun(target, args = {}) {
   const checksToRun = requestedChecks.filter(c => allChecks.includes(c));
   resetRuntimeLogs();
   ensureArtifactsDir();
-  log('PERF', 'validation_quick_run开始', { url, checks: checksToRun });
+  logger.log('PERF', 'validation_quick_run开始', { url, checks: checksToRun });
 
   const checks = [];
   let loadTime = 0;
@@ -2517,7 +2423,7 @@ async function runValidationQuickRun(target, args = {}) {
   const passed = failedChecks === 0;
   const duration = Date.now() - startTime;
 
-  log('PERF', 'validation_quick_run完成', { cost: `${duration}ms`, total: checks.length, passed: passedChecks, failed: failedChecks });
+  logger.log('PERF', 'validation_quick_run完成', { cost: `${duration}ms`, total: checks.length, passed: passedChecks, failed: failedChecks });
 
   const result = redact({
     passed,
@@ -2543,7 +2449,7 @@ async function runValidationCheck(target, args = {}) {
   if (args.clearErrors !== false) resetRuntimeLogs();
   if (args.instrument === true) await installInstrumentation(target);
 
-  log('PERF', 'validation_check开始', { url: args.url || '当前页面' });
+  logger.log('PERF', 'validation_check开始', { url: args.url || '当前页面' });
 
   // Step 1: 打开页面（如果指定了url）
   if (args.url) {
@@ -2575,7 +2481,7 @@ async function runValidationCheck(target, args = {}) {
   }
 
   const cost = Date.now() - startTime;
-  log('PERF', 'validation_check完成', { cost: `${cost}ms`, errors: errorSummary?.total || 0 });
+  logger.log('PERF', 'validation_check完成', { cost: `${cost}ms`, errors: errorSummary?.total || 0 });
 
   const evidence = args.evidence === false ? null : await captureStepEvidence(target, args.name || 'validation-check', { screenshot: args.screenshot, snapshot: args.snapshot });
   const result = redact({
@@ -3152,7 +3058,7 @@ async function runValidationPlan(target, args = {}) {
   const passedCount = cases.filter(item => item.passed).length;
   const failedCount = cases.filter(item => !item.passed).length;
   const cost = Date.now() - startTime;
-  log('PERF', 'validation_run完成', { cost: `${cost}ms`, total: cases.length, passedCount, failedCount });
+  logger.log('PERF', 'validation_run完成', { cost: `${cost}ms`, total: cases.length, passedCount, failedCount });
   lastValidationRun = redact({
     name: runName,
     type: 'run',
@@ -3291,7 +3197,7 @@ async function runValidationFlow(target, args = {}) {
   const failedSteps = stepResults.filter(r => !r.passed).length;
   const totalDuration = Date.now() - startTime;
 
-  log('PERF', 'validation_flow完成', { cost: `${totalDuration}ms`, totalSteps, passedSteps, failedSteps });
+  logger.log('PERF', 'validation_flow完成', { cost: `${totalDuration}ms`, totalSteps, passedSteps, failedSteps });
 
   return redact({
     totalSteps,
@@ -6340,2651 +6246,104 @@ async function runBrowserFullRegression(args = {}) {
     result.passed = result.blockingIssues.length === 0;
   } catch (_) {}
 
+  // 性能快照（新增）
+  let performanceSnapshot = null;
+  try {
+    performanceSnapshot = await target.evaluate(() => {
+      const nav = performance.getEntriesByType('navigation')[0];
+      const paint = performance.getEntriesByType('paint');
+      return {
+        lcp: nav?.loadingExperience?.metrics?.LARGEST_CONTENTFUL_PAINT_MS?.percentile,
+        cls: nav?.loadingExperience?.metrics?.CUMULATIVE_LAYOUT_SHIFT_SCORE?.percentile,
+        fcp: paint.find(e => e.name === 'first-contentful-paint')?.startTime,
+        tti: nav?.domInteractive,
+      };
+    });
+  } catch (_) {}
+  if (performanceSnapshot) {
+    result.performanceSnapshot = performanceSnapshot;
+  }
+
   return result;
 }
 
+// Shared dependencies for handler modules
+const deps = {
+  // === Mutable state ===
+  page: null, browser: null, browserSessionId: 0,
+  consoleLogs, networkLogs, pageErrors,
+  currentCheckpoint, eventCheckpoint, lastAction,
+  sessions, activeSessionName, sessionCounter,
+  traceLogs, traceActive, currentTraceName,
+  backendProbeResults, instrumentationEnabled,
+  imageErrors, lastImageErrorCheckpoint,
+  validationResults, lastQualityChecks, lastValidationRun,
+  requestStartTimes,
+
+  // === Constants ===
+  MAX_SESSIONS, SCREENSHOT_DIR, HAR_DIR, VISUAL_DIR,
+  VISUAL_BASELINE_DIR, VISUAL_ACTUAL_DIR, VISUAL_DIFF_DIR,
+  VALIDATIONS_DIR, REPORT_DIR, LOG_FILE, PROJECT_ROOT,
+
+  // === Core functions ===
+  ensurePage, text, log, resetRuntimeLogs,
+  getPageLinks, postActionErrorCheck,
+  probeKnownEndpoints, getUnifiedErrors,
+  closeBrowserSession, listBrowserSessions,
+  filterNetwork, filterNetworkDetails, getStorageSnapshot,
+  buildDebugReport, captureStepEvidence,
+  waitForCondition, assertPage, runFlow,
+  installInstrumentation, getBrowserEvents, clearBrowserEvents,
+  startTrace, stopTrace,
+  getArtifacts, clearArtifacts, ensureArtifactsDir,
+  screenshotWithRedaction, safeArtifactName,
+  analyzeScreenshotForErrors, exportHar,
+  runFullAudit, visualBaseline, visualCompare, visualReport,
+  runA11yCheck, runPerformanceCheck, runLighthouseAudit,
+  findElement, findPage, suggestLocator, validateLocator,
+  mcpHealthCheck, projectAudit, mcpSelfTest,
+  runValidationCheck, runValidationPlan,
+  runValidationElement, runValidationFlow,
+  buildValidationReport, exportValidationReport,
+  runValidationQuickRun, runDeployVerify,
+  investigateDebug, runBrowserFullRegression, traverseMenu,
+  fetchBackendLogs, buildTraceChain,
+  detectSilentFailures, redact,
+  trimTraceLogs, genSpanId, genTraceId,
+
+  // === Modules ===
+  browserOperator, evidenceCollector, deepInteractor, errorAggregator,
+
+  // === Node built-ins ===
+  path, fs, execSync,
+};
+
 async function callTool(name, args = {}) {
-  log('INFO', '调用工具', { name, args });
+  logger.log('INFO', '调用工具', { name, args });
+
+  // Update deps state before each call (handlers may have mutated shared arrays)
+  deps.page = page;
+  deps.browser = browser;
+  deps.browserSessionId = browserSessionId;
+  deps.activeSessionName = activeSessionName;
+  deps.sessionCounter = sessionCounter;
+  deps.traceActive = traceActive;
+  deps.currentTraceName = currentTraceName;
+  deps.instrumentationEnabled = instrumentationEnabled;
+  deps.currentCheckpoint = currentCheckpoint;
+  deps.eventCheckpoint = eventCheckpoint;
+  deps.lastAction = lastAction;
+  deps.lastImageErrorCheckpoint = lastImageErrorCheckpoint;
 
   try {
-    switch (name) {
-    case 'browser_errors_aggregate': {
-      const evidence = args.evidence || (args.includeCurrentPage === false ? {} : (await evidenceCollector.collectEvidence(args)).evidence);
-      return text(JSON.stringify(errorAggregator.aggregateErrors(evidence, args), null, 2));
-    }
-    case 'browser_full_audit': {
-      return text(JSON.stringify(await runFullAudit(args), null, 2));
-    }
-    case 'error_summary_md': {
-      const evidence = args.evidence || (await evidenceCollector.collectEvidence(args)).evidence;
-      return text(errorAggregator.errorSummaryMd(evidence, args));
-    }
-    case 'screenshot_diff':
-      return text(JSON.stringify(await evidenceCollector.screenshotDiff(args), null, 2));
-    case 'browser_open': {
-      const { target, reused, sessionId } = await ensurePage(args);
-      const beforeUrl = target.url();
-      // 如果已经在目标URL上，跳过导航
-      if (args.url && beforeUrl !== args.url) {
-        const timeout = args.timeout || 15000;
-        await target.goto(args.url, { waitUntil: args.waitUntil || 'domcontentloaded', timeout });
-        // 导航到新页面后重置错误检查点，防止旧页面错误污染新页面
-        currentCheckpoint = new Date().toISOString();
-        lastImageErrorCheckpoint = new Date().toISOString();
-        // 异步触发后端主动探测
-        probeKnownEndpoints(target).then(results => { backendProbeResults = results; }).catch(() => {});
-      }
-      lastAction = { type: 'open', url: target.url(), timestamp: new Date().toISOString(), reused };
-      
-      // 自动提取当前页面的导航链接
-      let pageLinks = null;
-      try {
-        pageLinks = await getPageLinks({ maxLinks: 30 });
-      } catch (e) { /* ignore */ }
-      
-      const action = reused ? '已复用现有浏览器' : '已打开新浏览器';
-      let response = `${action}：${target.url()}（session=${sessionId}）`;
-      
-      // 附加页面导航摘要
-      if (pageLinks && pageLinks.total > 0) {
-        const navCategories = pageLinks.categories.filter(c => 
-          ['导航菜单', '首页', '登录', '注册', '管理', '设置', '用户', '搜索'].includes(c)
-        );
-        if (navCategories.length > 0) {
-          response += `\n\n📋 页面导航摘要（共${pageLinks.total}个链接，其中按钮${pageLinks.linksFromButtons}个）：`;
-          response += `\n   分类：${navCategories.join('、')}`;
-          response += `\n   如需详细链接列表，请调用 browser_links`;
-        } else {
-          response += `\n\n📋 页面共有 ${pageLinks.total} 个链接`;
-          response += `\n   如需查看，请调用 browser_links`;
-        }
-      }
-      return text(response);
-    }
-    case 'browser_click': {
-      const { target } = await ensurePage();
-      const urlBefore = target.url();
-      await target.click(args.selector, { timeout: 10000 });
-      
-      // 检测 URL 是否变化
-      let urlAfter;
-      try { urlAfter = target.url(); } catch (_) { urlAfter = urlBefore; }
-      const navigated = urlBefore !== urlAfter;
-      
-      // 操作后快速错误捕获
-      const postErrors = await postActionErrorCheck(target, 'click', args.selector);
-      
-      const baseResult = {
-        action: 'click',
-        selector: args.selector,
-        success: true,
-        navigated,
-        urlBefore,
-        urlAfter,
-        lastAction
-      };
-      
-      if (postErrors.detected) {
-        const errorSummary = [];
-        let suggestions = [];
-        if (postErrors.console.length > 0) {
-          errorSummary.push(`${postErrors.console.length} 个console错误`);
-          const hasTypeError = postErrors.console.some(e => (e.text||'').includes('TypeError') || (e.text||'').includes('undefined'));
-          if (hasTypeError) suggestions.push('怀疑页面JS未加载完成，请尝试等待后重试');
-        }
-        if (postErrors.page.length > 0) {
-          errorSummary.push(`${postErrors.page.length} 个页面错误`);
-          suggestions.push('页面抛出异常，请使用 browser_errors_aggregate 查看聚合分析');
-        }
-        if (postErrors.network.length > 0) {
-          errorSummary.push(`${postErrors.network.length} 个网络错误`);
-          const has500 = postErrors.network.some(e => e.status >= 500);
-          if (has500) suggestions.push('存在500错误，可能是接口故障或权限不足');
-          const has404 = postErrors.network.some(e => e.status === 404);
-          if (has404) suggestions.push('发现404资源未找到，请检查页面引用是否正确');
-        }
-        if (suggestions.length === 0) suggestions.push('请使用 browser_errors 查看完整错误详情');
-        
-        return text(JSON.stringify({
-          ...baseResult,
-          error_warning: `点击后检测到 ${postErrors.count} 个新错误（${errorSummary.join('、')}）`,
-          suggestions,
-          errors: {
-            count: postErrors.count,
-            console: postErrors.console.slice(0, 5),
-            page: postErrors.page.slice(0, 3),
-            network: postErrors.network.slice(0, 5)
-          }
-        }, null, 2));
-      }
-      
-      return text(JSON.stringify({
-        ...baseResult,
-        errors: { count: 0 }
-      }, null, 2));
-    }
-    case 'browser_click_audit': {
-      const { target } = await ensurePage();
-      const label = args.label || args.selector || args.text || 'audit';
-      const waitMs = args.waitMs || 1500;
-      const autoReturn = args.autoReturn !== false;
-      const { PNG } = require('pngjs');
-      const pixelmatch = require('pixelmatch').default || require('pixelmatch');
-      
-      // 如果提供了 text 而不是 selector，用无障碍树定位
-      let selector = args.selector;
-      if (!selector && args.text) {
-        try {
-          const found = await target.evaluate((text) => {
-            const candidates = document.querySelectorAll('button, a, [role="button"], [tabindex]:not([tabindex="-1"]), input[type="submit"], input[type="button"]');
-            for (const el of candidates) {
-              if (el.offsetParent === null) continue;
-              const elText = (el.textContent || '').trim();
-              if (elText === text || elText.includes(text)) {
-                if (el.id) return '#' + el.id;
-                const cls = Array.from(el.classList).filter(c => !c.startsWith('_')).slice(0, 2).join('.');
-                if (cls) return el.tagName.toLowerCase() + '.' + cls;
-                return el.tagName.toLowerCase();
-              }
-            }
-            return null;
-          }, args.text);
-          if (found) selector = found;
-        } catch (_) {}
-      }
-      
-      if (!selector) {
-        return text(JSON.stringify({ success: false, error: 'No selector or element found for text: ' + (args.text || '') }));
-      }
-      
-      // 1. 点击前截图
-      const urlBefore = target.url();
-      ensureArtifactsDir();
-      const stamp = Date.now();
-      const beforePath = path.join(SCREENSHOT_DIR, `click-audit-before-${safeArtifactName(label)}-${stamp}.png`);
-      await screenshotWithRedaction(target, beforePath);
-      
-      // 2. 执行点击
-      let clicked = false;
-      try {
-        await target.click(selector, { timeout: 8000 });
-        clicked = true;
-      } catch (clickErr) {
-        return text(JSON.stringify({
-          success: false,
-          selector,
-          label,
-          error: `Click failed: ${clickErr.message}`,
-          urlBefore
-        }, null, 2));
-      }
-      
-      // 3. 等待稳定
-      try {
-        await target.waitForLoadState('networkidle', { timeout: Math.min(waitMs + 2000, 8000) });
-      } catch (_) {
-        await new Promise(r => setTimeout(r, waitMs));
-      }
-      
-      // 4. 点击后截图
-      let urlAfter;
-      try { urlAfter = target.url(); } catch (_) { urlAfter = urlBefore; }
-      const afterPath = path.join(SCREENSHOT_DIR, `click-audit-after-${safeArtifactName(label)}-${stamp}.png`);
-      await screenshotWithRedaction(target, afterPath);
-      
-      // 5. 截图对比（pixelmatch）
-      let diffRatio = 0;
-      let diffPath = null;
-      let visualChanged = false;
-      try {
-        const beforePng = PNG.sync.read(fs.readFileSync(beforePath));
-        const afterPng = PNG.sync.read(fs.readFileSync(afterPath));
-        if (beforePng.width === afterPng.width && beforePng.height === afterPng.height) {
-          const diff = new PNG({ width: beforePng.width, height: beforePng.height });
-          const diffPixels = pixelmatch(beforePng.data, afterPng.data, diff.data, beforePng.width, beforePng.height, { threshold: 0.1 });
-          diffRatio = diffPixels / (beforePng.width * beforePng.height);
-          visualChanged = diffRatio > 0.05;
-          if (visualChanged) {
-            diffPath = path.join(SCREENSHOT_DIR, `click-audit-diff-${safeArtifactName(label)}-${stamp}.png`);
-            fs.writeFileSync(diffPath, PNG.sync.write(diff));
-          }
-        } else {
-          // 尺寸不同 → 视觉已变化
-          visualChanged = true;
-          diffRatio = 1;
-        }
-      } catch (diffErr) {
-        // pixelmatch 失败不阻断流程
-      }
-      
-      // 6. 错误捕获
-      const postErrors = await postActionErrorCheck(target, 'click_audit', selector);
-      const network5xx = networkLogs.filter(e => e.status >= 500 && new Date(e.timestamp || 0).getTime() > new Date(currentCheckpoint).getTime());
-      // 响应体静默失败检测（HTTP 2xx/3xx 但 body 含错误）
-      const silentFails = detectSilentFailures({})
-        .filter(e => new Date(e.timestamp || 0).getTime() > new Date(currentCheckpoint).getTime());
-      
-      // 7. 导航检测
-      const urlNavigated = urlBefore !== urlAfter;
-      const spaNavigated = visualChanged && !urlNavigated;
-      
-      // 8. 自动返回
-      let returned = false;
-      let returnMethod = 'none';
-      if (autoReturn) {
-        if (urlNavigated) {
-          try {
-            await target.goBack({ waitUntil: 'networkidle', timeout: 8000 });
-            returned = true;
-            returnMethod = 'goBack';
-          } catch (_) {
-            try { await target.goBack(); returned = true; returnMethod = 'goBack_simple'; } catch (_) {}
-          }
-        } else if (spaNavigated) {
-          try {
-            await target.click(selector, { timeout: 5000 });
-            await new Promise(r => setTimeout(r, 1000));
-            returnMethod = 'toggle_click';
-            // 验证状态是否恢复
-            const afterReturn = target.url();
-            if (afterReturn === urlBefore) returned = true;
-          } catch (_) {}
-        }
-      }
-      
-      // 9. 组装结果
-      const result = {
-        success: true,
-        selector,
-        label,
-        navigated: urlNavigated,
-        spaNavigated,
-        visualChanged,
-        diffRatio: parseFloat(diffRatio.toFixed(4)),
-        urlBefore,
-        urlAfter,
-        returned,
-        returnMethod,
-        errors: {
-          count: postErrors.count + network5xx.length + silentFails.length,
-          console: postErrors.console.slice(0, 5),
-          page: postErrors.page.slice(0, 3),
-          network: postErrors.network.slice(0, 5),
-          network5xx: network5xx.slice(0, 5).map(e => ({ url: (e.url || '').slice(0, 120), status: e.status })),
-          silentFails: silentFails.slice(0, 5).map(e => ({ url: (e.url || '').slice(0, 120), status: e.status, error: e.errorSnippet }))
-        },
-        screenshots: {
-          before: beforePath,
-          after: afterPath,
-          diff: diffPath
-        },
-        timestamp: new Date().toISOString()
-      };
-      
-      return text(JSON.stringify(redact(result), null, 2));
-    }
-    case 'browser_type': {
-      const { target } = await ensurePage();
-      await target.fill(args.selector, args.text || '', { timeout: 10000 });
-      await target.evaluate(({ selector, text }) => {
-        const el = document.querySelector(selector);
-        if (!el) return;
-        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-        const nativeTextareaValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
-        if (el.tagName === 'INPUT' && nativeInputValueSetter) {
-          nativeInputValueSetter.call(el, text);
-        } else if (el.tagName === 'TEXTAREA' && nativeTextareaValueSetter) {
-          nativeTextareaValueSetter.call(el, text);
-        } else {
-          el.value = text;
-        }
-        el.dispatchEvent(new Event('input', { bubbles: true }));
-        el.dispatchEvent(new Event('change', { bubbles: true }));
-      }, { selector: args.selector, text: args.text || '' });
-      
-      // 操作后快速错误捕获
-      const postErrors = await postActionErrorCheck(target, 'type', args.selector);
-      
-      if (postErrors.detected) {
-        const errorSummary = [];
-        let suggestions = [];
-        if (postErrors.console.length > 0) {
-          errorSummary.push(`${postErrors.console.length} 个console错误`);
-          suggestions.push('输入触发了验证错误，请检查输入内容格式');
-        }
-        if (postErrors.page.length > 0) {
-          errorSummary.push(`${postErrors.page.length} 个页面错误`);
-          suggestions.push('输入后页面抛出异常，请检查字段约束');
-        }
-        if (postErrors.network.length > 0) {
-          errorSummary.push(`${postErrors.network.length} 个网络错误`);
-          suggestions.push('输入后发送了失败的请求，可能是表单验证触发的');
-        }
-        if (suggestions.length === 0) suggestions.push('请使用 browser_errors 查看完整错误详情');
-        
-        return text(JSON.stringify({
-          action: 'type',
-          selector: args.selector,
-          text: isSensitiveKey(args.selector) ? '******' : redactString(args.text || ''),
-          success: true,
-          error_warning: `输入后检测到 ${postErrors.count} 个新错误（${errorSummary.join('、')}）`,
-          suggestions,
-          errors: {
-            count: postErrors.count,
-            console: postErrors.console.slice(0, 5),
-            page: postErrors.page.slice(0, 3),
-            network: postErrors.network.slice(0, 5)
-          },
-          lastAction
-        }, null, 2));
-      }
-      
-      return text(JSON.stringify({
-        action: 'type',
-        selector: args.selector,
-        text: isSensitiveKey(args.selector) ? '******' : redactString(args.text || ''),
-        success: true,
-        errors: { count: 0 },
-        lastAction
-      }, null, 2));
-    }
-    case 'browser_hover': {
-      const { target } = await ensurePage();
-      await target.hover(args.selector, { timeout: 10000 });
-      lastAction = { type: 'hover', selector: args.selector, timestamp: new Date().toISOString() };
-      return text(`已悬浮：${args.selector}`);
-    }
-    case 'browser_scroll': {
-      const { target } = await ensurePage();
-      if (args.selector) {
-        const scrollIntoView = args.scrollIntoView !== false;
-        if (scrollIntoView) {
-          await target.$eval(args.selector, (el, behavior) => {
-            el.scrollIntoView({ behavior: behavior || 'auto', block: 'center', inline: 'center' });
-          }, args.behavior || 'auto');
-        }
-      } else {
-        await target.evaluate(({ x, y, behavior }) => {
-          window.scrollTo({ left: x || 0, top: y || 0, behavior: behavior || 'auto' });
-        }, { x: args.x, y: args.y, behavior: args.behavior || 'auto' });
-      }
-      return text(`已滚动`);
-    }
-    case 'browser_press_key': {
-      const { target } = await ensurePage();
-      if (args.selector) {
-        await target.focus(args.selector);
-      }
-      await target.keyboard.press(args.key);
-      
-      // 操作后快速错误捕获
-      const postErrors = await postActionErrorCheck(target, 'press_key', args.key);
-      
-      const result = {
-        action: 'press_key',
-        key: args.key,
-        success: true,
-        errors: { count: postErrors.count, detected: postErrors.detected }
-      };
-      
-      if (postErrors.detected) {
-        result.error_warning = `按键 ${args.key} 后检测到 ${postErrors.count} 个新错误`;
-        result.suggestions = [];
-        if (postErrors.console.length > 0) result.suggestions.push('按键触发了控制台错误，请检查页面交互逻辑');
-        if (postErrors.network.some(e => e.status >= 400)) result.suggestions.push('按键触发了失败的网络请求');
-        if (result.suggestions.length === 0) result.suggestions.push('请使用 browser_errors 查看完整错误详情');
-      }
-      
-      return text(JSON.stringify(result, null, 2));
-    }
-    case 'browser_snapshot': {
-      const { target } = await ensurePage();
-      const snapshot = await target.evaluate(() => {
-        // 计算页面状态哈希：基于可见元素数 + 文本指纹
-        let visibleCount = 0;
-        const allEls = document.querySelectorAll('body *');
-        for (const el of allEls) {
-          if (visibleCount >= 500) break;
-          try { const s = window.getComputedStyle(el); if (s.display !== 'none' && s.visibility !== 'hidden' && el.offsetParent !== null) visibleCount++; } catch (_) {}
-        }
-        const mainText = (document.body.innerText || '').trim();
-        const textHash = mainText.length + '_' + mainText.slice(0, 100).replace(/\s+/g, '');
-        const stateHash = visibleCount + '_' + textHash.length + '_' + (mainText.length % 1000);
-        
-        return {
-          url: location.href,
-          title: document.title,
-          visibleText: document.body.innerText.slice(0, 5000),
-          // 页面状态哈希（对比前后变化用，非加密哈希）
-          stateHash,
-          stateDetail: { visibleCount, textLength: mainText.length },
-          // 页面基本信息
-          pageInfo: {
-            url: location.href,
-            title: document.title,
-            description: (document.querySelector('meta[name="description"]')?.getAttribute('content') || '').slice(0, 200),
-            charset: document.characterSet,
-            lang: document.documentElement.lang || '',
-            readyState: document.readyState,
-            referrer: document.referrer || '',
-            viewport: { w: window.innerWidth, h: window.innerHeight },
-            scrollPos: { x: window.scrollX, y: window.scrollY }
-          },
-          // 所有输入表单
-          inputs: Array.from(document.querySelectorAll('input, textarea, select')).map(el => {
-            const type = (el.getAttribute('type') || '').toLowerCase();
-            const sensitive = ['password'].includes(type) || /key|token|secret|password/i.test(`${el.id} ${el.name} ${el.placeholder}`);
-            return { tag: el.tagName.toLowerCase(), type, id: el.id || '', name: el.getAttribute('name') || '', placeholder: el.getAttribute('placeholder') || '', value: sensitive ? '******' : el.value };
-          }),
-          // 按钮与链接
-          buttons: Array.from(document.querySelectorAll('button, a')).slice(0, 80).map(el => ({ tag: el.tagName.toLowerCase(), id: el.id || '', text: (el.innerText || el.textContent || '').trim().slice(0, 120), href: el.href || '' })),
-          // 导航元素
-          navElements: (() => {
-            const navs = document.querySelectorAll('nav, [role="navigation"], .nav, .sidebar, .menu');
-            return Array.from(navs).slice(0, 5).map(n => ({
-              tag: n.tagName.toLowerCase(),
-              id: n.id || '',
-              links: Array.from(n.querySelectorAll('a, button')).slice(0, 20).map(l => (l.innerText || l.textContent || '').trim().slice(0, 60)).filter(Boolean)
-            }));
-          })(),
-          // 图片统计
-          imageCount: document.querySelectorAll('img').length,
-          // 表格统计
-          tableCount: document.querySelectorAll('table').length,
-          // 框架信息
-          frameworks: (() => {
-            const fw = [];
-            if (document.querySelector('#app, #__nuxt, #__next, [data-reactroot]')) fw.push('SPA (React/Vue/Nuxt)');
-            if (document.querySelector('[class*="ant-"]')) fw.push('Ant Design');
-            if (document.querySelector('[class*="el-"]')) fw.push('Element UI');
-            if (document.querySelector('[class*="ivu-"]')) fw.push('iView');
-            return fw;
-          })()
-        };
-      });
-      return text(JSON.stringify(redact(snapshot), null, 2));
-    }
-    case 'browser_batch': {
-      const { target } = await ensurePage();
-      const steps = args.steps || [];
-      const maxSteps = args.maxSteps || 20;
-      if (steps.length > maxSteps) {
-        return text(`批量操作受限：最多 ${maxSteps} 个操作，当前 ${steps.length} 个`);
-      }
-      const results = [];
-      for (const step of steps) {
-        try {
-          switch (step.type) {
-            case 'click':
-              await target.click(step.selector, { timeout: 10000 });
-              results.push({ type: 'click', selector: step.selector, success: true });
-              break;
-            case 'type':
-              await target.fill(step.selector, step.text || '', { timeout: 10000 });
-              results.push({ type: 'type', selector: step.selector, success: true });
-              break;
-            case 'hover':
-              await target.hover(step.selector, { timeout: 10000 });
-              results.push({ type: 'hover', selector: step.selector, success: true });
-              break;
-            case 'scroll':
-              if (step.selector) {
-                await target.$eval(step.selector, el => el.scrollIntoView());
-              } else {
-                await target.evaluate(({ x, y }) => window.scrollTo(x || 0, y || 0), { x: 0, y: step.distance || 300 });
-              }
-              results.push({ type: 'scroll', success: true });
-              break;
-            case 'screenshot':
-              ensureArtifactsDir();
-              const safeName = (step.name || `batch-${Date.now()}`).replace(/[^a-zA-Z0-9_-]/g, '_');
-              const filePath = path.join(SCREENSHOT_DIR, `${safeName}.png`);
-              await target.screenshot({ path: filePath });
-              results.push({ type: 'screenshot', file: filePath, success: true });
-              break;
-            case 'wait':
-              await target.waitForTimeout(step.ms || 1000);
-              results.push({ type: 'wait', ms: step.ms || 1000, success: true });
-              break;
-            case 'press_key':
-              if (step.selector) await target.focus(step.selector);
-              await target.keyboard.press(step.key);
-              results.push({ type: 'press_key', key: step.key, success: true });
-              break;
-            case 'select':
-              await target.selectOption(step.selector, step.value || step.label || step.index);
-              results.push({ type: 'select', selector: step.selector, success: true });
-              break;
-            default:
-              results.push({ type: step.type, success: false, error: `未知操作类型: ${step.type}` });
-          }
-        } catch (err) {
-          results.push({ type: step.type, selector: step.selector, success: false, error: err.message });
-        }
-      }
-      return text(JSON.stringify({ total: steps.length, results }, null, 2));
-    }
-    case 'browser_network':
-      return text(JSON.stringify(redact(filterNetwork(networkLogs, args)), null, 2));
-    case 'browser_network_detail':
-      return text(JSON.stringify(filterNetworkDetails(args), null, 2));
-    case 'browser_har_export':
-      return text(JSON.stringify(exportHar(args), null, 2));
-    case 'debug_investigate': {
-      const { target } = await ensurePage(args);
-      const investigation = await investigateDebug(target, args);
-      return text(JSON.stringify(investigation, null, 2));
-    }
-    case 'browser_console': {
-      const level = args.level && args.level !== 'all' ? args.level : null;
-      const filtered = level ? consoleLogs.filter(item => item.type === level) : consoleLogs;
-      const limited = (args.limit ? filtered.slice(-args.limit) : filtered.slice(-50));
-      return text(JSON.stringify(redact(limited), null, 2));
-    }
-    case 'browser_errors': {
-      const result = getUnifiedErrors(args);
-      // 如果页面可用，也从注入脚本直读 console 错误
-      if (page && !page.isClosed()) {
-        try {
-          const injected = await page.evaluate((since) => {
-            if (!window.__mcpEvents) return [];
-            const sinceTime = since ? new Date(since).getTime() : 0;
-            return window.__mcpEvents
-              .filter(e => (e.type === 'console' && e.level === 'error') || e.type === 'window_error' || e.type === 'unhandledrejection')
-              .filter(e => new Date(e.timestamp || 0).getTime() >= sinceTime)
-              .slice(-30)
-              .map(e => ({ type: e.level || 'error', text: (e.args ? e.args.join(' ') : e.message || e.reason || '').slice(0, 200) }));
-          }, args.since || null).catch(() => []);
-          if (injected.length > 0) {
-            result.injectedConsoleErrors = injected;
-            result.totalInjected = injected.length;
-            result.summary.silentFailCount = (result.summary.silentFailCount || 0) + injected.length;
-            result.silentFailCount = (result.silentFailCount || 0) + injected.length;
-          }
-        } catch (_) {}
-      }
-      return text(JSON.stringify(result, null, 2));
-    }
-    case 'browser_errors_clear':
-      resetRuntimeLogs();
-      return text(JSON.stringify({ cleared: true, checkpoint: currentCheckpoint }, null, 2));
-    case 'browser_eval': {
-      const { target } = await ensurePage();
-      const expression = args.expression || args.script;
-      if (!expression) {
-        return text(JSON.stringify({ error: '缺少 expression 参数' }, null, 2));
-      }
-      // 安全限制：表达式长度限制为 10KB
-      const MAX_EXPRESSION_LENGTH = 10240;
-      if (expression.length > MAX_EXPRESSION_LENGTH) {
-        return text(JSON.stringify({ error: `表达式过长（${expression.length}字节），最大允许 ${MAX_EXPRESSION_LENGTH} 字节` }, null, 2));
-      }
-      // 审计日志
-      console.log('[AUDIT] browser_eval executed:', { expressionLength: expression.length, timestamp: new Date().toISOString() });
-      
-      const wrapped = expression.trim().startsWith('return') || expression.includes('return ')
-        ? `(function(){${expression}})()`
-        : expression;
-      const result = await target.evaluate(expr => {
-        try {
-          const value = (0, eval)(expr);
-          return typeof value === 'undefined' ? null : value;
-        } catch (e) {
-          if (e instanceof SyntaxError && /return/.test(e.message)) {
-            return (0, eval)(`(function(){${expr}})()`);
-          }
-          throw e;
-        }
-      }, wrapped);
-      return text(JSON.stringify(redact({ result, expressionLength: expression.length }), null, 2));
-    }
-    case 'browser_dom': {
-      const { target } = await ensurePage();
-      const selector = args.selector;
-      if (!selector) return text(JSON.stringify({ error: '缺少选择器参数' }, null, 2));
-
-      // 先检查元素总数
-      const totalCount = await target.locator(selector).count().catch(() => 0);
-      if (totalCount === 0) {
-        return text(JSON.stringify({ selector, count: 0, elements: [], error: '未找到匹配元素' }, null, 2));
-      }
-
-      // 获取所有匹配元素（最多10个）
-      const limit = Math.min(typeof args.limit === 'number' ? args.limit : 10, 10);
-      const elements = await target.evaluate(({ sel, max }) => {
-        const items = [];
-        const nodes = document.querySelectorAll(sel);
-        const maxCount = Math.min(nodes.length, max);
-        for (let i = 0; i < maxCount; i++) {
-          const el = nodes[i];
-          const rect = el.getBoundingClientRect();
-          const type = (el.getAttribute('type') || '').toLowerCase();
-          const sensitive = ['password'].includes(type) || /key|token|secret|password/i.test(`${el.id} ${el.name} ${el.placeholder}`);
-          const style = getComputedStyle(el);
-          items.push({
-            index: i,
-            tag: el.tagName.toLowerCase(),
-            id: el.id || '',
-            className: typeof el.className === 'string' ? el.className : '',
-            text: (el.innerText || el.textContent || '').trim().slice(0, 500),
-            value: 'value' in el ? (sensitive ? '******' : el.value) : undefined,
-            visible: !!(rect.width || rect.height),
-            disabled: !!el.disabled,
-            rect: { x: Math.round(rect.x), y: Math.round(rect.y), w: Math.round(rect.width), h: Math.round(rect.height) },
-            style: { display: style.display, visibility: style.visibility, opacity: style.opacity }
-          });
-        }
-        return items;
-      }, { sel: selector, max: limit });
-
-      return text(JSON.stringify(redact({ selector, count: totalCount, returned: elements.length, elements }), null, 2));
-    }
-    case 'browser_highlight': {
-      const { target } = await ensurePage();
-      await target.$eval(args.selector, (el, color) => {
-        el.scrollIntoView({ block: 'center', inline: 'center' });
-        el.setAttribute('data-mcp-debug-highlight', 'true');
-        el.style.outline = `4px solid ${color || 'red'}`;
-        el.style.boxShadow = `0 0 0 6px rgba(255,0,0,.25)`;
-      }, args.color || 'red');
-      return text(`已高亮元素：${args.selector}`);
-    }
-    case 'browser_select': {
-      const { target } = await ensurePage();
-      const selectValue = args.value || args.label || args.index;
-      if (!selectValue) {
-        return text(`错误：browser_select 需要提供 value 或 label 或 index 参数，当前参数：${JSON.stringify(args)}`);
-      }
-      const selectEl = await target.$(args.selector);
-      if (!selectEl) {
-        return text(`browser_select: 未找到选择器 "${args.selector}" 对应的 select 元素，请确认页面包含该元素`);
-      }
-      try {
-        await target.selectOption(args.selector, selectValue, { timeout: 5000 });
-      } catch (e) {
-        return text(`browser_select: 操作失败：${e.message}，选择器：${args.selector}，值：${selectValue}`);
-      }
-      
-      // 操作后快速错误捕获
-      const postErrors = await postActionErrorCheck(target, 'select', args.selector);
-      
-      return text(JSON.stringify({
-        action: 'select',
-        selector: args.selector,
-        value: selectValue,
-        success: true,
-        errors: { count: postErrors.count, detected: postErrors.detected }
-      }, null, 2));
-    }
-    case 'browser_storage': {
-      const { target } = await ensurePage();
-      return text(JSON.stringify(await getStorageSnapshot(target, args.scope || 'all'), null, 2));
-    }
-    case 'browser_debug_report': {
-      const { target } = await ensurePage();
-      return text(JSON.stringify(await buildDebugReport(target, args), null, 2));
-    }
-    case 'browser_screenshot': {
-      const { target } = await ensurePage();
-      ensureArtifactsDir();
-      const safeName = (args.name || `screenshot-${Date.now()}`).replace(/[^a-zA-Z0-9_-]/g, '_');
-      const filePath = path.join(SCREENSHOT_DIR, `${safeName}.png`);
-      await screenshotWithRedaction(target, filePath, args);
-
-      // 截图后二次分析错误
-      const analysis = await analyzeScreenshotForErrors(target, filePath);
-
-      if (analysis.hasErrors) {
-        return text(JSON.stringify({
-          image: filePath,
-          success: true,
-          error_analysis: {
-            has_errors: true,
-            visible_error_count: analysis.visibleErrors.length,
-            console_error_count: analysis.consoleErrors.length,
-            total_errors: analysis.errorCount,
-            visible_errors: analysis.visibleErrors.map(e => ({ selector: e.selector, text: e.text.slice(0, 100) })),
-            console_errors: analysis.consoleErrors.map(e => e.text)
-          },
-          tip: '截图检测到错误，请使用 browser_errors 查看完整错误详情'
-        }, null, 2));
-      }
-
-      return text(JSON.stringify({ image: filePath, success: true, error_analysis: { has_errors: false } }, null, 2));
-    }
-    case 'browser_screenshot_element': {
-      const { target } = await ensurePage();
-      ensureArtifactsDir();
-      const selector = args.selector;
-      if (!selector) {
-        return { isError: true, content: [{ type: 'text', text: 'browser_screenshot_element 需要提供 selector 参数' }] };
-      }
-      const padding = args.padding || 0;
-      const safeName = (args.name || `element-screenshot-${Date.now()}`).replace(/[^a-zA-Z0-9_-]/g, '_');
-      const filePath = path.join(SCREENSHOT_DIR, `${safeName}.png`);
-
-      try {
-        const element = await target.$(selector);
-        if (!element) {
-          return { isError: true, content: [{ type: 'text', text: `未找到选择器 "${selector}" 对应的元素` }] };
-        }
-        
-        const box = await element.boundingBox();
-        if (!box) {
-          return { isError: true, content: [{ type: 'text', text: `元素 "${selector}" 不可见或尺寸为0` }] };
-        }
-
-        const clip = {
-          x: Math.max(0, box.x - padding),
-          y: Math.max(0, box.y - padding),
-          width: box.width + padding * 2,
-          height: box.height + padding * 2
-        };
-
-        await target.screenshot({ path: filePath, clip, omitBackground: false });
-
-        return text(JSON.stringify({
-          image: filePath,
-          success: true,
-          selector,
-          elementSize: { width: box.width, height: box.height },
-          screenshotSize: { width: clip.width, height: clip.height },
-          padding
-        }, null, 2));
-      } catch (e) {
-        return { isError: true, content: [{ type: 'text', text: `元素截图失败: ${e.message}` }] };
-      }
-    }
-    case 'browser_navigate': {
-      const { target } = await ensurePage();
-      const action = args.action || 'refresh';
-      const waitUntil = args.waitUntil || 'domcontentloaded';
-      const timeout = args.timeout || 30000;
-
-      try {
-        switch (action) {
-          case 'forward':
-            await target.goForward({ timeout });
-            break;
-          case 'back':
-            await target.goBack({ timeout });
-            break;
-          case 'refresh':
-          case 'reload':
-            await target.reload({ waitUntil, timeout });
-            break;
-          default:
-            return { isError: true, content: [{ type: 'text', text: `不支持的导航操作: ${action}，支持 forward/back/refresh/reload` }] };
-        }
-
-        return text(JSON.stringify({
-          action,
-          success: true,
-          currentUrl: target.url(),
-          waitUntil
-        }, null, 2));
-      } catch (e) {
-        return { isError: true, content: [{ type: 'text', text: `导航失败: ${e.message}` }] };
-      }
-    }
-    case 'browser_step': {
-      const { target } = await ensurePage();
-      return text(JSON.stringify(await captureStepEvidence(target, args.label || 'manual-step', args), null, 2));
-    }
-    case 'browser_wait': {
-      const { target } = await ensurePage();
-      return text(JSON.stringify(await waitForCondition(target, args), null, 2));
-    }
-    case 'browser_assert': {
-      const { target } = await ensurePage();
-      return text(JSON.stringify(await assertPage(target, args), null, 2));
-    }
-    case 'browser_flow': {
-      const { target } = await ensurePage(args);
-      return text(JSON.stringify(await runFlow(target, args), null, 2));
-    }
-    case 'browser_instrument': {
-      const { target } = await ensurePage(args);
-      return text(JSON.stringify(await installInstrumentation(target), null, 2));
-    }
-    case 'browser_events': {
-      const { target } = await ensurePage(args);
-      return text(JSON.stringify(await getBrowserEvents(target, args), null, 2));
-    }
-    case 'browser_events_clear': {
-      const { target } = await ensurePage(args);
-      return text(JSON.stringify(await clearBrowserEvents(target), null, 2));
-    }
-    case 'browser_trace_start': {
-      const { target } = await ensurePage(args);
-      return text(JSON.stringify(await startTrace(target, args), null, 2));
-    }
-    case 'browser_trace_stop': {
-      const { target } = await ensurePage(args);
-      return text(JSON.stringify(await stopTrace(target, args), null, 2));
-    }
-    case 'browser_artifacts':
-      return text(JSON.stringify(getArtifacts(), null, 2));
-    case 'browser_visual_baseline': {
-      const { target } = await ensurePage(args);
-      return text(JSON.stringify(await visualBaseline(target, args), null, 2));
-    }
-    case 'browser_visual_compare': {
-      const { target } = await ensurePage(args);
-      return text(JSON.stringify(await visualCompare(target, args), null, 2));
-    }
-    case 'browser_visual_report':
-      return text(JSON.stringify(visualReport(), null, 2));
-    case 'browser_a11y_check': {
-      const { target } = await ensurePage(args);
-      return text(JSON.stringify(await runA11yCheck(target, args), null, 2));
-    }
-    case 'browser_performance_check': {
-      const { target } = await ensurePage(args);
-      return text(JSON.stringify(await runPerformanceCheck(target, args), null, 2));
-    }
-    case 'browser_lighthouse_audit': {
-      return text(JSON.stringify(await runLighthouseAudit(args), null, 2));
-    }
-    case 'browser_locator_validate': {
-      const { target } = await ensurePage(args);
-      return text(JSON.stringify(await validateLocator(target, args), null, 2));
-    }
-    case 'browser_locator_suggest': {
-      const { target } = await ensurePage(args);
-      return text(JSON.stringify(await suggestLocator(target, args), null, 2));
-    }
-    case 'browser_artifacts_clear':
-      return text(JSON.stringify(clearArtifacts(args), null, 2));
-    case 'browser_sessions':
-      return text(JSON.stringify(listBrowserSessions(), null, 2));
-    case 'browser_session_create': {
-      const name = args.name || args.sessionName || `session-${++sessionCounter}`;
-      if (sessions.size >= MAX_SESSIONS && !sessions.has(activeSessionName)) {
-        return text(`会话数量已达上限（${MAX_SESSIONS}），请先关闭现有会话`);
-      }
-      const { target, sessionId } = await ensurePage({ ...args, sessionName: name });
-      if (args.url) await target.goto(args.url, { waitUntil: 'domcontentloaded', timeout: args.timeout || 30000 });
-      sessions.set(name, { name, url: target.url(), created: new Date().toISOString(), browser, page });
-      activeSessionName = name;
-      return text(JSON.stringify({ created: true, activeSession: activeSessionName, sessionName: name, url: target.url() }, null, 2));
-    }
-    case 'browser_session_switch': {
-      const name = args.name || args.sessionName;
-      if (!name) {
-        return text('请指定要切换的会话名称');
-      }
-      const session = sessions.get(name);
-      if (!session) {
-        return text(`会话不存在：${name}`);
-      }
-      if (session.page && !session.page.isClosed()) {
-        page = session.page;
-        browser = session.browser;
-        activeSessionName = name;
-        return text(JSON.stringify({ switched: true, activeSession: activeSessionName, url: page.url() }, null, 2));
-      } else {
-        // 会话已关闭，重新打开
-        sessions.delete(name);
-        return text(`会话已关闭：${name}，请重新创建`);
-      }
-    }
-    case 'browser_session_close':
-      return text(JSON.stringify(await closeBrowserSession(args.name || args.sessionName), null, 2));
-    case 'mcp_health_check':
-      return text(JSON.stringify(mcpHealthCheck(), null, 2));
-    case 'project_audit':
-      return text(JSON.stringify(await projectAudit(args), null, 2));
-    case 'mcp_self_test':
-      return text(JSON.stringify(await mcpSelfTest(args), null, 2));
-    case 'validation_start': {
-      resetRuntimeLogs();
-      const scenarios = Array.isArray(args.testScenarios) ? args.testScenarios : [];
-      validationResults = scenarios.map((scenario, index) => ({ id: index + 1, scenario, status: 'pending' }));
-      return text(`验证已启动，目标: ${args.targetUrl || '未指定'}，场景数: ${scenarios.length}，checkpoint: ${currentCheckpoint}`);
-    }
-    case 'validation_check': {
-      if (args.check_type === 'deploy_verify') {
-        return text(JSON.stringify(await runDeployVerify(args), null, 2));
-      }
-      const { target } = await ensurePage(args);
-      return text(JSON.stringify(await runValidationCheck(target, args), null, 2));
-    }
-    case 'validation_run': {
-      const { target } = await ensurePage(args);
-      return text(JSON.stringify(await runValidationPlan(target, args), null, 2));
-    }
-    case 'validation_suite_run':
-      return text('该工具为付费版本功能，请升级到团队版或企业版以使用批量套件运行能力。\n\n了解更多: https://validpilot.com/pricing');
-    case 'validation_element': {
-      const { target } = await ensurePage(args);
-      return text(JSON.stringify(await runValidationElement(target, args), null, 2));
-    }
-    case 'validation_flow': {
-      const { target } = await ensurePage(args);
-      return text(JSON.stringify(await runValidationFlow(target, args), null, 2));
-    }
-    case 'validation_report': {
-      const report = buildValidationReport(args);
-      return text(typeof report === 'string' ? report : JSON.stringify(report, null, 2));
-    }
-    case 'validation_report_export':
-      return text(JSON.stringify(exportValidationReport(args), null, 2));
-    case 'validation_quick_run': {
-      const { target } = await ensurePage(args);
-      return text(JSON.stringify(await runValidationQuickRun(target, args), null, 2));
-    }
-    case 'validation_matrix':
-      return text('validation_matrix: 权限矩阵验证。该能力在闭源端完整实现，开源版本仅作为占位（推荐使用多个 validation_check 模拟矩阵）');
-    case 'validation_decision':
-      return text('validation_decision: 决策建议。该能力在闭源端完整实现，开源版本仅作为占位');
-    case 'css_var_check': {
-      const cssAnalyzer = require('./scripts/css-var-analyzer');
-      const css = args.css;
-      if (!css) {
-        return text(JSON.stringify({ error: '缺少 css 参数' }, null, 2));
-      }
-      const result = cssAnalyzer.analyzeCSS(css, args.filePath || 'inline');
-      return text(JSON.stringify(result, null, 2));
-    }
-    case 'error_fix_suggestion': {
-      const errorSummary = args.errorSummary || '';
-      const context = args.context || {};
-      const maxSuggestions = args.maxSuggestions || 3;
-
-      const errorText = typeof errorSummary === 'string' ? errorSummary : JSON.stringify(errorSummary);
-      const lowerText = errorText.toLowerCase();
-
-      const patterns = [
-        {
-          name: '404_not_found',
-          match: /404|not found|无法找到|找不到资源/i,
-          suggestions: [
-            { suggestion: '检查URL路径是否正确，注意大小写和拼写', severity: 'critical', confidence: 0.9, verifyAction: '在浏览器中直接访问URL，确认是否返回404', relatedTool: 'browser_open' },
-            { suggestion: '检查API路由版本是否匹配', severity: 'general', confidence: 0.7, verifyAction: '查看API文档确认路由版本', relatedTool: 'browser_network' },
-            { suggestion: '检查资源引用路径（JS/CSS/图片）', severity: 'general', confidence: 0.6, verifyAction: '使用browser_network检查失败的资源请求', relatedTool: 'browser_network' }
-          ]
-        },
-        {
-          name: '401_unauthorized',
-          match: /401|unauthorized|未授权|无权限登录|身份验证失败/i,
-          suggestions: [
-            { suggestion: '检查登录状态是否有效', severity: 'critical', confidence: 0.9, verifyAction: '查看当前页面是否需要重新登录', relatedTool: 'browser_cookies' },
-            { suggestion: '检查Token或Cookie是否过期', severity: 'critical', confidence: 0.85, verifyAction: '使用browser_cookies查看认证信息', relatedTool: 'browser_cookies' },
-            { suggestion: '重新登录获取有效凭证', severity: 'general', confidence: 0.8, verifyAction: '执行登录操作后重试', relatedTool: 'browser_click' }
-          ]
-        },
-        {
-          name: '403_forbidden',
-          match: /403|forbidden|禁止访问|访问被拒绝/i,
-          suggestions: [
-            { suggestion: '检查当前用户角色权限是否足够', severity: 'critical', confidence: 0.85, verifyAction: '确认用户角色与资源权限要求', relatedTool: 'browser_cookies' },
-            { suggestion: '检查资源访问控制配置', severity: 'general', confidence: 0.7, verifyAction: '查看服务端权限配置', relatedTool: 'browser_network' }
-          ]
-        },
-        {
-          name: '5xx_server_error',
-          match: /500|502|503|server error|服务器错误|内部错误|服务不可用/i,
-          suggestions: [
-            { suggestion: '检查后端服务状态是否正常', severity: 'critical', confidence: 0.9, verifyAction: '查看服务健康检查接口', relatedTool: 'browser_network' },
-            { suggestion: '稍后重试，可能是临时故障', severity: 'general', confidence: 0.7, verifyAction: '等待一段时间后重新请求', relatedTool: 'browser_wait' },
-            { suggestion: '查看服务端日志获取详细错误信息', severity: 'critical', confidence: 0.8, verifyAction: '检查服务日志排查根因', relatedTool: 'browser_diagnose' }
-          ]
-        },
-        {
-          name: 'type_error_undefined',
-          match: /TypeError|undefined|Cannot read properties|无法读取属性|类型错误/i,
-          suggestions: [
-            { suggestion: '等待页面JS加载完成后再操作', severity: 'critical', confidence: 0.85, verifyAction: '使用browser_wait等待页面稳定', relatedTool: 'browser_wait', suggestedCode: 'await page.waitForSelector(".content-loaded", { timeout: 5000 })' },
-            { suggestion: '检查目标元素是否存在于DOM中', severity: 'critical', confidence: 0.8, verifyAction: '使用browser_find_element确认元素存在', relatedTool: 'browser_find_element', suggestedCode: 'const el = document.querySelector(".target-element"); console.log("exists:", !!el)' },
-            { suggestion: '检查页面数据是否加载完成', severity: 'general', confidence: 0.7, verifyAction: '查看网络请求确认数据返回', relatedTool: 'browser_network' }
-          ]
-        },
-        {
-          name: 'cors_cross_origin',
-          match: /CORS|cross-origin|跨域|Access-Control|被CORS策略阻止|Script error[\.]?$/i,
-          suggestions: [
-            { suggestion: '检查API服务端CORS配置', severity: 'critical', confidence: 0.9, verifyAction: '查看响应头Access-Control-Allow-Origin', relatedTool: 'browser_network' },
-            { suggestion: '检查请求域名是否在白名单中', severity: 'general', confidence: 0.75, verifyAction: '确认服务端配置的允许源', relatedTool: 'browser_network' },
-            { suggestion: '跨域脚本错误：在<script>标签添加crossorigin="anonymous"属性', severity: 'critical', confidence: 0.85, verifyAction: '检查HTML中的<script src>是否缺少crossorigin属性', relatedTool: 'browser_dom' },
-            { suggestion: '使用代理服务器转发请求', severity: 'general', confidence: 0.6, verifyAction: '配置开发代理绕过CORS限制', relatedTool: 'browser_network', suggestedCode: '// dev proxy config\nmodule.exports = { devServer: { proxy: { "/api": { target: "http://localhost:3000" } } } }' }
-          ]
-        },
-        {
-          name: 'timeout',
-          match: /timeout|timed out|ETIMEDOUT|超时|请求超时/i,
-          suggestions: [
-            { suggestion: '检查网络连接是否正常', severity: 'critical', confidence: 0.85, verifyAction: '访问其他网站确认网络状态', relatedTool: 'browser_open' },
-            { suggestion: '增加请求超时时间', severity: 'general', confidence: 0.8, verifyAction: '调整超时参数后重试', relatedTool: 'browser_wait', suggestedCode: 'await page.goto(url, { timeout: 30000 })' },
-            { suggestion: '检查服务端响应速度是否正常', severity: 'general', confidence: 0.7, verifyAction: '查看网络请求耗时分布', relatedTool: 'browser_network' }
-          ]
-        },
-        {
-          name: 'element_not_found',
-          match: /element not found|no element matched|找不到元素|元素不存在|没有匹配的元素/i,
-          suggestions: [
-            { suggestion: '检查选择器拼写是否正确', severity: 'critical', confidence: 0.9, verifyAction: '使用browser_dom验证选择器', relatedTool: 'browser_dom' },
-            { suggestion: '等待元素加载完成后再操作', severity: 'critical', confidence: 0.85, verifyAction: '使用browser_wait等待元素出现', relatedTool: 'browser_wait', suggestedCode: 'await page.waitForSelector(".target-element", { timeout: 10000 })' },
-            { suggestion: '使用browser_find_element查找元素', severity: 'general', confidence: 0.8, verifyAction: '调用browser_find_element确认元素位置', relatedTool: 'browser_find_element' }
-          ]
-        },
-        {
-          name: 'element_not_visible',
-          match: /element not visible|not interactable|不可见|不可交互|元素被遮挡/i,
-          suggestions: [
-            { suggestion: '滚动到元素位置使其可见', severity: 'critical', confidence: 0.85, verifyAction: '使用browser_scroll滚动到元素', relatedTool: 'browser_scroll', suggestedCode: 'await element.scrollIntoView({ behavior: "smooth", block: "center" })' },
-            { suggestion: '检查元素是否被其他元素遮挡', severity: 'general', confidence: 0.7, verifyAction: '截图查看元素实际显示状态', relatedTool: 'browser_screenshot' },
-            { suggestion: '等待页面动画或过渡完成', severity: 'general', confidence: 0.75, verifyAction: '使用browser_wait等待动画结束', relatedTool: 'browser_wait', suggestedCode: 'await page.waitForTimeout(1000) // 等待动画结束' }
-          ]
-        },
-        {
-          name: 'disabled_readonly',
-          match: /disabled|readonly|只读|禁用|不可编辑/i,
-          suggestions: [
-            { suggestion: '检查表单验证条件是否满足', severity: 'critical', confidence: 0.8, verifyAction: '查看表单字段的启用条件', relatedTool: 'browser_diagnose' },
-            { suggestion: '检查前置输入是否满足要求', severity: 'general', confidence: 0.7, verifyAction: '确认依赖字段是否已正确填写', relatedTool: 'browser_click' }
-          ]
-        },
-        {
-          name: 'network_error_fetch',
-          match: /NetworkError|Failed to fetch|网络错误|获取失败|连接失败/i,
-          suggestions: [
-            { suggestion: '检查网络连接是否正常', severity: 'critical', confidence: 0.9, verifyAction: '访问其他网站确认网络连通性', relatedTool: 'browser_open' },
-            { suggestion: '检查API服务是否可用', severity: 'critical', confidence: 0.85, verifyAction: '直接访问API地址确认服务状态', relatedTool: 'browser_network' },
-            { suggestion: '检查请求格式是否正确', severity: 'general', confidence: 0.7, verifyAction: '核对请求参数和格式要求', relatedTool: 'browser_network' }
-          ]
-        },
-        // api_response_html — 路由兜底检测（API 返回 HTML 而非 JSON）
-        {
-          name: 'api_response_html',
-          match: /html.*200|返回了HTML|路由兜底|SPA路由/i,
-          suggestions: [
-            { suggestion: 'API 路径可能被 SPA 路由捕获，返回了 HTML 而非 JSON', severity: 'blocking', confidence: 0.9, verifyAction: '在 Network 面板检查响应 Content-Type', relatedTool: 'browser_network', suggestedCode: 'fetch(url).then(r => { if (!r.ok || !r.headers.get("content-type")?.includes("json")) throw new Error("Not JSON response") })' },
-            { suggestion: '检查 API URL 前缀是否匹配服务端路由配置', severity: 'critical', confidence: 0.8, verifyAction: '对比 API 文档中的路由前缀', relatedTool: 'browser_dom', suggestedCode: '// 检查 /api/ 前缀是否匹配 server 配置' },
-            { suggestion: '确认服务端未将所有未匹配路由指向 index.html', severity: 'critical', confidence: 0.85, verifyAction: '查看 nginx/tomcat 路由配置', relatedTool: 'browser_network' }
-          ]
-        },
-        // missing_envVar — 环境变量缺失
-        {
-          name: 'missing_envVar',
-          match: /environment variable|env.*not set|环境变量.*未|缺少.*环境|process\.env/i,
-          suggestions: [
-            { suggestion: '检查 .env 文件是否存在且包含必需变量', severity: 'blocking', confidence: 0.9, verifyAction: '检查 .env 或 .env.local 文件', relatedTool: 'browser_diagnose', suggestedCode: 'console.log("MISSING:", ["KEY1","KEY2"].filter(k=>!process.env[k]))' },
-            { suggestion: '确认 CI/CD 中已配置该环境变量', severity: 'critical', confidence: 0.85, verifyAction: '检查部署环境的变量配置', relatedTool: 'browser_diagnose' }
-          ]
-        },
-        // port_conflict — 端口冲突
-        {
-          name: 'port_conflict',
-          match: /port.*in use|EADDRINUSE|端口.*占用|address.*already in use/i,
-          suggestions: [
-            { suggestion: '查找占用端口的进程并停止', severity: 'blocking', confidence: 0.9, verifyAction: 'netstat -ano | findstr :PORT', relatedTool: 'browser_diagnose', suggestedCode: '// Windows: netstat -ano | findstr :PORT\n// Linux: lsof -i :PORT' },
-            { suggestion: '修改应用端口配置重新启动', severity: 'critical', confidence: 0.85, verifyAction: '在配置文件中修改端口号', relatedTool: 'browser_diagnose' }
-          ]
-        },
-        // websocket_error — WebSocket 错误
-        {
-          name: 'websocket_error',
-          match: /websocket|WebSocket|ws:[/][/]|wss:[/][/]|socket.*error|连接.*断开/i,
-          suggestions: [
-            { suggestion: '检查 WebSocket 服务端是否正常运行', severity: 'blocking', confidence: 0.9, verifyAction: '直接连接 WebSocket 端点确认状态', relatedTool: 'browser_network', suggestedCode: 'new WebSocket(url).onopen=()=>console.log("WS OK")' },
-            { suggestion: '检查防火墙/代理是否拦截 WebSocket 升级请求', severity: 'critical', confidence: 0.8, verifyAction: '查看网络请求中 101 状态码', relatedTool: 'browser_network' }
-          ]
-        },
-        // rate_limit — 请求频率限制
-        {
-          name: 'rate_limit',
-          match: /rate limit|429|too many requests|请求过于频繁|请求被限流/i,
-          suggestions: [
-            { suggestion: '增加请求间隔，避免短时间内大量请求', severity: 'critical', confidence: 0.9, verifyAction: '添加延迟后重试', relatedTool: 'browser_wait', suggestedCode: 'await new Promise(r=>setTimeout(r,2000))' },
-            { suggestion: '检查是否需要添加认证头提高限额', severity: 'general', confidence: 0.7, verifyAction: '查看 API 文档关于限流的说明', relatedTool: 'browser_cookies' }
-          ]
-        },
-        // python_route_missing — Python 后端路由缺失（Flask/FastAPI）
-        {
-          name: 'python_route_missing',
-          match: /404|route.*not found|endpoint.*missing|路由.*缺失|接口.*不存在|api.*not found|identity\.me|tenants.*500/i,
-          suggestions: [
-            { suggestion: '检查 Python 路由文件是否存在对应端点定义', severity: 'blocking', confidence: 0.9, verifyAction: '在 routes/ 目录下查找对应 .py 文件', relatedTool: 'debug_investigate', suggestedCode: '# 检查路由文件\n# grep -rn "endpoint_name" app/routes/' },
-            { suggestion: '检查蓝图(Blueprint)是否在 __init__.py 中注册', severity: 'critical', confidence: 0.85, verifyAction: '查看 routes/__init__.py 中的 router 注册列表', relatedTool: 'debug_investigate', suggestedCode: '# 检查蓝图注册\nfrom app.routes.module import router\napp.include_router(router)' },
-            { suggestion: '检查路由装饰器 @router.get/post 的路径是否正确', severity: 'critical', confidence: 0.8, verifyAction: '对比 API 文档和路由装饰器中的路径', relatedTool: 'browser_network' }
-          ]
-        },
-        // python_import_error — Python 模块导入错误
-        {
-          name: 'python_import_error',
-          match: /ImportError|ModuleNotFoundError|No module named|导入.*失败|模块.*不存在/i,
-          suggestions: [
-            { suggestion: '检查 requirements.txt 是否包含缺失的依赖包', severity: 'blocking', confidence: 0.9, verifyAction: '执行 pip install -r requirements.txt', relatedTool: 'debug_investigate', suggestedCode: 'pip install -r requirements.txt' },
-            { suggestion: '检查 Python 路径(PYTHONPATH)和模块搜索路径', severity: 'critical', confidence: 0.85, verifyAction: '打印 sys.path 确认导入路径', relatedTool: 'debug_investigate', suggestedCode: 'python3 -c "import sys; print(chr(10).join(sys.path))"' },
-            { suggestion: '检查循环导入(circular import)问题', severity: 'critical', confidence: 0.8, verifyAction: '检查模块之间的相互引用关系', relatedTool: 'debug_investigate' }
-          ]
-        },
-        // python_db_error — 数据库连接/查询错误
-        {
-          name: 'python_db_error',
-          match: /psycopg|DatabaseError|OperationalError|数据库.*错误|relation.*does not exist|UndefinedTable|connection.*failed|database.*error/i,
-          suggestions: [
-            { suggestion: '检查数据库表是否存在(SELECT tablename FROM pg_tables)', severity: 'blocking', confidence: 0.9, verifyAction: '连接数据库执行 \\dt 检查表清单', relatedTool: 'debug_investigate', suggestedCode: 'docker exec postgres psql -U user -d db -c "SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname=\'public\'"' },
-            { suggestion: '检查 schema.sql/Docker 启动时是否成功执行迁移', severity: 'critical', confidence: 0.85, verifyAction: '查看容器启动日志中的 schema/migration 信息', relatedTool: 'debug_investigate', suggestedCode: 'docker compose logs | grep -iE "schema|migration|error"' },
-            { suggestion: '检查 SQL 语法错误（如缺少引号、逗号、DEFAULT 值格式）', severity: 'critical', confidence: 0.8, verifyAction: '逐步测试 CREATE TABLE 语句定位语法错误', relatedTool: 'debug_investigate', suggestedCode: '-- 常见错误: DEFAULT value 缺少引号\n-- 正确: DEFAULT \'value\'\n-- 错误: DEFAULT value' }
-          ]
-        },
-        // sql_undefined_column — SQL 查询引用不存在的列（UndefinedColumn）
-        {
-          name: 'sql_undefined_column',
-          match: /UndefinedColumn|column.*does not exist|列.*不存在|payout_status|payout_requested_at|column.*status.*not exist/i,
-          suggestions: [
-            { suggestion: '检查 SQL 查询中引用的列名是否在对应表结构中存在', severity: 'blocking', confidence: 0.95, verifyAction: '执行 \\d tablename 检查表结构中的列清单', relatedTool: 'debug_investigate', suggestedCode: 'docker exec postgres psql -U user -d db -c "SELECT column_name FROM information_schema.columns WHERE table_name=\'tablename\'"' },
-            { suggestion: '确认 schema.sql 或迁移文件是否遗漏了该列定义', severity: 'critical', confidence: 0.9, verifyAction: '检查 schema.sql 中 CREATE TABLE 部分和 migrations/ 目录下的迁移文件', relatedTool: 'debug_investigate', suggestedCode: 'grep -n "payout_status\|status" infra/postgres/schema.sql services/gateway/migrations/*.sql' },
-            { suggestion: '使用 ALTER TABLE ADD COLUMN IF NOT EXISTS 补充缺失列', severity: 'critical', confidence: 0.85, verifyAction: '执行 ALTER TABLE 后重新测试 API', relatedTool: 'debug_investigate', suggestedCode: 'ALTER TABLE tablename ADD COLUMN IF NOT EXISTS column_name VARCHAR(32) NOT NULL DEFAULT \'pending\';' }
-          ]
-        },
-        // sql_undefined_table — SQL 查询引用了不存在的表（UndefinedTable）
-        {
-          name: 'sql_undefined_table',
-          match: /UndefinedTable|relation.*does not exist|表.*不存在|setlement_accounts|settlement_accounts/i,
-          suggestions: [
-            { suggestion: '检查 schema.sql 是否包含该表的 CREATE TABLE 定义', severity: 'blocking', confidence: 0.95, verifyAction: '检查 schema.sql 和 migrations/ 目录下的所有 SQL 文件', relatedTool: 'debug_investigate', suggestedCode: 'grep -rn "CREATE TABLE.*tablename" infra/postgres/ services/gateway/migrations/' },
-            { suggestion: '从代码仓库的 INSERT SQL 中提取表结构定义', severity: 'critical', confidence: 0.85, verifyAction: '查找代码中该表的 INSERT/REFERENCES 推断列定义', relatedTool: 'debug_investigate', suggestedCode: 'grep -rn "tablename" app/*.py | grep -i "INSERT\|SELECT.*FROM" | head -5' },
-            { suggestion: '创建缺失的表并补充外键约束', severity: 'critical', confidence: 0.8, verifyAction: '执行 CREATE TABLE IF NOT EXISTS 创建表', relatedTool: 'debug_investigate', suggestedCode: 'CREATE TABLE IF NOT EXISTS tablename (id VARCHAR(64) PRIMARY KEY, tenant_id VARCHAR(64) NOT NULL, ...);' }
-          ]
-        },
-        // sql_schema_syntax — SQL schema 语法错误（DEFAULT 缺引号、逗号缺失等）
-        {
-          name: 'sql_schema_syntax',
-          match: /syntax error at or near|语法错误|DEFAULT.*community|DEFAULT\[^'\].*[^']|missing comma|SYNTAX_ERROR/i,
-          suggestions: [
-            { suggestion: '检查所有 DEFAULT 值是否被单引号包裹（如 DEFAULT \'value\' 而非 DEFAULT value）', severity: 'blocking', confidence: 0.9, verifyAction: '用 grep 扫描 schema.sql 中所有 DEFAULT 关键字', relatedTool: 'debug_investigate', suggestedCode: 'grep -n "^[[:space:]]*[a-z].*DEFAULT " schema.sql | grep -v "DEFAULT \'"' },
-            { suggestion: '检查每一列定义末尾是否有关键缺失的逗号', severity: 'critical', confidence: 0.85, verifyAction: '逐行检查 CREATE TABLE 中列定义间的逗号', relatedTool: 'debug_investigate', suggestedCode: '-- 上一行以逗号结尾, 下一行是另一列定义' },
-            { suggestion: '使用 docker exec psql -f schema.sql 单独测试 schema 文件', severity: 'critical', confidence: 0.9, verifyAction: '单独执行 schema 文件查看具体错误行号', relatedTool: 'debug_investigate', suggestedCode: 'docker exec postgres psql -U user -d db -f /path/to/schema.sql 2>&1 | head -20' }
-          ]
-        },
-        // sql_migration_not_applied — Migration 文件存在但未执行
-        {
-          name: 'sql_migration_not_applied',
-          match: /migration.*not applied|应用迁移|_migrations|迁移.*未|schema.*outdated|schema.*stale/i,
-          suggestions: [
-            { suggestion: '检查 _migrations 表确认已应用的迁移版本', severity: 'blocking', confidence: 0.9, verifyAction: '查询 _migrations 表对比 migrations/ 目录中的文件', relatedTool: 'debug_investigate', suggestedCode: 'SELECT version FROM _migrations ORDER BY version;' },
-            { suggestion: '检查 migrations 目录中的 SQL 文件是否多于 _migrations 记录', severity: 'critical', confidence: 0.85, verifyAction: '对比 ls migrations/ 和 _migrations 表', relatedTool: 'debug_investigate', suggestedCode: 'ls -1 services/gateway/migrations/*.sql | sed "s/.*\\///" | sed "s/\\.sql$//"' },
-            { suggestion: '手动执行缺失的迁移文件或重启应用触发迁移', severity: 'critical', confidence: 0.8, verifyAction: 'docker exec psql -f missing_migration.sql', relatedTool: 'debug_investigate', suggestedCode: 'docker exec postgres psql -U user -d db -f migrations/009_missing.sql' }
-          ]
-        }
-      ];
-
-      const matchedPatterns = [];
-      let allSuggestions = [];
-
-      for (const pattern of patterns) {
-        if (pattern.match.test(lowerText)) {
-          matchedPatterns.push(pattern.name);
-          allSuggestions = allSuggestions.concat(pattern.suggestions);
-        }
-      }
-
-      if (matchedPatterns.length === 0) {
-        allSuggestions = [
-          { suggestion: '使用browser_errors查看完整错误详情', severity: 'general', confidence: 0.7, verifyAction: '调用browser_errors获取完整错误列表', relatedTool: 'browser_errors' },
-          { suggestion: '检查浏览器控制台输出', severity: 'general', confidence: 0.6, verifyAction: '使用browser_console查看控制台日志', relatedTool: 'browser_console' },
-          { suggestion: '使用browser_diagnose进行综合诊断', severity: 'general', confidence: 0.5, verifyAction: '调用browser_diagnose获取页面健康报告', relatedTool: 'browser_diagnose' }
-        ];
-      }
-
-      const sortedSuggestions = allSuggestions
-        .sort((a, b) => b.confidence - a.confidence)
-        .slice(0, maxSuggestions);
-
-      const result = {
-        errorSummary,
-        matchedPatterns,
-        suggestions: sortedSuggestions,
-        totalSuggestions: sortedSuggestions.length,
-        generatedAt: new Date().toISOString()
-      };
-
-      return text(JSON.stringify(result, null, 2));
-    }
-    case 'fix_verify': {
-      // 增强版 fix_verify - 支持截图、DOM 检查和修复验证闭环
-      const { target } = await ensurePage();
-
-      // 截图自动捕获（修复前）
-      const artifactDir = path.join(__dirname, 'artifacts', 'fix-verify');
-      if (!fs.existsSync(artifactDir)) fs.mkdirSync(artifactDir, { recursive: true });
-      const timestamp = Date.now();
-      let beforeShot = null;
-      let afterShot = null;
-
-      if (args.captureScreenshots !== false) {
-        beforeShot = path.join(artifactDir, `fix_before_${timestamp}.png`);
-        await target.screenshot({ path: beforeShot, fullPage: true });
-      }
-
-      // 核心 DOM 元素存在性对比（修复前）
-      const elementsToCheck = args.checkDomElements || [];
-      const beforeDomState = {};
-      for (const sel of elementsToCheck) {
-        const el = await target.$(sel);
-        beforeDomState[sel] = !!el;
-      }
-
-      // 记录修复前状态
-      const beforeState = {
-        url: target.url(),
-        errors: getUnifiedErrors({ includeWarnings: false }),
-        timestamp: new Date().toISOString()
-      };
-
-      // 执行修复（如果有具体操作）
-      if (args.beforeSummary && args.afterSummary) {
-        const beforeErrors = args.beforeSummary.errors || 0;
-        const afterErrors = args.afterSummary.errors || 0;
-
-        // 对比前后摘要
-        const comparison = {
-          before: args.beforeSummary,
-          after: args.afterSummary,
-          improved: false,
-          details: []
-        };
-
-        if (afterErrors < beforeErrors) {
-          comparison.improved = true;
-          comparison.details.push(`错误数从 ${beforeErrors} 减少到 ${afterErrors}`);
-        }
-
-        // 修复后截图
-        if (args.captureScreenshots !== false) {
-          afterShot = path.join(artifactDir, `fix_after_${timestamp}.png`);
-          await target.screenshot({ path: afterShot, fullPage: true });
-        }
-
-        // DOM 元素修复后检查
-        const afterDomState = {};
-        const domChanges = [];
-        for (const sel of elementsToCheck) {
-          const el = await target.$(sel);
-          afterDomState[sel] = !!el;
-          domChanges.push({
-            selector: sel,
-            existed: beforeDomState[sel],
-            now: afterDomState[sel],
-            changed: beforeDomState[sel] !== afterDomState[sel]
-          });
-        }
-        const domImprovedCount = domChanges.filter(d => d.changed && d.now).length;
-        const domTotalCount = domChanges.length;
-
-        // 截图差异计算
-        let diffPercent = 0;
-        if (beforeShot && afterShot) {
-          const beforeSize = fs.statSync(beforeShot).size;
-          const afterSize = fs.statSync(afterShot).size;
-          diffPercent = beforeSize > 0 ? Math.abs(afterSize - beforeSize) / beforeSize * 100 : 0;
-        }
-
-        // improvementScore 计算
-        const errorDiff = (beforeErrors - afterErrors);
-        const maxErrors = Math.max(beforeErrors, afterErrors, 1);
-        const errorScore = (errorDiff / maxErrors) * 50;
-        const screenshotScore = diffPercent > 20 ? 20 : (diffPercent / 20) * 20;
-        const domScore = domImprovedCount / Math.max(domTotalCount, 1) * 30;
-        const improvementScore = Math.max(0, Math.min(100, 50 + errorScore + screenshotScore + domScore));
-
-        return text(JSON.stringify({
-          passed: improvementScore >= 60,
-          improvementScore: Math.round(improvementScore),
-          comparison: {
-            errorDiff: { before: beforeErrors, after: afterErrors, change: errorDiff },
-            screenshotDiff: { beforeShot, afterShot, diffPercent: Math.round(diffPercent) },
-            domChanges
-          },
-          evidencePaths: { beforeScreenshot: beforeShot, afterScreenshot: afterShot }
-        }, null, 2));
-      }
-
-      return text(JSON.stringify({
-        status: 'recorded',
-        message: '已记录修复前状态，请执行修复操作后再次调用以验证',
-        beforeState,
-        beforeScreenshot: beforeShot,
-        beforeDomState
-      }, null, 2));
-    }
-    case 'browser_verify_fix': {
-      const { target } = await ensurePage();
-      const selector = args.selector;
-      if (!selector) {
-        return { isError: true, content: [{ type: 'text', text: 'browser_verify_fix 需要提供 selector 参数' }] };
-      }
-
-      const fixAction = args.fixAction || 'quick_fix';
-      const fixValue = args.fixValue;
-      const criteria = args.verificationCriteria || {};
-      const timeout = args.timeout || 10000;
-
-      // 1. 记录修复前状态
-      const beforeState = {
-        url: target.url(),
-        timestamp: new Date().toISOString(),
-        checkpoint: currentCheckpoint,
-        errors: {
-          console: consoleLogs.slice(-10).filter(e => e.type === 'error').length,
-          page: pageErrors.slice(-5).length,
-          network: networkLogs.slice(-10).filter(e => e.status >= 400 || e.failed).length
-        },
-        elementStatus: null
-      };
-
-      // 获取元素修复前状态
-      try {
-        beforeState.elementStatus = await target.evaluate((s) => {
-          const el = document.querySelector(s);
-          if (!el) return { found: false };
-          const rect = el.getBoundingClientRect();
-          const style = window.getComputedStyle(el);
-          return {
-            found: true,
-            visible: rect.width > 0 && style.visibility !== 'hidden' && style.display !== 'none',
-            disabled: el.disabled,
-            inViewport: rect.top >= 0 && rect.bottom <= window.innerHeight
-          };
-        }, selector);
-      } catch (e) {
-        beforeState.elementStatus = { error: e.message };
-      }
-
-      // 2. 执行修复动作
-      const fixResult = { action: fixAction, success: false, error: null };
-
-      try {
-        switch (fixAction) {
-          case 'click':
-            await target.click(selector, { timeout: timeout }).catch(() => {
-              // 降级到 JS 点击
-              return target.evaluate((s) => {
-                const el = document.querySelector(s);
-                if (el) el.click();
-              }, selector);
-            });
-            fixResult.success = true;
-            fixResult.message = '点击执行完成';
-            break;
-
-          case 'type':
-            if (!fixValue) {
-              fixResult.error = 'type 操作需要 fixValue 参数';
-            } else {
-              await target.fill(selector, fixValue, { timeout: timeout });
-              fixResult.success = true;
-              fixResult.message = `已输入: ${fixValue.substring(0, 20)}`;
-            }
-            break;
-
-          case 'wait':
-            const waitMs = parseInt(fixValue) || 2000;
-            await target.waitForTimeout(waitMs);
-            fixResult.success = true;
-            fixResult.message = `等待 ${waitMs}ms 完成`;
-            break;
-
-          case 'scroll':
-            await target.evaluate((s) => {
-              const el = document.querySelector(s);
-              if (el) el.scrollIntoView({ behavior: 'instant', block: 'center' });
-            }, selector);
-            fixResult.success = true;
-            fixResult.message = '已滚动到元素';
-            break;
-
-          case 'quick_fix':
-            // 自动尝试修复
-            const quickFixStrategies = ['scroll', 'force_visible', 'remove_disabled', 'force_click'];
-            for (const strategy of quickFixStrategies) {
-              try {
-                if (strategy === 'scroll') {
-                  await target.evaluate((s) => {
-                    const el = document.querySelector(s);
-                    if (el) el.scrollIntoView({ behavior: 'instant' });
-                  }, selector);
-                } else if (strategy === 'force_visible') {
-                  await target.evaluate((s) => {
-                    const el = document.querySelector(s);
-                    if (el) {
-                      el.style.display = '';
-                      el.style.visibility = 'visible';
-                      el.style.opacity = '1';
-                    }
-                  }, selector);
-                } else if (strategy === 'remove_disabled') {
-                  await target.evaluate((s) => {
-                    const el = document.querySelector(s);
-                    if (el) {
-                      el.disabled = false;
-                      el.removeAttribute('disabled');
-                    }
-                  }, selector);
-                } else if (strategy === 'force_click') {
-                  await target.evaluate((s) => {
-                    const el = document.querySelector(s);
-                    if (el) {
-                      el.scrollIntoView({ behavior: 'instant' });
-                      el.click();
-                    }
-                  }, selector);
-                  fixResult.success = true;
-                  fixResult.message = '已通过JS强制点击';
-                  break;
-                }
-              } catch (e) {
-                // 继续尝试下一个策略
-              }
-            }
-            if (!fixResult.success) {
-              fixResult.success = true;
-              fixResult.message = 'quick_fix 尝试完成';
-            }
-            break;
-
-          case 'none':
-            fixResult.success = true;
-            fixResult.message = '仅验证，无修复动作';
-            break;
-        }
-      } catch (e) {
-        fixResult.error = e.message;
-      }
-
-      // 等待一下让状态稳定
-      await target.waitForTimeout(500);
-
-      // 3. 记录修复后状态
-      const afterState = {
-        url: target.url(),
-        timestamp: new Date().toISOString(),
-        errors: {
-          console: consoleLogs.slice(-10).filter(e => e.type === 'error').length,
-          page: pageErrors.slice(-5).length,
-          network: networkLogs.slice(-10).filter(e => e.status >= 400 || e.failed).length
-        },
-        elementStatus: null
-      };
-
-      try {
-        afterState.elementStatus = await target.evaluate((s) => {
-          const el = document.querySelector(s);
-          if (!el) return { found: false };
-          const rect = el.getBoundingClientRect();
-          const style = window.getComputedStyle(el);
-          return {
-            found: true,
-            visible: rect.width > 0 && style.visibility !== 'hidden' && style.display !== 'none',
-            disabled: el.disabled,
-            inViewport: rect.top >= 0 && rect.bottom <= window.innerHeight
-          };
-        }, selector);
-      } catch (e) {
-        afterState.elementStatus = { error: e.message };
-      }
-
-      // 4. 验证结果
-      const verification = {
-        passed: true,
-        criteria: {},
-        details: []
-      };
-
-      // 检查各种验证条件
-      if (criteria.noNewErrors !== false) {
-        const newErrors = afterState.errors.console + afterState.errors.page + afterState.errors.network -
-          (beforeState.errors.console + beforeState.errors.page + beforeState.errors.network);
-        verification.criteria.noNewErrors = newErrors <= 0;
-        if (newErrors > 0) {
-          verification.details.push(`新增 ${newErrors} 个错误`);
-          verification.passed = false;
-        } else {
-          verification.details.push('无新增错误');
-        }
-      }
-
-      if (criteria.elementVisible) {
-        verification.criteria.elementVisible = afterState.elementStatus?.visible === true;
-        if (!verification.criteria.elementVisible) {
-          verification.details.push('元素仍不可见');
-          verification.passed = false;
-        } else {
-          verification.details.push('元素已可见');
-        }
-      }
-
-      if (criteria.elementInteractable) {
-        verification.criteria.elementInteractable = afterState.elementStatus?.found && !afterState.elementStatus?.disabled;
-        if (!verification.criteria.elementInteractable) {
-          verification.details.push('元素仍不可交互');
-          verification.passed = false;
-        } else {
-          verification.details.push('元素已可交互');
-        }
-      }
-
-      if (criteria.textContains) {
-        const pageText = await target.evaluate(() => document.body.innerText);
-        verification.criteria.textContains = pageText.includes(criteria.textContains);
-        if (!verification.criteria.textContains) {
-          verification.details.push(`页面不包含 "${criteria.textContains}"`);
-          verification.passed = false;
-        } else {
-          verification.details.push(`页面包含 "${criteria.textContains}"`);
-        }
-      }
-
-      if (criteria.urlChanged) {
-        verification.criteria.urlChanged = beforeState.url !== afterState.url;
-        if (!verification.criteria.urlChanged) {
-          verification.details.push('URL未变化');
-          verification.passed = false;
-        } else {
-          verification.details.push(`URL已变化: ${afterState.url.substring(0, 50)}`);
-        }
-      }
-
-      // 5. 综合结果
-      const result = {
-        selector,
-        fixAction,
-        fixResult,
-        beforeState,
-        afterState,
-        verification,
-        fixStatus: verification.passed ? 'FIXED' : 'NOT_FIXED',
-        nextAction: verification.passed ? ['修复成功，可继续后续操作'] : ['建议使用 browser_diagnose 深入诊断', '尝试不同的修复策略', '使用 browser_element_status 检查元素状态']
-      };
-
-      return text(JSON.stringify(result, null, 2));
-    }
-    case 'ai_debug_investigate':
-      return text('ai_debug_investigate: AI调试调查。该能力在闭源端完整实现，开源版本建议使用 debug_investigate');
-    case 'benchmark_run':
-      return text('benchmark_run: 基准测试。该能力在闭源端完整实现，开源版本仅作为占位');
-    case 'browser_find_element': {
-      const { target } = await ensurePage();
-      return text(JSON.stringify(await findElement(target, args), null, 2));
-    }
-    case 'browser_find_page':
-      return text(JSON.stringify(await findPage(args.target, args), null, 2));
-    case 'browser_cookies': {
-      const { target } = await ensurePage();
-      const action = args.action || 'get';
-      if (action === 'clear') {
-        await target.context().clearCookies();
-        return text(JSON.stringify({ action: 'clear', success: true, message: '所有Cookie已清除' }, null, 2));
-      }
-      if (action === 'set') {
-        if (!args.cookie || !args.cookie.name) {
-          return { isError: true, content: [{ type: 'text', text: '设置Cookie需要提供 cookie.name 和 cookie.value' }] };
-        }
-        await target.context().addCookies([{
-          name: args.cookie.name,
-          value: args.cookie.value,
-          domain: args.cookie.domain || new URL(target.url()).hostname,
-          path: args.cookie.path || '/',
-          ...(args.cookie.expires ? { expires: args.cookie.expires } : {}),
-          ...(args.cookie.httpOnly !== undefined ? { httpOnly: args.cookie.httpOnly } : {}),
-          ...(args.cookie.secure !== undefined ? { secure: args.cookie.secure } : {}),
-          ...(args.cookie.sameSite ? { sameSite: args.cookie.sameSite } : {})
-        }]);
-        return text(JSON.stringify({ action: 'set', success: true, cookie: args.cookie.name }, null, 2));
-      }
-      // get
-      let cookies = await target.context().cookies();
-      if (args.domain) {
-        cookies = cookies.filter(c => c.domain.includes(args.domain.replace(/^\./, '')));
-      }
-      if (args.name) {
-        cookies = cookies.filter(c => c.name.toLowerCase().includes(args.name.toLowerCase()));
-      }
-      // 敏感值脱敏
-      const safeCookies = cookies.map(c => ({
-        name: c.name,
-        value: c.value.length > 20 ? c.value.substring(0, 8) + '...' : c.value,
-        domain: c.domain,
-        path: c.path,
-        expires: c.expires ? new Date(c.expires * 1000).toISOString() : 'session',
-        httpOnly: c.httpOnly,
-        secure: c.secure,
-        sameSite: c.sameSite
-      }));
-      return text(JSON.stringify({ action: 'get', total: cookies.length, cookies: safeCookies }, null, 2));
-    }
-    case 'browser_diagnose': {
-      const { target } = await ensurePage();
-      const selector = args.selector;
-      const errorType = args.errorType || 'all';
-      const includeStackTrace = args.includeStackTrace !== false;
-
-      const diagnosis = {
-        timestamp: new Date().toISOString(),
-        url: target.url(),
-        selector: selector || '(全局诊断)',
-        errorType,
-        rootCauses: [],
-        confidence: 0,
-        suggestedFixes: [],
-        affectedElements: []
-      };
-
-      // 1. 收集错误数据
-      const errors = getUnifiedErrors({ includeWarnings: false });
-      const recentConsole = consoleLogs.slice(-20).filter(e => e.type === 'error');
-      const recentPage = pageErrors.slice(-10);
-      const recentNetwork = networkLogs.slice(-30).filter(e => e.status >= 400 || e.failed);
-
-      // 2. 按类型过滤
-      let filteredErrors = { console: [], page: [], network: [] };
-      if (errorType === 'all' || errorType === 'js') {
-        filteredErrors.console = recentConsole;
-        filteredErrors.page = recentPage;
-      }
-      if (errorType === 'all' || errorType === 'network') {
-        filteredErrors.network = recentNetwork;
-      }
-
-      // 3. 根因分析逻辑
-      const analyzeRootCause = async () => {
-        // JS错误根因
-        if (filteredErrors.console.length > 0 || filteredErrors.page.length > 0) {
-          for (const err of filteredErrors.page.slice(0, 5)) {
-            const errText = err.text || '';
-            // 常见错误模式识别
-            if (errText.includes('TypeError') || errText.includes('undefined')) {
-              diagnosis.rootCauses.push({
-                type: 'js_error',
-                pattern: 'TypeError/undefined',
-                description: 'JS未加载或变量未定义',
-                confidence: 0.85,
-                evidence: errText.substring(0, 150)
-              });
-              diagnosis.suggestedFixes.push('检查页面JS是否加载完成，可使用 browser_wait 等待');
-              diagnosis.suggestedFixes.push('检查元素是否依赖动态生成的DOM');
-            }
-            if (errText.includes('Cannot read properties')) {
-              diagnosis.rootCauses.push({
-                type: 'js_error',
-                pattern: 'property_access',
-                description: '访问未定义对象属性',
-                confidence: 0.80,
-                evidence: errText.substring(0, 150)
-              });
-              diagnosis.suggestedFixes.push('检查数据是否已加载，可能是异步问题');
-            }
-            if (errText.includes('NetworkError') || errText.includes('fetch')) {
-              diagnosis.rootCauses.push({
-                type: 'network',
-                pattern: 'fetch_failed',
-                description: 'API请求失败',
-                confidence: 0.90,
-                evidence: errText.substring(0, 150)
-              });
-              diagnosis.suggestedFixes.push('检查网络连接和API可用性');
-            }
-          }
-          // Console错误
-          for (const err of filteredErrors.console.slice(0, 5)) {
-            const errText = err.text || '';
-            if (errText.includes('Failed to fetch') || errText.includes('CORS')) {
-              diagnosis.rootCauses.push({
-                type: 'network',
-                pattern: 'cors_or_fetch',
-                description: '跨域或网络请求失败',
-                confidence: 0.85,
-                evidence: errText.substring(0, 150)
-              });
-              diagnosis.suggestedFixes.push('检查API CORS配置或网络可达性');
-            }
-            if (errText.includes('404') || errText.includes('not found')) {
-              diagnosis.rootCauses.push({
-                type: 'resource',
-                pattern: '404',
-                description: '资源未找到',
-                confidence: 0.90,
-                evidence: errText.substring(0, 150)
-              });
-              diagnosis.suggestedFixes.push('检查资源路径是否正确');
-            }
-          }
-        }
-
-        // 网络错误根因
-        if (filteredErrors.network.length > 0) {
-          const byStatus = {};
-          for (const n of filteredErrors.network) {
-            byStatus[n.status] = (byStatus[n.status] || 0) + 1;
-          }
-          if (byStatus[401] || byStatus[403]) {
-            diagnosis.rootCauses.push({
-              type: 'auth',
-              pattern: '401/403',
-              description: '认证或权限不足',
-              confidence: 0.95,
-              evidence: `检测到 ${byStatus[401] || 0} 个401，${byStatus[403] || 0} 个403错误`
-            });
-            diagnosis.suggestedFixes.push('检查登录状态，使用 browser_cookies 查看认证Cookie');
-            diagnosis.suggestedFixes.push('尝试重新登录或检查用户权限');
-          }
-          if (byStatus[404]) {
-            diagnosis.rootCauses.push({
-              type: 'resource',
-              pattern: '404',
-              description: 'API或资源不存在',
-              confidence: 0.90,
-              evidence: `检测到 ${byStatus[404]} 个404错误`
-            });
-            diagnosis.suggestedFixes.push('检查API路径是否正确，可能是版本变更');
-          }
-          if (byStatus[500] || byStatus[502] || byStatus[503]) {
-            diagnosis.rootCauses.push({
-              type: 'server',
-              pattern: '5xx',
-              description: '服务端错误',
-              confidence: 0.95,
-              evidence: `检测到 ${(byStatus[500]||0)+(byStatus[502]||0)+(byStatus[503]||0)} 个5xx错误`
-            });
-            diagnosis.suggestedFixes.push('后端服务异常，检查服务日志或稍后重试');
-          }
-          // 网络超时/失败
-          const failed = filteredErrors.network.filter(n => n.failed && !n.status);
-          if (failed.length > 0) {
-            diagnosis.rootCauses.push({
-              type: 'network',
-              pattern: 'timeout_or_failed',
-              description: '网络超时或连接失败',
-              confidence: 0.80,
-              evidence: `${failed.length} 个请求失败（无状态码）`
-            });
-            diagnosis.suggestedFixes.push('检查网络连接，可能是超时或DNS问题');
-          }
-        }
-
-        // 元素相关诊断（如果提供了selector）
-        if (selector && (errorType === 'all' || errorType === 'element' || errorType === 'interaction')) {
-          try {
-            const elemStatus = await target.evaluate((sel) => {
-              const el = document.querySelector(sel);
-              if (!el) return { found: false };
-              const rect = el.getBoundingClientRect();
-              const style = window.getComputedStyle(el);
-              // 检查遮挡
-              const centerX = rect.left + rect.width / 2;
-              const centerY = rect.top + rect.height / 2;
-              const topEl = document.elementFromPoint(centerX, centerY);
-              const isObscured = topEl !== el && !el.contains(topEl);
-              return {
-                found: true,
-                visible: rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.display !== 'none',
-                opacity: parseFloat(style.opacity),
-                display: style.display,
-                visibility: style.visibility,
-                disabled: el.disabled,
-                readonly: el.readOnly,
-                pointerEvents: style.pointerEvents,
-                zIndex: style.zIndex,
-                inViewport: rect.top >= 0 && rect.left >= 0 && rect.bottom <= window.innerHeight && rect.right <= window.innerWidth,
-                obscured: isObscured,
-                obscuringElement: isObscured ? (topEl?.tagName + (topEl?.className ? '.' + topEl.className.split(' ').slice(0,2).join('.') : '')) : null,
-                hasClickListener: el.onclick !== null || el.hasAttribute('onclick') || el.getAttribute('role') === 'button'
-              };
-            }, selector);
-
-            diagnosis.affectedElements.push({ selector, status: elemStatus });
-
-            if (!elemStatus.found) {
-              diagnosis.rootCauses.push({
-                type: 'element',
-                pattern: 'not_found',
-                description: '元素未找到',
-                confidence: 0.95
-              });
-              diagnosis.suggestedFixes.push('元素选择器无效，检查是否动态生成或拼写错误');
-              diagnosis.suggestedFixes.push('使用 browser_dom 查看页面结构');
-            } else if (!elemStatus.visible) {
-              diagnosis.rootCauses.push({
-                type: 'element',
-                pattern: 'not_visible',
-                description: `元素不可见（display:${elemStatus.display}, visibility:${elemStatus.visibility}, opacity:${elemStatus.opacity})`,
-                confidence: 0.90
-              });
-              diagnosis.suggestedFixes.push('元素被隐藏，检查CSS样式或等待动画完成');
-              diagnosis.suggestedFixes.push('使用 browser_quick_fix 强制可见');
-            } else if (elemStatus.disabled) {
-              diagnosis.rootCauses.push({
-                type: 'element',
-                pattern: 'disabled',
-                description: '元素被禁用',
-                confidence: 0.95
-              });
-              diagnosis.suggestedFixes.push('元素处于disabled状态，检查表单验证条件');
-            } else if (elemStatus.obscured) {
-              diagnosis.rootCauses.push({
-                type: 'element',
-                pattern: 'obscured',
-                description: `元素被遮挡（被 ${elemStatus.obscuringElement} 遮挡）`,
-                confidence: 0.85
-              });
-              diagnosis.suggestedFixes.push('元素被遮挡，尝试滚动或关闭遮罩层');
-              diagnosis.suggestedFixes.push('使用 browser_quick_fix 移除遮挡');
-            } else if (!elemStatus.inViewport) {
-              diagnosis.rootCauses.push({
-                type: 'element',
-                pattern: 'out_of_viewport',
-                description: '元素不在可视区域',
-                confidence: 0.80
-              });
-              diagnosis.suggestedFixes.push('元素不在视口内，使用 browser_scroll 滚动到元素');
-            } else if (!elemStatus.hasClickListener && elemStatus.pointerEvents === 'none') {
-              diagnosis.rootCauses.push({
-                type: 'element',
-                pattern: 'no_events',
-                description: '元素无事件绑定且pointer-events为none',
-                confidence: 0.75
-              });
-              diagnosis.suggestedFixes.push('元素无交互事件，检查是否是装饰性元素');
-            }
-          } catch (e) {
-            diagnosis.affectedElements.push({ selector, status: { error: e.message } });
-          }
-        }
-      };
-
-      await analyzeRootCause();
-
-      // 计算总体置信度
-      if (diagnosis.rootCauses.length > 0) {
-        diagnosis.confidence = Math.max(...diagnosis.rootCauses.map(r => r.confidence));
-      } else {
-        diagnosis.rootCauses.push({
-          type: 'unknown',
-          pattern: 'no_errors_detected',
-          description: '未检测到明显错误',
-          confidence: 0.50
-        });
-        diagnosis.suggestedFixes.push('当前无明显错误，可使用 browser_element_status 深入检查元素');
-      }
-
-      // 添加堆栈信息（如果需要）
-      if (includeStackTrace && filteredErrors.page.length > 0) {
-        diagnosis.stackTraces = filteredErrors.page.slice(0, 3).map(e => ({
-          error: (e.text || '').substring(0, 100),
-          stack: (e.stack || '').substring(0, 300)
-        }));
-      }
-
-      return text(JSON.stringify(diagnosis, null, 2));
-    }
-    case 'browser_element_status': {
-      const { target } = await ensurePage();
-      const selector = args.selector;
-      if (!selector) {
-        return { isError: true, content: [{ type: 'text', text: 'browser_element_status 需要提供 selector 参数' }] };
-      }
-
-      const checkEvents = args.checkEvents !== false;
-      const checkVisibility = args.checkVisibility !== false;
-      const checkInteractability = args.checkInteractability !== false;
-
-      const status = await target.evaluate((params) => {
-        const { selector, checkEvents, checkVisibility, checkInteractability } = params;
-        const el = document.querySelector(selector);
-        if (!el) {
-          return { found: false, reason: '元素未找到', suggestions: ['检查选择器拼写', '使用 browser_dom 查看页面结构', '可能是动态生成，尝试等待'] };
-        }
-
-        const rect = el.getBoundingClientRect();
-        const style = window.getComputedStyle(el);
-        const result = {
-          found: true,
-          tagName: el.tagName.toLowerCase(),
-          className: el.className.split(' ').slice(0, 5).join(' ') || '',
-          id: el.id || '',
-          type: el.type || '',
-          text: (el.innerText || el.textContent || '').substring(0, 50).trim()
-        };
-
-        // 可见性检查
-        if (checkVisibility) {
-          result.visibility = {
-            isDisplayed: style.display !== 'none',
-            isVisible: style.visibility !== 'hidden',
-            opacity: parseFloat(style.opacity),
-            hasContent: rect.width > 0 && rect.height > 0,
-            clipPath: style.clipPath !== 'none' && style.clipPath !== 'inset(0)',
-            summary: ''
-          };
-          const visIssues = [];
-          if (style.display === 'none') visIssues.push('display:none');
-          if (style.visibility === 'hidden') visIssues.push('visibility:hidden');
-          if (parseFloat(style.opacity) < 0.1) visIssues.push(`opacity:${style.opacity}`);
-          if (rect.width <= 0 || rect.height <= 0) visIssues.push('尺寸为0');
-          if (style.clipPath !== 'none' && style.clipPath !== 'inset(0)') visIssues.push('clip-path裁剪');
-          result.visibility.summary = visIssues.length === 0 ? '可见' : `不可见：${visIssues.join(', ')}`;
-          result.visibility.isFullyVisible = visIssues.length === 0;
-        }
-
-        // 可交互性检查
-        if (checkInteractability) {
-          result.interactability = {
-            disabled: el.disabled,
-            readonly: el.readOnly,
-            pointerEvents: style.pointerEvents,
-            userSelect: style.userSelect,
-            isFocusable: el.tabIndex >= 0 || el.tagName === 'INPUT' || el.tagName === 'BUTTON' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA',
-            summary: ''
-          };
-          const intIssues = [];
-          if (el.disabled) intIssues.push('disabled');
-          if (el.readOnly) intIssues.push('readonly');
-          if (style.pointerEvents === 'none') intIssues.push('pointer-events:none');
-          if (!result.interactability.isFocusable && el.tagName !== 'A') intIssues.push('不可聚焦');
-          result.interactability.summary = intIssues.length === 0 ? '可交互' : `不可交互：${intIssues.join(', ')}`;
-          result.interactability.isInteractable = intIssues.length === 0;
-        }
-
-        // 遮挡检查
-        const centerX = rect.left + rect.width / 2;
-        const centerY = rect.top + rect.height / 2;
-        if (rect.width > 0 && rect.height > 0) {
-          const topEl = document.elementFromPoint(centerX, centerY);
-          const isObscured = topEl !== el && !el.contains(topEl);
-          result.obscuration = {
-            isObscured,
-            obscuringElement: isObscured ? `${topEl?.tagName}.${(topEl?.className || '').split(' ').slice(0, 2).join('.')}` : null,
-            obscuringZIndex: isObscured ? parseInt(window.getComputedStyle(topEl).zIndex || '0') : null,
-            elementZIndex: parseInt(style.zIndex || '0')
-          };
-          if (isObscured) {
-            result.obscuration.summary = `被 ${result.obscuration.obscuringElement} 遮挡`;
-          } else {
-            result.obscuration.summary = '未被遮挡';
-          }
-        } else {
-          result.obscuration = { summary: '尺寸为0，无法检测遮挡' };
-        }
-
-        // 视口位置
-        result.viewport = {
-          inViewport: rect.top >= 0 && rect.left >= 0 && rect.bottom <= window.innerHeight && rect.right <= window.innerWidth,
-          position: { top: Math.round(rect.top), left: Math.round(rect.left), width: Math.round(rect.width), height: Math.round(rect.height) },
-          needsScroll: rect.top < 0 || rect.bottom > window.innerHeight
-        };
-
-        // 事件检查
-        if (checkEvents) {
-          result.events = {
-            hasClick: el.onclick !== null || el.hasAttribute('onclick') || el.getAttribute('role') === 'button',
-            hasKeydown: el.onkeydown !== null || el.hasAttribute('onkeydown'),
-            hasChange: el.onchange !== null || el.hasAttribute('onchange'),
-            hasSubmit: el.tagName === 'INPUT' && el.type === 'submit',
-            eventListenersCount: (typeof getEventListeners === 'function' ? Object.keys(getEventListeners(el) || {}).length : 'N/A（需DevTools）'),
-            summary: ''
-          };
-          const evList = [];
-          if (result.events.hasClick) evList.push('click');
-          if (result.events.hasKeydown) evList.push('keydown');
-          if (result.events.hasChange) evList.push('change');
-          if (result.events.hasSubmit) evList.push('submit');
-          result.events.summary = evList.length > 0 ? `绑定事件：${evList.join(', ')}` : '无明显事件绑定';
-        }
-
-        // 综合诊断
-        result.diagnosis = {
-          canClick: result.visibility?.isFullyVisible && result.interactability?.isInteractable && !result.obscuration?.isObscured,
-          canType: result.interactability?.isInteractable && !el.disabled && !el.readOnly && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA'),
-          issues: []
-        };
-
-        if (!result.found) result.diagnosis.issues.push('元素未找到');
-        if (!result.visibility?.isFullyVisible) result.diagnosis.issues.push(result.visibility?.summary);
-        if (!result.interactability?.isInteractable) result.diagnosis.issues.push(result.interactability?.summary);
-        if (result.obscuration?.isObscured) result.diagnosis.issues.push(result.obscuration?.summary);
-        if (result.viewport?.needsScroll) result.diagnosis.issues.push('需要滚动到视口');
-
-        result.suggestions = [];
-        if (!result.found) {
-          result.suggestions.push('使用 browser_dom 查看实际DOM结构');
-          result.suggestions.push('尝试等待元素加载：browser_wait selector="' + selector + '"');
-        } else if (!result.diagnosis.canClick) {
-          if (result.obscuration?.isObscured) result.suggestions.push('关闭遮罩层或使用 browser_quick_fix 移除遮挡');
-          if (!result.visibility?.isFullyVisible) result.suggestions.push('等待动画或使用 browser_quick_fix 强制可见');
-          if (!result.interactability?.isInteractable) result.suggestions.push('检查disabled状态或表单验证条件');
-        }
-        if (result.viewport?.needsScroll) result.suggestions.push('使用 browser_scroll selector="' + selector + '" 滚动到元素');
-
-        return result;
-      }, { selector, checkEvents, checkVisibility, checkInteractability });
-
-      return text(JSON.stringify(status, null, 2));
-    }
-    case 'browser_quick_fix': {
-      const { target } = await ensurePage();
-      const selector = args.selector;
-      if (!selector) {
-        return { isError: true, content: [{ type: 'text', text: 'browser_quick_fix 需要提供 selector 参数' }] };
-      }
-
-      const problems = args.problems || (args.problem ? [args.problem] : ['not_found']);
-      const isBatchMode = !!args.problems;
-      const maxAttempts = args.maxAttempts || 5;
-      const waitStrategy = args.waitStrategy || 'smart';
-
-      const attempts = [];
-
-      // 策略执行函数
-      const tryFix = async (strategy) => {
-        const attempt = { strategy, timestamp: new Date().toISOString(), success: false, error: null };
-        try {
-          switch (strategy) {
-            case 'wait_and_check':
-              if (waitStrategy === 'smart') {
-                await target.waitForSelector(selector, { timeout: 5000, state: 'attached' }).catch(() => {});
-              } else if (waitStrategy === 'fixed') {
-                await target.waitForTimeout(2000);
-              }
-              const exists = await target.evaluate((s) => !!document.querySelector(s), selector);
-              attempt.success = exists;
-              attempt.result = exists ? '元素已出现' : '元素仍未出现';
-              break;
-
-            case 'scroll_to_element':
-              await target.evaluate((s) => {
-                const el = document.querySelector(s);
-                if (el) el.scrollIntoView({ behavior: 'instant', block: 'center' });
-              }, selector);
-              attempt.success = true;
-              attempt.result = '已滚动到元素位置';
-              break;
-
-            case 'force_visible':
-              await target.evaluate((s) => {
-                const el = document.querySelector(s);
-                if (el) {
-                  el.style.display = '';
-                  el.style.visibility = 'visible';
-                  el.style.opacity = '1';
-                }
-              }, selector);
-              attempt.success = true;
-              attempt.result = '已强制设置可见';
-              break;
-
-            case 'remove_obscuring':
-              // 移除常见遮罩层
-              const removed = await target.evaluate(() => {
-                const overlays = document.querySelectorAll('.modal-backdrop, .overlay, .mask, [role="dialog"], .toast, .notification, .loading');
-                let count = 0;
-                for (const el of overlays) {
-                  el.style.display = 'none';
-                  el.remove();
-                  count++;
-                }
-                return count;
-              });
-              attempt.success = removed > 0;
-              attempt.result = removed > 0 ? `已移除 ${removed} 个遮挡元素` : '未发现遮挡元素';
-              break;
-
-            case 'remove_disabled':
-              await target.evaluate((s) => {
-                const el = document.querySelector(s);
-                if (el) {
-                  el.disabled = false;
-                  el.removeAttribute('disabled');
-                  el.removeAttribute('readonly');
-                }
-              }, selector);
-              attempt.success = true;
-              attempt.result = '已移除disabled属性';
-              break;
-
-            case 'force_click':
-              await target.evaluate((s) => {
-                const el = document.querySelector(s);
-                if (el) {
-                  el.scrollIntoView({ behavior: 'instant' });
-                  el.click();
-                }
-              }, selector);
-              attempt.success = true;
-              attempt.result = '已通过JS强制点击';
-              break;
-
-            case 'inject_click_listener':
-              await target.evaluate((s) => {
-                const el = document.querySelector(s);
-                if (el && !el.onclick) {
-                  el.onclick = () => console.log('注入的点击已执行');
-                }
-              }, selector);
-              attempt.success = true;
-              attempt.result = '已注入点击事件监听';
-              break;
-
-            case 'trigger_event':
-              await target.evaluate((s) => {
-                const el = document.querySelector(s);
-                if (el) {
-                  el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
-                }
-              }, selector);
-              attempt.success = true;
-              attempt.result = '已触发click事件';
-              break;
-
-            default:
-              attempt.error = '未知策略';
-          }
-        } catch (e) {
-          attempt.error = e.message;
-        }
-        attempts.push(attempt);
-        return attempt.success;
-      };
-
-      // === 新增策略函数：api_failed / page_crashed / resource_blocked ===
-
-      // api_failed 策略
-      async function fixApiFailed(t, sel) {
-        const results = [];
-        // 策略1: retry - 等待后刷新页面重试
-        try {
-          const pageUrl = t.url();
-          if (pageUrl) {
-            await t.waitForTimeout(2000);
-            await t.reload({ waitUntil: 'networkidle' });
-            results.push({ strategy: 'page_reload', success: true });
-          }
-        } catch (e) {
-          results.push({ strategy: 'page_reload', success: false, error: e.message });
-        }
-        // 策略2: wait + check response
-        try {
-          await t.waitForTimeout(1000);
-          const hasApiErr = pageErrors.length > 0;
-          results.push({ strategy: 'wait_and_check', success: !hasApiErr });
-        } catch (e) {
-          results.push({ strategy: 'wait_and_check', success: false, error: e.message });
-        }
-        return results;
-      }
-
-      // page_crashed 策略
-      async function fixPageCrashed(t, sel) {
-        const results = [];
-        // 策略1: reload
-        try {
-          await t.reload({ waitUntil: 'domcontentloaded' });
-          results.push({ strategy: 'force_reload', success: true });
-        } catch (e) {
-          results.push({ strategy: 'force_reload', success: false, error: e.message });
-        }
-        // 策略2: restore session / re-navigate
-        try {
-          const pageUrl = t.url();
-          if (pageUrl && pageUrl !== 'about:blank') {
-            await t.goto(pageUrl, { waitUntil: 'domcontentloaded' });
-            results.push({ strategy: 're_navigate', success: true });
-          }
-        } catch (e) {
-          results.push({ strategy: 're_navigate', success: false, error: e.message });
-        }
-        return results;
-      }
-
-      // resource_blocked 策略
-      async function fixResourceBlocked(t, sel) {
-        const results = [];
-        // 策略1: hard reload bypass cache
-        try {
-          await t.reload({ waitUntil: 'networkidle' });
-          results.push({ strategy: 'hard_reload', success: true });
-        } catch (e) {
-          results.push({ strategy: 'hard_reload', success: false, error: e.message });
-        }
-        // 策略2: clear cache via CDP
-        try {
-          const cdp = await t.context().newCDPSession(t);
-          await cdp.send('Network.clearBrowserCache');
-          await t.reload({ waitUntil: 'networkidle' });
-          results.push({ strategy: 'clear_cache_reload', success: true });
-        } catch (e) {
-          results.push({ strategy: 'clear_cache_reload', success: false, error: e.message });
-        }
-        return results;
-      }
-
-      // 根据问题类型选择策略顺序
-      const strategyOrder = {
-        not_found: ['wait_and_check', 'scroll_to_element', 'force_visible'],
-        not_visible: ['scroll_to_element', 'force_visible', 'remove_obscuring'],
-        not_interactable: ['remove_disabled', 'remove_obscuring', 'force_click'],
-        click_failed: ['scroll_to_element', 'remove_obscuring', 'force_click', 'trigger_event'],
-        type_failed: ['scroll_to_element', 'remove_disabled', 'force_visible'],
-        js_error: ['wait_and_check', 'force_click', 'inject_click_listener'],
-        api_failed: ['fixApiFailed'],
-        page_crashed: ['fixPageCrashed'],
-        resource_blocked: ['fixResourceBlocked']
-      };
-
-      const allResults = [];
-      let successCount = 0;
-
-      for (const currentProblem of problems) {
-        const problemAttempts = [];
-        const strategies = strategyOrder[currentProblem] || strategyOrder.not_found;
-
-        let problemFixed = false;
-        let problemFinalStatus = null;
-
-        for (const strategy of strategies) {
-          if (problemAttempts.length >= maxAttempts) break;
-
-          // 新策略函数（返回结果数组）走单独路径
-          if (typeof strategy === 'string' && ['fixApiFailed', 'fixPageCrashed', 'fixResourceBlocked'].includes(strategy)) {
-            const strategyFn = strategy === 'fixApiFailed' ? fixApiFailed :
-                               strategy === 'fixPageCrashed' ? fixPageCrashed :
-                               fixResourceBlocked;
-            const subResults = await strategyFn(target, selector);
-            for (const sr of subResults) {
-              problemAttempts.push({
-                strategy: sr.strategy,
-                timestamp: new Date().toISOString(),
-                success: sr.success,
-                error: sr.error || null,
-                result: sr.success ? '执行成功' : '执行失败'
-              });
-            }
-            problemFixed = subResults.some(r => r.success);
-            if (problemFixed) break;
-            continue;
-          }
-
-          const success = await tryFix(strategy);
-          if (success) {
-            // 检查是否真的修复了
-            const checkStatus = await target.evaluate((s) => {
-              const el = document.querySelector(s);
-              if (!el) return { found: false };
-              const rect = el.getBoundingClientRect();
-              const style = window.getComputedStyle(el);
-              return {
-                found: true,
-                visible: rect.width > 0 && style.visibility !== 'hidden' && style.display !== 'none',
-                disabled: el.disabled
-              };
-            }, selector);
-
-            if (checkStatus.found && (currentProblem === 'not_found' || (checkStatus.visible && currentProblem !== 'not_interactable') || (!checkStatus.disabled && currentProblem === 'not_interactable'))) {
-              problemFixed = true;
-              problemFinalStatus = checkStatus;
-              break;
-            }
-          }
-        }
-
-        // 当前 problem 最终状态检查
-        if (!problemFinalStatus) {
-          problemFinalStatus = await target.evaluate((s) => {
-            const el = document.querySelector(s);
-            if (!el) return { found: false };
-            const rect = el.getBoundingClientRect();
-            const style = window.getComputedStyle(el);
-            return {
-              found: true,
-              visible: rect.width > 0 && style.visibility !== 'hidden' && style.display !== 'none',
-              disabled: el.disabled,
-              interactable: !el.disabled && rect.width > 0
-            };
-          }, selector);
-        }
-
-        if (problemFixed) successCount++;
-
-        allResults.push({
-          problem: currentProblem,
-          attempts: problemAttempts,
-          totalAttempts: problemAttempts.length,
-          fixed: problemFixed,
-          finalStatus: problemFinalStatus,
-          nextSteps: problemFixed ? ['修复成功，可继续操作'] : ['建议使用 browser_element_status 深入诊断', '检查页面是否完全加载', '尝试不同的选择器']
-        });
-
-        // 如果当前 problem 未修复，不再继续后续 problem
-        if (!problemFixed) break;
-      }
-
-      // 最终状态取最后一个执行的 problem 的 finalStatus（兼容单 problem 模式）
-      const lastResult = allResults[allResults.length - 1];
-      const finalFixed = lastResult?.fixed || false;
-      const finalFinalStatus = lastResult?.finalStatus || null;
-
-      const responseBody = {
-        selector,
-        problem: args.problem || problems[0],
-        attempts,
-        totalAttempts: attempts.length,
-        fixed: finalFixed,
-        finalStatus: finalFinalStatus,
-        nextSteps: finalFixed ? ['修复成功，可继续操作'] : ['建议使用 browser_element_status 深入诊断', '检查页面是否完全加载', '尝试不同的选择器']
-      };
-
-      // 批量模式附加信息
-      if (isBatchMode) {
-        responseBody.batchedResults = allResults;
-        responseBody.totalFixed = successCount;
-        responseBody.totalAttempted = problems.length;
-      }
-
-      return text(JSON.stringify(responseBody, null, 2));
-    }
-    case 'browser_links':
-      return text(JSON.stringify(await getPageLinks(args), null, 2));
-    case 'browser_traverse_menu':
-      return text(JSON.stringify(await traverseMenu(args), null, 2));
-    case 'browser_full_regression':
-      return text(JSON.stringify(await runBrowserFullRegression(args), null, 2));
-    case 'browser_deep_interact': {
-      // 深层交互工具：检测弹窗/表单、智能填表、执行业务流程、像人类一样探索
-      const mode = args.mode || 'detect';
-      const { target: page } = await ensurePage(args.visible !== false);
-      if (args.url) {
-        try { await page.goto(args.url, { waitUntil: 'domcontentloaded', timeout: 30000 }); await new Promise(r => setTimeout(r, 1500)); } catch (_) {}
-      }
-      let result = {};
-      switch (mode) {
-        case 'detect':
-          result = await deepInteractor.detectUIState(page);
-          break;
-        case 'form':
-          result = await deepInteractor.interactWithForm(page, { fillFields: args.fillFields !== false, submit: args.submit !== false });
-          break;
-        case 'workflow':
-          result = await deepInteractor.executeWorkflow(page, args.workflow || []);
-          break;
-        case 'explore':
-          result = await deepInteractor.exploreLikeHuman(page, { maxActions: args.maxActions || 15, interactModals: args.interactModals !== false, fillForms: args.fillFields !== false });
-          break;
-        default:
-          result = { error: `未知模式: ${mode}` };
-      }
-      return text(JSON.stringify(result, null, 2));
-    }
-    case 'auto_fix_pipeline': {
-      const maxIterations = Math.min(args.maxIterations || 3, 3);
-      const autoConfirm = args.autoConfirm !== false;
-
-      // 如果传了 url，先打开
-      if (args.url) {
-        const { target: page } = await ensurePage();
-        await page.goto(args.url, { waitUntil: 'domcontentloaded', timeout: 15000 });
-      }
-
-      const { target } = await ensurePage();
-      const iterations = [];
-
-      for (let i = 0; i < maxIterations; i++) {
-        // STEP 1: 诊断收集
-        const diagnosis = {
-          consoleErrors: (consoleLogs || []).filter(e => e.type === 'error').slice(-10),
-          networkFailures: (networkLogs || []).filter(e => e.status >= 400 || e.failed).slice(-10),
-          pageErrors: (pageErrors || []).slice(-5)
-        };
-
-        const errorTexts = [
-          ...diagnosis.consoleErrors.map(e => e.text || e.message || ''),
-          ...diagnosis.pageErrors.map(e => e.message || ''),
-          ...diagnosis.networkFailures.map(e => `${e.status || ''}: ${e.url || ''}`)
-        ].filter(Boolean).join('\n');
-
-        // 没有错误则提前结束
-        if (!errorTexts && i === 0) {
-          const snapshot = await target.screenshot({ encoding: 'base64' });
-          const artifactDir = path.join(__dirname, 'artifacts', 'auto-fix');
-          if (!fs.existsSync(artifactDir)) fs.mkdirSync(artifactDir, { recursive: true });
-          const snapshotPath = path.join(artifactDir, `snapshot_${Date.now()}.png`);
-          require('fs').writeFileSync(snapshotPath, snapshot, 'base64');
-
-          const finalResult = {
-            status: 'healthy',
-            message: '未检测到问题，无需修复',
-            iterations: [],
-            evidencePaths: [snapshotPath]
-          };
-
-          return text(JSON.stringify(finalResult, null, 2));
-        }
-
-        // STEP 2: 分类匹配
-        const matchedIssues = [];
-        const allPatterns = [
-          { name: 'api_response_html', match: /html.*200|返回了HTML|路由兜底|SPA路由/i, severity: 'blocking' },
-          { name: '5xx_server_error', match: /500|502|503|server error|服务器错误|内部错误|服务不可用/i, severity: 'blocking' },
-          { name: '404_not_found', match: /404|not found|无法找到|找不到资源/i, severity: 'blocking' },
-          { name: 'websocket_error', match: /websocket|WebSocket|ws:[/][/]|wss:[/][/]|socket.*error|连接.*断开/i, severity: 'blocking' },
-          { name: 'cors_cross_origin', match: /CORS|cross-origin|跨域|Access-Control|被CORS策略阻止|Script error[\.]?$/i, severity: 'critical' },
-          { name: '401_unauthorized', match: /401|unauthorized|未授权|无权限登录|身份验证失败/i, severity: 'critical' },
-          { name: '403_forbidden', match: /403|forbidden|禁止访问|访问被拒绝/i, severity: 'critical' },
-          { name: 'missing_envVar', match: /environment variable|env.*not set|环境变量.*未|缺少.*环境|process\.env/i, severity: 'critical' },
-          { name: 'port_conflict', match: /port.*in use|EADDRINUSE|端口.*占用|address.*already in use/i, severity: 'critical' },
-          { name: 'rate_limit', match: /rate limit|429|too many requests|请求过于频繁|请求被限流/i, severity: 'critical' },
-          { name: 'timeout', match: /timeout|timed out|ETIMEDOUT|超时|请求超时/i, severity: 'critical' },
-          { name: 'type_error_undefined', match: /TypeError|undefined|Cannot read properties|无法读取属性|类型错误/i, severity: 'general' },
-          { name: 'element_not_found', match: /element not found|no element matched|找不到元素|元素不存在|没有匹配的元素/i, severity: 'general' },
-        ];
-
-        for (const pattern of allPatterns) {
-          if (pattern.match.test(errorTexts)) {
-            matchedIssues.push({ ...pattern, matchText: errorTexts.match(pattern.match)?.[0] || '' });
-          }
-        }
-
-        // 按 severity 排序
-        const severityOrder = { blocking: 0, critical: 1, general: 2, optimization: 3 };
-        matchedIssues.sort((a, b) => (severityOrder[a.severity] || 99) - (severityOrder[b.severity] || 99));
-
-        // STEP 3: 修复执行
-        const attemptedFixes = [];
-        if (autoConfirm && matchedIssues.length > 0) {
-          for (const issue of matchedIssues.slice(0, 3)) {
-            try {
-              const fixResult = { issue: issue.name, severity: issue.severity, strategies: [] };
-
-              if (issue.name === '5xx_server_error' || issue.name === 'api_response_html') {
-                await target.reload({ waitUntil: 'networkidle', timeout: 15000 });
-                await target.waitForTimeout(2000);
-                fixResult.strategies.push({ name: 'page_reload', success: true });
-              } else if (issue.name === '404_not_found') {
-                await target.waitForTimeout(1000);
-                fixResult.strategies.push({ name: 'wait_retry', success: true });
-              } else if (issue.name === 'timeout' || issue.name === 'cors_cross_origin') {
-                await target.reload({ waitUntil: 'load', timeout: 20000 });
-                fixResult.strategies.push({ name: 'hard_reload', success: true });
-              } else if (issue.name === 'type_error_undefined' || issue.name === 'element_not_found') {
-                await target.waitForTimeout(3000);
-                fixResult.strategies.push({ name: 'wait_stable', success: true });
-              }
-
-              attemptedFixes.push(fixResult);
-            } catch (e) {
-              attemptedFixes.push({ issue: issue.name, error: e.message, strategies: [{ name: 'failed', success: false, error: e.message }] });
-            }
-          }
-        }
-
-        // STEP 4: 验证对比
-        const beforeErrors = (consoleLogs || []).filter(e => e.type === 'error').length + (pageErrors || []).length;
-        await target.waitForTimeout(1000);
-        const afterErrors = (consoleLogs || []).filter(e => e.type === 'error').length + (pageErrors || []).length;
-
-        // 截图留证
-        const artifactDir = path.join(__dirname, 'artifacts', 'auto-fix');
-        if (!fs.existsSync(artifactDir)) fs.mkdirSync(artifactDir, { recursive: true });
-        const iterationSnapshot = await target.screenshot({ encoding: 'base64' });
-        const shotPath = path.join(artifactDir, `iter${i+1}_${Date.now()}.png`);
-        require('fs').writeFileSync(shotPath, iterationSnapshot, 'base64');
-
-        const iterationResult = {
-          iteration: i + 1,
-          diagnosis: {
-            consoleErrorCount: diagnosis.consoleErrors.length,
-            networkFailureCount: diagnosis.networkFailures.length,
-            pageErrorCount: diagnosis.pageErrors.length
-          },
-          matchedIssues: matchedIssues.map(m => ({ name: m.name, severity: m.severity, matchText: m.matchText })),
-          attemptedFixes: attemptedFixes,
-          verification: {
-            beforeErrors, afterErrors,
-            errorDelta: afterErrors - beforeErrors,
-            improvement: afterErrors < beforeErrors
-          },
-          evidencePath: shotPath
-        };
-
-        iterations.push(iterationResult);
-
-        // 检查是否需要继续迭代
-        if (!autoConfirm || afterErrors === 0 || afterErrors <= beforeErrors) {
-          break;
-        }
-
-        // 如果本轮修复完全无效，也停止（保护性终止）
-        if (matchedIssues.length === 0) break;
-      }
-
-      return text(JSON.stringify({
-        status: iterations.length > 0 && iterations.some(i => i.verification?.improvement) ? 'improved' : 'no_change',
-        totalIterations: iterations.length,
-        iterations,
-        summary: {
-          issuesDetected: iterations.flatMap(i => i.matchedIssues).length,
-          fixesApplied: iterations.flatMap(i => i.attemptedFixes).length,
-          finalState: iterations.length > 0 ? (iterations[iterations.length-1].verification.afterErrors === 0 ? 'resolved' : 'partial') : 'unknown'
-        },
-        evidencePaths: iterations.map(i => i.evidencePath).filter(Boolean)
-      }, null, 2));
-    }
-    case 'skill_mcp_validate':
-      try {
-        const { skillName: validateSkillName, mode = 'strict' } = args;
-        const skillToolsPath = path.join(PROJECT_ROOT, '.trae', 'skills', validateSkillName, 'SKILL.tools.json');
-        if (!fs.existsSync(skillToolsPath)) {
-          return text(JSON.stringify({ passed: false, error: `Skill ${validateSkillName} 的 SKILL.tools.json 不存在` }, null, 2));
-        }
-        const skillTools = JSON.parse(fs.readFileSync(skillToolsPath, 'utf8'));
-        const toolFiles = fs.readdirSync(TOOLS_DIR).filter(f => f.endsWith('.json'));
-        const availableTools = toolFiles.map(f => path.basename(f, '.json'));
-        const availableSet = new Set(availableTools);
-        const missingTools = [];
-        const referencedTools = Object.keys(skillTools.tools);
-        for (const toolName of referencedTools) {
-          if (!availableSet.has(toolName)) {
-            missingTools.push({
-              toolName,
-              phase: skillTools.tools[toolName].phase,
-              missingType: availableTools.includes(toolName) ? 'schema_mismatch' : 'not_found'
-            });
-          }
-        }
-        const capabilityIssues = [];
-        if (skillTools.capabilities) {
-          for (const cap of skillTools.capabilities) {
-            const capMissing = cap.requiredTools.filter(t => !availableSet.has(t));
-            if (capMissing.length > 0) {
-              capabilityIssues.push({
-                capability: cap.name,
-                description: cap.description,
-                missingTools: capMissing
-              });
-            }
-          }
-        }
-        const passed = missingTools.length === 0 && capabilityIssues.length === 0;
-        const result = {
-          passed: mode === 'strict' ? passed : true,
-          mode,
-          skillName: validateSkillName,
-          missingTools,
-          capabilityIssues,
-          availableTools,
-          totalReferenced: referencedTools.length,
-          totalAvailable: availableTools.length
-        };
-        if (mode === 'warn' && !passed) {
-          result.warning = 'Skill-MCP 存在不一致，已标记警告';
-        }
-        return text(JSON.stringify(result, null, 2));
-      } catch (err) {
-        return text(JSON.stringify({ passed: false, error: err.message }, null, 2));
-      }
-    case 'skill_mcp_sync':
-      try {
-        const { skillName: syncSkillName, dryRun = true } = args;
-        const skillToolsPath = path.join(PROJECT_ROOT, '.trae', 'skills', syncSkillName, 'SKILL.tools.json');
-        if (!fs.existsSync(skillToolsPath)) {
-          return text(JSON.stringify({ passed: false, error: `Skill ${syncSkillName} 的 SKILL.tools.json 不存在` }, null, 2));
-        }
-        const skillTools = JSON.parse(fs.readFileSync(skillToolsPath, 'utf8'));
-        const toolFiles = fs.readdirSync(TOOLS_DIR).filter(f => f.endsWith('.json'));
-        const actualTools = toolFiles.map(f => path.basename(f, '.json'));
-        const actualSet = new Set(actualTools);
-        const skillToolsList = Object.keys(skillTools.tools);
-        const newTools = actualTools.filter(t => !skillToolsList.includes(t));
-        const removedTools = skillToolsList.filter(t => !actualSet.has(t));
-        const diff = {
-          skillName: syncSkillName,
-          toolsInSkill: skillToolsList.length,
-          toolsInMcp: actualTools.length,
-          added: newTools,
-          removed: removedTools,
-          hasChanges: newTools.length > 0 || removedTools.length > 0
-        };
-        if (dryRun) {
-          return text(JSON.stringify({ ...diff, dryRun: true, message: 'dryRun=true，仅预览变更，未写入文件' }, null, 2));
-        }
-        const mappingPath = path.join(PROJECT_ROOT, '.trae', 'mcp-server', 'docs', 'skills', 'skill-mcp-mapping.md');
-        if (!fs.existsSync(mappingPath)) {
-          return text(JSON.stringify({ ...diff, updated: false, error: `mapping.md 不存在：${mappingPath}` }, null, 2));
-        }
-        let mapping = fs.readFileSync(mappingPath, 'utf8');
-        const now = new Date().toISOString().slice(0, 10);
-        mapping = mapping.replace(/> 更新日期: .+/, `> 更新日期: ${now}`);
-        if (diff.hasChanges) {
-          let summary = '\n\n#### 自动同步变更\n\n';
-          summary += `> 同步时间: ${new Date().toISOString()}\n\n`;
-          if (diff.added.length > 0) {
-            summary += `**新增工具**: ${diff.added.join(', ')}\n\n`;
-          }
-          if (diff.removed.length > 0) {
-            summary += `**移除工具**: ${diff.removed.join(', ')}\n\n`;
-          }
-          mapping += summary;
-        }
-        fs.writeFileSync(mappingPath, mapping, 'utf8');
-        return text(JSON.stringify({ ...diff, updated: true, dryRun: false, mappingPath }, null, 2));
-      } catch (err) {
-        return text(JSON.stringify({ passed: false, error: err.message }, null, 2));
-      }
-    case 'browser_trace_chain': {
-      const result = buildTraceChain(args);
-      return text(JSON.stringify(result, null, 2));
-    }
-    case 'backend_logs': {
-      if (!args.traceId) return text(JSON.stringify({ error: '缺少 traceId 参数' }, null, 2));
-      const result = await fetchBackendLogs(args);
-      return text(JSON.stringify(result, null, 2));
-    }
-    default:
+    const handler = handlerMap.get(name);
+    if (!handler) {
       return { isError: true, content: [{ type: 'text', text: `未知工具：${name}` }] };
     }
+    return await handler.handle(name, args, deps);
+
   } catch (error) {
-    log('ERROR', `工具调用失败: ${name}`, { error: error.message, stack: error.stack });
+    logger.log('ERROR', `工具调用失败: ${name}`, { error: error.message, stack: error.stack });
     return {
       isError: true,
       content: [{
@@ -9071,19 +6430,19 @@ function createMcpServer() {
   });
   
   server.setNotificationHandler(InitializedNotificationSchema, async () => {
-    log('INFO', 'MCP initialized');
+    logger.log('INFO', 'MCP initialized');
   });
   
   server.setNotificationHandler(CancelledNotificationSchema, async notification => {
-    log('INFO', 'MCP request cancelled', notification.params || {});
+    logger.log('INFO', 'MCP request cancelled', notification.params || {});
   });
   
   process.on('uncaughtException', (error) => {
-    log('ERROR', 'Uncaught Exception', { error: error.message, stack: error.stack });
+    logger.log('ERROR', 'Uncaught Exception', { error: error.message, stack: error.stack });
   });
   
   process.on('unhandledRejection', (reason, promise) => {
-    log('ERROR', 'Unhandled Rejection', { reason: reason?.message || String(reason) });
+    logger.log('ERROR', 'Unhandled Rejection', { reason: reason?.message || String(reason) });
   });
   
   return server;
@@ -9096,7 +6455,7 @@ async function main() {
   async function gracefulShutdown(signal) {
     if (shuttingDown) return;
     shuttingDown = true;
-    log('INFO', `Received ${signal}, shutting down gracefully...`);
+    logger.log('INFO', `Received ${signal}, shutting down gracefully...`);
     try {
       if (page && !page.isClosed()) await page.close();
       if (browser) await browser.close();
@@ -9106,7 +6465,7 @@ async function main() {
       }
       browserPool.clear();
     } catch (_) {}
-    log('INFO', 'Shutdown complete');
+    logger.log('INFO', 'Shutdown complete');
     process.exit(0);
   }
 
@@ -9123,7 +6482,7 @@ async function main() {
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  log('INFO', 'ValidPilot OSS MCP Server ready (stdio mode)', { version: '1.0.0', tools: tools.length });
+  logger.log('INFO', 'ValidPilot OSS MCP Server ready (stdio mode)', { version: '1.0.0', tools: tools.length });
 
   // 非阻塞启动浏览器预热
   warmupBrowser().catch(() => {});
@@ -9305,12 +6664,12 @@ if (!exists2) {
 const MODE = process.env.MCP_MODE || 'stdio';
 if (MODE === 'http') {
   startHttpMode().catch(error => {
-    log('ERROR', 'MCP HTTP Server 启动失败', { error: error.message, stack: error.stack });
+    logger.log('ERROR', 'MCP HTTP Server 启动失败', { error: error.message, stack: error.stack });
     process.exit(1);
   });
 } else {
   main().catch(error => {
-    log('ERROR', 'MCP Server 启动失败', { error: error.message, stack: error.stack });
+    logger.log('ERROR', 'MCP Server 启动失败', { error: error.message, stack: error.stack });
     process.exit(1);
   });
 }

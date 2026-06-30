@@ -1,0 +1,18 @@
+{
+  "name": "browser_form_fill",
+  "description": "批量填充表单字段并可选提交检测。自动识别表单input/select/textarea，根据类型生成mock数据，支持手动覆盖字段值，提交后检测成功/失败状态。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "url": { "type": "string", "description": "目标页面URL（必填）" },
+      "selector": { "type": "string", "description": "表单选择器，默认 'form'", "default": "form" },
+      "fields": {
+        "type": "object",
+        "description": "手动指定的字段覆盖值，key为字段名，value为字段值"
+      },
+      "submit": { "type": "boolean", "description": "填充后是否自动提交", "default": true },
+      "submitSelector": { "type": "string", "description": "提交按钮选择器，默认自动查找 submit 按钮" }
+    },
+    "required": ["url"]
+  }
+}

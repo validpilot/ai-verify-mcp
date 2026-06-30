@@ -1,0 +1,52 @@
+[
+  {
+    "action": "navigate",
+    "url": "https://example.com/register"
+  },
+  {
+    "action": "wait",
+    "ms": 2000
+  },
+  {
+    "action": "screenshot",
+    "name": "register-page"
+  },
+  {
+    "action": "type",
+    "selector": "#email, input[name='email'], input[type='email']",
+    "value": "newuser@example.com"
+  },
+  {
+    "action": "type",
+    "selector": "#username, input[name='username']",
+    "value": "newtestuser"
+  },
+  {
+    "action": "type",
+    "selector": "#password, input[name='password'], input[type='password']",
+    "value": "SecurePass123!"
+  },
+  {
+    "action": "type",
+    "selector": "#confirm-password, input[name='confirmPassword']",
+    "value": "SecurePass123!"
+  },
+  {
+    "action": "click",
+    "selector": "#register-btn, button[type='submit'], input[type='submit']"
+  },
+  {
+    "action": "wait",
+    "ms": 3000
+  },
+  {
+    "action": "screenshot",
+    "name": "after-register"
+  },
+  {
+    "action": "eval",
+    "expression": "() => { return document.querySelector('.alert-success, .success-message, [class*=\"success\"]') !== null || window.location.href.includes('welcome'); }",
+    "expected": true,
+    "description": "注册成功（出现成功提示或跳转到欢迎页）"
+  }
+]

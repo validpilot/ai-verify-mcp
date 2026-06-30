@@ -1,7 +1,7 @@
 {
   "name": "skill_mcp_sync",
   "description": "自动同步更新 skill-mcp-mapping.md 映射文档，保持映射表与最新工具清单一致",
-  "input_schema": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "skillName": { "type": "string", "description": "Skill 名称" },

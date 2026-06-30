@@ -6,7 +6,32 @@ const fs = require('fs');
 const path = require('path');
 
 const TOOLS_DIR = path.join(__dirname, '..', 'tools');
-const SERVER_FILE = path.join(__dirname, '..', 'server.js');
+const HANDLERS_DIR = path.join(__dirname, '..', 'handlers');
+
+// Build toolNames from handler modules
+const handlers = [
+  require('../handlers/browser'),
+  require('../handlers/session'),
+  require('../handlers/evidence'),
+  require('../handlers/network'),
+  require('../handlers/validation'),
+  require('../handlers/diagnose'),
+  require('../handlers/visual'),
+  require('../handlers/locator'),
+  require('../handlers/system'),
+];
+
+function buildToolNames() {
+  const names = new Set();
+  for (const h of handlers) {
+    for (const name of h.tools) {
+      names.add(name);
+    }
+  }
+  return names;
+}
+
+const toolNames = buildToolNames();
 
 describe('validation_check', () => {
   test('schema 文件存在且 JSON 合法', () => {
@@ -45,13 +70,12 @@ describe('validation_check', () => {
     assert.equal(props.evidence.type, 'boolean');
   });
 
-  test('server.js 包含 validation_check 的 case 处理器', () => {
-    const src = fs.readFileSync(SERVER_FILE, 'utf8');
-    assert.ok(src.includes("case 'validation_check'"));
+  test('toolNames 中包含 validation_check（已注册到 MCP）', () => {
+    assert.ok(toolNames.has('validation_check'), '工具 validation_check 应在 toolNames 中');
   });
 
   test('handler 调用 runValidationCheck 函数', () => {
-    const src = fs.readFileSync(SERVER_FILE, 'utf8');
-    assert.ok(src.includes('runValidationCheck'), '应调用 runValidationCheck');
+    const handlerSrc = fs.readFileSync(path.join(HANDLERS_DIR, 'validation.js'), 'utf8');
+    assert.ok(handlerSrc.includes('runValidationCheck'), '应调用 runValidationCheck');
   });
 });

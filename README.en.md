@@ -8,7 +8,7 @@
 [![npm downloads](https://img.shields.io/npm/dm/ai-verify-mcp.svg?style=flat-square)](https://www.npmjs.com/package/ai-verify-mcp)
 [![CI](https://img.shields.io/github/actions/workflow/status/validpilot/ai-verify-mcp/ci.yml?style=flat-square&label=CI)](https://github.com/validpilot/ai-verify-mcp/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](LICENSE)
-[![MCP Protocol](https://img.shields.io/badge/MCP-83%20tools-brightgreen.svg?style=flat-square)](https://modelcontextprotocol.io/)
+[![MCP Protocol](https://img.shields.io/badge/MCP-87%20tools-brightgreen.svg?style=flat-square)](https://modelcontextprotocol.io/)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D18-green.svg?style=flat-square)](https://nodejs.org/)
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg?style=flat-square)](CODE_OF_CONDUCT.md)
 [![中文](https://img.shields.io/badge/%E4%B8%AD%E6%96%87-red?style=flat-square)](README.md)
@@ -44,7 +44,7 @@
 
 **ValidPilot Verify** is a verification platform for AI programming. Through the MCP protocol, AI can automatically verify code generation results �?**generating screenshot evidence, diagnosing error root causes, and preserving a complete evidence chain**.
 
-> **💡 Best Practice**: Use with the **Skill system** of AI IDEs (like Trae) to form a complete inner loop of "generate �?verify �?fix �?re-verify". Skill coordinates the verification process, and ai-verify-mcp provides 77 underlying verification tools. The combination is far more effective than using either alone.
+> **💡 Best Practice**: Use with the **Skill system** of AI IDEs (like Trae) to form a complete inner loop of "generate → verify → fix → re-verify". Skill coordinates the verification process, and ai-verify-mcp provides 87 underlying verification tools. The combination is far more effective than using either alone.
 
 ### What can it do?
 
@@ -58,7 +58,7 @@
 
 ## 🔄 Skill + MCP = Best Experience
 
-ai-verify-mcp provides 77 **underlying verification tools** (browser operations, screenshots, a11y scanning, assertion verification, etc.), but these tools need to be **orchestrated** to complete a full verification task.
+ai-verify-mcp provides 87 **underlying verification tools** (browser operations, screenshots, a11y scanning, assertion verification, etc.), but these tools need to be **orchestrated** to complete a full verification task.
 
 The **Skill system** (like Trae's `browser-dev-full-validation-skill`) is precisely this orchestration layer �?it defines a standard verification process:
 
@@ -85,7 +85,7 @@ flowchart LR
 
 | Responsibility | Description |
 |------|------|
-| **77 Atomic Verification Tools** | `browser_open` / `browser_screenshot` / `browser_a11y_check` / `browser_assert` / `console_error_check` / `network_check`, etc. |
+| **87 Atomic Verification Tools** | `browser_open` / `browser_screenshot` / `browser_a11y_check` / `browser_form_fill` / `browser_responsive_test` / `browser_eval` / `console_error_check` / `network_check`, etc. |
 | **Evidence Chain Collection** | Automatic screenshots at each step, recording Console logs and network requests |
 | **Contrast/CSS Variable Scanning** | axe-core integration, CSS variable tracking |
 | **Report Output** | Structured JSON + Markdown reports |
@@ -216,7 +216,7 @@ artifacts/
 | Feature | ValidPilot Verify | Playwright | Puppeteer |
 |------|-------------------|------------|-----------|
 | **Native MCP Protocol** | �?Out of the box | �?Requires custom wrapping | �?Requires custom wrapping |
-| **AI Agent Friendly** | �?77 dedicated tools | �?General-purpose API | �?General-purpose API |
+| **AI Agent Friendly** | ✅ 87 dedicated tools | ✅ General-purpose API | ✅ General-purpose API |
 | **Evidence Chain Preservation** | �?Auto screenshots + timestamps | �?Manual implementation | �?Manual implementation |
 | **Intelligent Diagnosis** | �?Root cause + confidence | �?Logs only | �?Logs only |
 | **Verification Reports** | �?Markdown + screenshots | �?Requires custom coding | �?Requires custom coding |
@@ -246,6 +246,8 @@ artifacts/
 | `validation_element` | Element state verification (existence, visibility, text contains, etc.) |
 | `validation_flow` | Flow verification (multi-step verification process) |
 | `validation_quick_run` | One-click quick verification (7 checks) |
+| `validation_matrix` | Multi-combination verification matrix |
+| `validation_decision` | AI-driven verification decision |
 | `validation_report` | Generate verification report |
 | `validation_report_export` | Export verification report |
 | `browser_assert` | Assertion verification (URL, title, elements, etc.) |
@@ -276,9 +278,11 @@ artifacts/
 | `browser_har_export` | Export HAR file |
 | `browser_snapshot` | Page snapshot |
 
-### 🌐 Browser Operations (21 tools)
+### 🌐 Browser Operations (23 tools)
 
-Full browser operation capabilities: open, click, type, scroll, wait, cookies, storage, network, console, etc.
+Full browser operation capabilities: open, click, type, scroll, wait, cookies, storage, network, console, form filling, responsive testing, etc.
+
+New in v1.3.0: `browser_form_fill` (batch form filling + submit detection), `browser_responsive_test` (multi-viewport responsive layout testing)
 
 ### 🎯 Intelligent Locator (4 tools)
 

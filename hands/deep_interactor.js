@@ -717,9 +717,223 @@ async function exploreLikeHuman(page, options = {}) {
   return result;
 }
 
+// ======================================================================
+// 5. Form 自动填充
+// ======================================================================
+
+/**
+ * 自动填充表单字段
+ * @param {object} page - Playwright Page 对象
+ * @param {string} formSelector - 表单选择器，默认 'form'
+ * @param {object} overrides - 手动指定的字段值 { fieldName: value }
+ * @returns {object} { filled, fields, screenshot? }
+ */
+async function autoFillForm(page, formSelector = 'form', overrides = {}) {
+  const result = { filled: false, fields: [], error: null };
+  try {
+    const form = await page.locator(formSelector).first();
+    if (!(await form.count())) {
+      result.error = `未找到表单元素: ${formSelector}`;
+      return result;
+    }
+
+    // 收集所有表单字段
+    const fields = await form.evaluate((el, ov) => {
+      const fieldData = [];
+      const inputs = el.querySelectorAll('input, textarea, select');
+      inputs.forEach((input, i) => {
+        const name = input.name || input.id || `field_${i}`;
+        const type = (input.type || 'text').toLowerCase();
+        const tag = input.tagName.toLowerCase();
+
+        // 跳过隐藏字段和按钮
+        if (['hidden', 'submit', 'button', 'reset', 'image'].includes(type)) return;
+
+        let value = ov[name] || '';
+        if (!value) {
+          // 根据类型生成 mock 数据
+          if (type === 'email') value = 'test@example.com';
+          else if (type === 'tel' || type === 'phone') value = '13800138000';
+          else if (type === 'number') value = '42';
+          else if (type === 'url') value = 'https://example.com';
+          else if (type === 'date') value = new Date().toISOString().slice(0, 10);
+          else if (type === 'password') value = 'Test123456!';
+          else if (tag === 'select') {
+            const options = input.options || [];
+            value = options.length > 1 ? (options[1].value || options[1].text) : (options[0]?.value || '');
+          }
+          else if (type === 'checkbox') { /* handled separately */ }
+          else if (type === 'radio') { /* handled separately */ }
+          else value = `test_${name}_value`;
+        }
+
+        fieldData.push({ name, type, tag, selector: `[name="${name}"], #${name}`, value });
+      });
+      return fieldData;
+    }, overrides);
+
+    // 逐字段填充
+    for (const field of fields) {
+      try {
+        const loc = form.locator(field.selector).first();
+        if (await loc.count()) {
+          if (field.tag === 'select') {
+            await loc.selectOption({ value: field.value }).catch(() => {});
+          } else if (field.type === 'checkbox') {
+            const isChecked = await loc.isChecked().catch(() => false);
+            if (!isChecked) await loc.check().catch(() => {});
+          } else {
+            await loc.fill('').catch(() => {});
+            await loc.type(field.value, { delay: 10 }).catch(() => {});
+          }
+          result.fields.push({ ...field, filled: true });
+        } else {
+          result.fields.push({ ...field, filled: false, reason: 'element not found' });
+        }
+      } catch (e) {
+        result.fields.push({ ...field, filled: false, reason: e.message });
+      }
+    }
+    result.filled = result.fields.some(f => f.filled);
+    result.totalFields = result.fields.length;
+    result.filledCount = result.fields.filter(f => f.filled).length;
+
+    // 截取表单区域截图（base64，限制大小）
+    try {
+      const buf = await form.screenshot({ type: 'png' });
+      result.screenshot = buf.toString('base64').slice(0, 2000);
+    } catch (_) {}
+  } catch (e) {
+    result.error = e.message;
+  }
+  return result;
+}
+
+// ======================================================================
+// 6. 多步骤交互链执行
+// ======================================================================
+
+/**
+ * 执行多步骤交互链
+ * @param {object} page - Playwright Page 对象
+ * @param {Array} chain - 交互步骤数组 [{ action, selector?, value?, ms?, url? }]
+ * @returns {object} { success, steps: [...], completed, failed }
+ */
+async function runInteractionChain(page, chain = []) {
+  const result = { success: false, steps: [], completed: 0, failed: 0, totalSteps: chain.length };
+  let currentPage = page;
+
+  for (let i = 0; i < chain.length; i++) {
+    const step = chain[i];
+    const stepResult = { step: i + 1, action: step.action, success: false, timestamp: new Date().toISOString() };
+
+    try {
+      switch (step.action) {
+        case 'click':
+          if (step.selector) {
+            await currentPage.click(step.selector, { timeout: 10000 }).catch(() => {});
+            await new Promise(r => setTimeout(r, 300));
+          }
+          stepResult.success = true;
+          break;
+
+        case 'type':
+          if (step.selector && step.value !== undefined) {
+            await currentPage.fill(step.selector, '').catch(() => {});
+            await currentPage.type(step.selector, String(step.value), { delay: 20 }).catch(() => {});
+          }
+          stepResult.success = true;
+          break;
+
+        case 'wait':
+          await new Promise(r => setTimeout(r, step.ms || 1000));
+          stepResult.success = true;
+          break;
+
+        case 'navigate':
+          if (step.url) {
+            await currentPage.goto(step.url, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
+          }
+          stepResult.success = true;
+          break;
+
+        case 'scroll':
+          if (step.selector) {
+            await currentPage.locator(step.selector).scrollIntoViewIfNeeded().catch(() => {});
+          } else {
+            await currentPage.evaluate((px) => window.scrollBy(0, px || 500), step.pixels || 500).catch(() => {});
+          }
+          stepResult.success = true;
+          break;
+
+        case 'select':
+          if (step.selector && step.value !== undefined) {
+            await currentPage.selectOption(step.selector, step.value).catch(() => {});
+          }
+          stepResult.success = true;
+          break;
+
+        case 'hover':
+          if (step.selector) {
+            await currentPage.hover(step.selector, { timeout: 5000 }).catch(() => {});
+          }
+          stepResult.success = true;
+          break;
+
+        case 'screenshot':
+          try {
+            const buf = await currentPage.screenshot({ type: 'png', fullPage: false });
+            stepResult.screenshotBase64 = buf.toString('base64').slice(0, 2000);
+          } catch (_) {}
+          stepResult.success = true;
+          break;
+
+        case 'fill_form':
+          const fillResult = await autoFillForm(currentPage, step.selector || 'form', step.overrides || {});
+          stepResult.fillResult = fillResult;
+          stepResult.success = fillResult.filled;
+          break;
+
+        case 'submit':
+          if (step.selector) {
+            await currentPage.locator(step.selector).first().click({ timeout: 5000 }).catch(() => {});
+          } else {
+            await currentPage.locator('button[type="submit"], input[type="submit"]').first().click({ timeout: 5000 }).catch(() => {});
+          }
+          await new Promise(r => setTimeout(r, 1000));
+          stepResult.success = true;
+          // 检查提交后状态
+          try {
+            stepResult.submitResult = await currentPage.evaluate(() => {
+              const url = window.location.href;
+              const body = document.body?.innerText?.slice(0, 200) || '';
+              const hasError = /error|失败|错误|invalid/i.test(body);
+              return { url, hasError, bodySnippet: body.slice(0, 100) };
+            });
+          } catch (_) {}
+          break;
+
+        default:
+          stepResult.error = `Unknown action: ${step.action}`;
+      }
+    } catch (e) {
+      stepResult.error = e.message;
+    }
+
+    result.steps.push(stepResult);
+    if (stepResult.success) result.completed++;
+    else result.failed++;
+  }
+
+  result.success = result.failed === 0 && result.totalSteps > 0;
+  return result;
+}
+
 module.exports = {
   detectUIState,
   interactWithForm,
   executeWorkflow,
   exploreLikeHuman,
+  autoFillForm,
+  runInteractionChain,
 };

@@ -51,6 +51,44 @@
 | `browser_instrument` | 注入工具脚本到页面 |
 | `browser_find_page` | 页面类型识别 |
 | `browser_step` | 单步执行操作 |
+| `browser_form_fill` | 批量表单填充 + 提交检测 |
+
+## browser_form_fill
+
+批量填写表单字段并可选提交检测。自动识别 input / select / textarea，根据类型生成 mock 数据，支持手动覆盖字段值。
+
+**参数**：
+
+| 参数 | 必填 | 说明 |
+|------|------|------|
+| `url` | ✅ | 目标页面 URL |
+| `selector` | ❌ | 表单选择器，默认 `form` |
+| `fields` | ❌ | 手动指定的字段覆盖值（key=字段名，value=字段值） |
+| `submit` | ❌ | 填充后是否自动提交，默认 true |
+| `submitSelector` | ❌ | 提交按钮选择器，默认自动查找 submit 按钮 |
+
+**返回示例**：
+```json
+{
+  "filled": {
+    "filled": true,
+    "totalFields": 4,
+    "filledCount": 4,
+    "fields": [
+      { "name": "email", "type": "email", "tag": "input", "filled": true, "value": "test@example.com" },
+      { "name": "password", "type": "password", "tag": "input", "filled": true, "value": "Test123456!" },
+      { "name": "country", "type": "select", "tag": "select", "filled": true, "value": "US" }
+    ]
+  },
+  "submit": {
+    "clicked": "button[type=\"submit\"]",
+    "urlAfterSubmit": "https://example.com/dashboard",
+    "titleAfterSubmit": "Dashboard"
+  }
+}
+```
+
+**适用场景**：自动化测试表单填写、批量数据录入测试、注册/登录流程自动化
 
 ## 使用示例
 

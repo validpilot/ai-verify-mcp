@@ -1,0 +1,115 @@
+{
+  "name": "browser_emulate_device",
+  "description": "模拟指定设备（iPhone/Android/平板）的完整特性，包括 User-Agent、视口尺寸、触摸事件、像素密度等。支持预设设备列表和自定义设备配置。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "device": {
+        "type": "string",
+        "description": "设备名称或别名。可用预设：iPhone 14/15/16 系列、Android Pixel/Samsung Galaxy、Tablet iPad/Android、Desktop。"
+      },
+      "orientation": {
+        "type": "string",
+        "enum": ["portrait", "landscape"],
+        "default": "portrait",
+        "description": "屏幕方向"
+      },
+      "touch": {
+        "type": "boolean",
+        "default": true,
+        "description": "是否启用触摸模拟"
+      },
+      "viewport": {
+        "type": "object",
+        "description": "自定义视口（覆盖设备预设）",
+        "properties": {
+          "width": { "type": "number" },
+          "height": { "type": "number" },
+          "deviceScaleFactor": { "type": "number" }
+        }
+      },
+      "userAgent": {
+        "type": "string",
+        "description": "自定义 User-Agent（覆盖设备预设）"
+      },
+      "locale": {
+        "type": "string",
+        "default": "zh-CN",
+        "description": "本地化设置"
+      },
+      "timezone": {
+        "type": "string",
+        "default": "Asia/Shanghai",
+        "description": "时区设置"
+      },
+      "geolocation": {
+        "type": "object",
+        "description": "地理位置模拟",
+        "properties": {
+          "latitude": { "type": "number" },
+          "longitude": { "type": "number" },
+          "accuracy": { "type": "number" }
+        }
+      },
+      "permissions": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "要授权的权限，如 ['geolocation', 'notifications']"
+      },
+      "colorScheme": {
+        "type": "string",
+        "enum": ["light", "dark", "no-preference"],
+        "default": "light",
+        "description": "颜色方案偏好"
+      }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "success": { "type": "boolean" },
+      "device": { "type": "string" },
+      "applied": {
+        "type": "object",
+        "description": "应用的设备配置",
+        "properties": {
+          "viewport": {
+            "type": "object",
+            "properties": {
+              "width": { "type": "number" },
+              "height": { "type": "number" },
+              "deviceScaleFactor": { "type": "number" }
+            }
+          },
+          "userAgent": { "type": "string" },
+          "touch": { "type": "boolean" },
+          "orientation": { "type": "string" }
+        }
+      },
+      "pageInfo": {
+        "type": "object",
+        "description": "当前页面信息",
+        "properties": {
+          "url": { "type": "string" },
+          "title": { "type": "string" },
+          "viewport": {
+            "type": "object",
+            "properties": {
+              "width": { "type": "number" },
+              "height": { "type": "number" }
+            }
+          }
+        }
+      },
+      "verification": {
+        "type": "object",
+        "description": "设备模拟验证结果",
+        "properties": {
+          "viewportMatched": { "type": "boolean" },
+          "touchEnabled": { "type": "boolean" },
+          "userAgentMatched": { "type": "boolean" }
+        }
+      }
+    }
+  }
+}

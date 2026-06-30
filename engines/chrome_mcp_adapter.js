@@ -314,4 +314,73 @@ class ChromeMCPAdapter {
   }
 }
 
-module.exports = { ChromeMCPAdapter };
+const ARTIFACT_DIR = path.join(__dirname, '..', 'artifacts', 'chrome-mcp');
+
+function ensureDir(dir) {
+  const targetDir = dir || ARTIFACT_DIR;
+  fs.mkdirSync(targetDir, { recursive: true });
+  return targetDir;
+}
+
+function safeName(name) {
+  return String(name || `artifact-${Date.now()}`).replace(/[^a-zA-Z0-9_.-]/g, '_');
+}
+
+function toFileUrl(input) {
+  const value = String(input || '');
+  if (/^https?:\/\//i.test(value) || /^file:\/\//i.test(value)) return value;
+  return `file://${path.resolve(value).replace(/\\/g, '/')}`;
+}
+
+function redactString(value) {
+  return String(value ?? '')
+    .replace(/Bearer\s+[A-Za-z0-9._~+\/-]+=*/gi, 'Bearer ******')
+    .replace(/(api[_-]?key\s*[:=]\s*)[A-Za-z0-9._~+\/-]{8,}/gi, '$1******')
+    .replace(/(token\s*[:=]\s*)[A-Za-z0-9._~+\/-]{8,}/gi, '$1******')
+    .slice(0, 2000);
+}
+
+function truncate(value, max) {
+  return redactString(value).length > max ? `${redactString(value).slice(0, max)}...` : redactString(value);
+}
+
+function summarizeEntries(entries, limit) {
+  return (entries || []).slice(-(limit || 10)).map(item => {
+    const summary = {
+      source: item.source,
+      type: item.type,
+      text: truncate(item.text || item.message || item.errorText || item.url || '', 240),
+      url: item.url,
+      status: item.status,
+      method: item.method,
+      failed: item.failed === true,
+      timestamp: item.timestamp
+    };
+    return Object.fromEntries(Object.entries(summary).filter(([, value]) => value !== undefined && value !== ''));
+  });
+}
+
+function summarizeResult(result) {
+  result = result || {};
+  const { passed = 0, failed = 0, skipped = 0 } = result;
+  const total = passed + failed + skipped;
+  const pct = total > 0 ? Math.round(passed / total * 100) : 0;
+  return {
+    status: failed > 0 ? 'fail' : passed > 0 ? 'pass' : 'unknown',
+    passed, failed, skipped,
+    passRate: pct + '%',
+    summary: `Passed ${passed} / Failed ${failed} / Skipped ${skipped}`,
+    ...result
+  };
+}
+
+module.exports = {
+  ChromeMCPAdapter,
+  ensureDir,
+  safeName,
+  toFileUrl,
+  redactString,
+  truncate,
+  summarizeEntries,
+  summarizeResult,
+};

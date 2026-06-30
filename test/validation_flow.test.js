@@ -6,7 +6,32 @@ const fs = require('fs');
 const path = require('path');
 
 const TOOLS_DIR = path.join(__dirname, '..', 'tools');
-const SERVER_FILE = path.join(__dirname, '..', 'server.js');
+const HANDLERS_DIR = path.join(__dirname, '..', 'handlers');
+
+// Build toolNames from handler modules
+const handlers = [
+  require('../handlers/browser'),
+  require('../handlers/session'),
+  require('../handlers/evidence'),
+  require('../handlers/network'),
+  require('../handlers/validation'),
+  require('../handlers/diagnose'),
+  require('../handlers/visual'),
+  require('../handlers/locator'),
+  require('../handlers/system'),
+];
+
+function buildToolNames() {
+  const names = new Set();
+  for (const h of handlers) {
+    for (const name of h.tools) {
+      names.add(name);
+    }
+  }
+  return names;
+}
+
+const toolNames = buildToolNames();
 
 // ============================================================
 // 1. Schema 验证
@@ -53,15 +78,18 @@ test('validation_flow schema 包含 steps/continueOnFailure/timeout 参数', () 
 // 2. Handler 存在性验证
 // ============================================================
 
-test('server.js 包含 validation_flow 的 case 处理器', () => {
-  const serverSrc = fs.readFileSync(SERVER_FILE, 'utf8');
-  assert.ok(serverSrc.includes("case 'validation_flow'"), '缺少 case \'validation_flow\' 处理器');
-  assert.ok(serverSrc.includes('runValidationFlow'), '缺少 runValidationFlow 函数调用');
+test('toolNames 中包含 validation_flow（已注册到 MCP）', () => {
+  assert.ok(toolNames.has('validation_flow'), '工具 validation_flow 应在 toolNames 中');
 });
 
-test('server.js 包含 validation_flow 的工具注册', () => {
-  const serverSrc = fs.readFileSync(SERVER_FILE, 'utf8');
-  assert.ok(serverSrc.includes("'validation_flow'"), '未在工具列表中注册 validation_flow');
+test('handler 包含 runValidationFlow 函数调用', () => {
+  const handlerSrc = fs.readFileSync(path.join(HANDLERS_DIR, 'validation.js'), 'utf8');
+  assert.ok(handlerSrc.includes('runValidationFlow'), '缺少 runValidationFlow 函数调用');
+});
+
+test('handler tools 数组中注册了 validation_flow', () => {
+  const validationHandler = require('../handlers/validation');
+  assert.ok(validationHandler.tools.includes('validation_flow'), 'handler tools 中应包含 validation_flow');
 });
 
 // ============================================================

@@ -9,6 +9,11 @@
 | `browser_visual_baseline` | 设置视觉基准（基线图） |
 | `browser_visual_compare` | 视觉对比（当前 vs 基线） |
 | `browser_visual_report` | 生成视觉回归报告 |
+| `browser_responsive_test` | 多视口响应式布局测试 |
+| `browser_a11y_check` | 无障碍访问扫描 |
+| `browser_performance_check` | 页面性能检查 |
+| `browser_lighthouse_audit` | Lighthouse 完整审计 |
+| `screenshot_diff` | 两张截图差异对比 |
 
 ## browser_visual_baseline
 
@@ -52,6 +57,42 @@
 生成完整的视觉回归报告，包含所有对比项的汇总。
 
 **返回**：HTML + JSON 格式的报告。
+
+## browser_responsive_test
+
+多视口响应式布局测试。模拟 mobile / tablet / desktop 三个标准视口截图对比，检测响应式布局问题。
+
+**参数**：
+
+| 参数 | 必填 | 说明 |
+|------|------|------|
+| `url` | ✅ | 目标页面 URL |
+| `viewports` | ❌ | 视口列表，默认 `["mobile", "tablet", "desktop"]` |
+| `waitMs` | ❌ | 截图前等待毫秒，默认 1000 |
+| `fullPage` | ❌ | 是否截取整页，默认 false |
+
+**视口预设**：
+
+| 视口 | 尺寸 | 说明 |
+|------|------|------|
+| `mobile` | 375×812 | iPhone X 尺寸 |
+| `tablet` | 768×1024 | iPad 尺寸 |
+| `desktop` | 1280×720 | 主流桌面分辨率 |
+
+**返回示例**：
+```json
+{
+  "url": "https://example.com",
+  "viewportCount": 3,
+  "screenshots": [
+    { "viewport": "Mobile (375×812)", "width": 375, "height": 812, "data": "..." },
+    { "viewport": "Tablet (768×1024)", "width": 768, "height": 1024, "data": "..." },
+    { "viewport": "Desktop (1280×720)", "width": 1280, "height": 720, "data": "..." }
+  ]
+}
+```
+
+**适用场景**：响应式布局回归测试、多设备兼容验证、CSS 媒体查询验证
 
 ## 工作流程
 

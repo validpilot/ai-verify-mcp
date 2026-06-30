@@ -1,0 +1,19 @@
+{
+  "name": "browser_responsive_test",
+  "description": "模拟多视口（mobile/tablet/desktop）截图对比，检测响应式布局问题。打开指定URL，分别以三个标准视口截图，返回各视口截图和布局差异分析。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "url": { "type": "string", "description": "目标页面URL（必填）" },
+      "viewports": {
+        "type": "array",
+        "items": { "type": "string", "enum": ["mobile", "tablet", "desktop"] },
+        "description": "要测试的视口列表，默认全部",
+        "default": ["mobile", "tablet", "desktop"]
+      },
+      "waitMs": { "type": "number", "description": "截图前等待毫秒数", "default": 1000 },
+      "fullPage": { "type": "boolean", "description": "是否截取整页", "default": false }
+    },
+    "required": ["url"]
+  }
+}

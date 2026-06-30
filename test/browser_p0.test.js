@@ -6,7 +6,33 @@ const fs = require('fs');
 const path = require('path');
 
 const TOOLS_DIR = path.join(__dirname, '..', 'tools');
+const HANDLERS_DIR = path.join(__dirname, '..', 'handlers');
 const SERVER_FILE = path.join(__dirname, '..', 'server.js');
+
+// Build toolNames from handler modules
+const handlers = [
+  require('../handlers/browser'),
+  require('../handlers/session'),
+  require('../handlers/evidence'),
+  require('../handlers/network'),
+  require('../handlers/validation'),
+  require('../handlers/diagnose'),
+  require('../handlers/visual'),
+  require('../handlers/locator'),
+  require('../handlers/system'),
+];
+
+function buildToolNames() {
+  const names = new Set();
+  for (const h of handlers) {
+    for (const name of h.tools) {
+      names.add(name);
+    }
+  }
+  return names;
+}
+
+const toolNames = buildToolNames();
 
 // ============================================================
 // browser_diagnose
@@ -36,9 +62,8 @@ describe('browser_diagnose', () => {
     assert.equal(props.includeStackTrace.type, 'boolean');
   });
 
-  test('server.js 包含 browser_diagnose 的 case 处理器', () => {
-    const src = fs.readFileSync(SERVER_FILE, 'utf8');
-    assert.ok(src.includes("case 'browser_diagnose'"));
+  test('toolNames 中包含 browser_diagnose（已注册到 MCP）', () => {
+    assert.ok(toolNames.has('browser_diagnose'), '工具 browser_diagnose 应在 toolNames 中');
   });
 });
 
@@ -70,10 +95,10 @@ describe('browser_element_status', () => {
     assert.equal(props.checkInteractability.type, 'boolean');
   });
 
-  test('server.js 包含 browser_element_status 且验证 selector 为空时返回错误', () => {
-    const src = fs.readFileSync(SERVER_FILE, 'utf8');
-    assert.ok(src.includes("case 'browser_element_status'"));
-    assert.ok(src.includes('需要提供 selector 参数'));
+  test('toolNames 中包含 browser_element_status 且 handler 验证 selector 为空时返回错误', () => {
+    assert.ok(toolNames.has('browser_element_status'), '工具 browser_element_status 应在 toolNames 中');
+    const handlerSrc = fs.readFileSync(path.join(HANDLERS_DIR, 'diagnose.js'), 'utf8');
+    assert.ok(handlerSrc.includes('需要提供 selector 参数'));
   });
 });
 
@@ -110,10 +135,10 @@ describe('browser_quick_fix', () => {
     assert.equal(props.maxAttempts.type, 'number');
   });
 
-  test('server.js 包含 browser_quick_fix 且验证 selector 为空时返回错误', () => {
-    const src = fs.readFileSync(SERVER_FILE, 'utf8');
-    assert.ok(src.includes("case 'browser_quick_fix'"));
-    assert.ok(src.includes('需要提供 selector 参数'));
+  test('toolNames 中包含 browser_quick_fix 且 handler 验证 selector 为空时返回错误', () => {
+    assert.ok(toolNames.has('browser_quick_fix'), '工具 browser_quick_fix 应在 toolNames 中');
+    const handlerSrc = fs.readFileSync(path.join(HANDLERS_DIR, 'diagnose.js'), 'utf8');
+    assert.ok(handlerSrc.includes('需要提供 selector 参数'));
   });
 });
 
@@ -157,9 +182,9 @@ describe('browser_verify_fix', () => {
     assert.equal(props.timeout.type, 'number');
   });
 
-  test('server.js 包含 browser_verify_fix 且验证 selector 为空时返回错误', () => {
-    const src = fs.readFileSync(SERVER_FILE, 'utf8');
-    assert.ok(src.includes("case 'browser_verify_fix'"));
-    assert.ok(src.includes('需要提供 selector 参数'));
+  test('toolNames 中包含 browser_verify_fix 且 handler 验证 selector 为空时返回错误', () => {
+    assert.ok(toolNames.has('browser_verify_fix'), '工具 browser_verify_fix 应在 toolNames 中');
+    const handlerSrc = fs.readFileSync(path.join(HANDLERS_DIR, 'diagnose.js'), 'utf8');
+    assert.ok(handlerSrc.includes('需要提供 selector 参数'));
   });
 });

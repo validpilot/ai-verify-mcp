@@ -1,0 +1,104 @@
+{
+  "name": "browser_form_validate",
+  "description": "自动检测表单字段规则（必填、格式、长度等），执行完整的表单验证流程。支持检测 HTML5 验证属性和自定义验证规则，输出详细验证报告。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "url": {
+        "type": "string",
+        "description": "要检测表单的目标 URL。如果不提供则使用当前页面。"
+      },
+      "formSelector": {
+        "type": "string",
+        "description": "表单选择器。如果不提供则自动检测页面第一个表单。"
+      },
+      "validateSubmit": {
+        "type": "boolean",
+        "default": true,
+        "description": "是否尝试提交表单检测验证"
+      },
+      "checkRequired": {
+        "type": "boolean",
+        "default": true,
+        "description": "是否检测必填字段"
+      },
+      "checkPattern": {
+        "type": "boolean",
+        "default": true,
+        "description": "是否检测格式模式（email、url等）"
+      },
+      "checkLength": {
+        "type": "boolean",
+        "default": true,
+        "description": "是否检测长度限制"
+      }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "success": { "type": "boolean" },
+      "url": { "type": "string" },
+      "formFound": { "type": "boolean" },
+      "formSelector": { "type": "string" },
+      "fields": {
+        "type": "array",
+        "description": "表单字段列表",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "id": { "type": "string" },
+            "type": { "type": "string" },
+            "tagName": { "type": "string" },
+            "label": { "type": "string" },
+            "required": { "type": "boolean" },
+            "pattern": { "type": "string" },
+            "minLength": { "type": "number" },
+            "maxLength": { "type": "number" },
+            "min": { "type": "string" },
+            "max": { "type": "string" },
+            "inputType": { "type": "string" },
+            "placeholder": { "type": "string" },
+            "defaultValue": { "type": "string" },
+            "options": {
+              "type": "array",
+              "description": "下拉选项（select/radio/checkbox）",
+              "items": { "type": "string" }
+            },
+            "validationRules": {
+              "type": "array",
+              "description": "检测到的验证规则",
+              "items": { "type": "string" }
+            },
+            "issues": {
+              "type": "array",
+              "description": "字段问题",
+              "items": { "type": "string" }
+            }
+          }
+        }
+      },
+      "validationResults": {
+        "type": "object",
+        "description": "验证结果",
+        "properties": {
+          "totalFields": { "type": "number" },
+          "requiredFieldsMissing": { "type": "number" },
+          "patternViolations": { "type": "number" },
+          "lengthViolations": { "type": "number" },
+          "allPassed": { "type": "boolean" }
+        }
+      },
+      "summary": {
+        "type": "string",
+        "description": "验证摘要"
+      },
+      "recommendations": {
+        "type": "array",
+        "description": "改进建议",
+        "items": { "type": "string" }
+      }
+    }
+  }
+}
