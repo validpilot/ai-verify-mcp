@@ -1,0 +1,31 @@
+{
+  "name": "browser_visual_check",
+  "description": "自动UI问题扫描：无需基线，直接在当前页面扫描常见的UI问题（文字不可见、元素重叠、z-index遮挡、点击区域过小、空白区域、溢出、图片alt缺失、对比度不足、响应式断点等）。输出自然语言描述的问题清单。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "includeAccessibility": {
+        "type": "boolean",
+        "description": "是否包含可访问性检查（图片alt缺失、对比度检测），默认true",
+        "default": true
+      },
+      "includeResponsive": {
+        "type": "boolean",
+        "description": "是否包含响应式检查，默认false",
+        "default": false
+      },
+      "viewports": {
+        "type": "array",
+        "description": "响应式检查的viewport列表，仅当 includeResponsive=true 时生效",
+        "items": { "type": "string", "enum": ["mobile", "tablet", "desktop"] },
+        "default": ["mobile", "tablet"]
+      },
+      "severity": {
+        "type": "string",
+        "enum": ["blocking", "major", "minor"],
+        "description": "最低报告级别：blocking（只报阻断级）/ major（报阻断+严重级）/ minor（全部报告），默认major",
+        "default": "major"
+      }
+    }
+  }
+}

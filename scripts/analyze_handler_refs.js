@@ -15,7 +15,7 @@ const externals = [
   'waitForCondition','assertPage','runFlow','installInstrumentation','getBrowserEvents',
   'clearBrowserEvents','startTrace','stopTrace','getArtifacts','clearArtifacts',
   'ensureArtifactsDir','screenshotWithRedaction','safeArtifactName',
-  'analyzeScreenshotForErrors','exportHar','runFullAudit','visualBaseline',
+  'analyzeScreenshotForErrors','analyzeScreenshotContent','exportHar','runFullAudit','visualBaseline',
   'visualCompare','visualReport','runA11yCheck','runPerformanceCheck','runLighthouseAudit',
   'findElement','findPage','suggestLocator','validateLocator','mcpHealthCheck',
   'projectAudit','mcpSelfTest','runValidationCheck','runValidationPlan',

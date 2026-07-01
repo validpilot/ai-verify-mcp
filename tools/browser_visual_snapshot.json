@@ -1,0 +1,16 @@
+{
+  "name": "browser_visual_snapshot",
+  "description": "三级快照：一次性获取截图 + DOM 状态快照 + CSS 计算属性，自动检测 L1+L2 级别 UI 问题（文字不可见、元素重叠、空白区域过大、z-index 遮挡、点击区域过小、overflow 溢出）。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "selector": { "type": "string", "description": "可选 CSS 选择器；不传则全页" },
+      "fullPage": { "type": "boolean", "description": "是否全页截图，默认 true" },
+      "includeMetadata": { "type": "boolean", "description": "是否包含完整元数据，默认 true" },
+      "detectIssues": { "type": "boolean", "description": "是否自动检测 UI 问题，默认 true" },
+      "viewportWidth": { "type": "integer", "description": "自定义 viewport 宽度" },
+      "viewportHeight": { "type": "integer", "description": "自定义 viewport 高度" },
+      "sessionName": { "type": "string", "description": "浏览器会话名称，默认当前活跃会话" }
+    }
+  }
+}

@@ -54,6 +54,14 @@ class StateManager {
     let records = this.filterBySince(items, args);
     const contains = args.urlContains || args.contains;
     if (contains) records = records.filter(item => item.url && item.url.includes(contains));
+    if (args.urlPattern) {
+      try {
+        const re = new RegExp(args.urlPattern);
+        records = records.filter(item => item.url && re.test(item.url));
+      } catch (e) {
+        // invalid regex, skip pattern filter
+      }
+    }
     if (args.method) records = records.filter(item => item.method === args.method);
     if (typeof args.statusMin === 'number') records = records.filter(item => Number(item.status || 0) >= args.statusMin);
     if (typeof args.statusMax === 'number') records = records.filter(item => Number(item.status || 0) <= args.statusMax);

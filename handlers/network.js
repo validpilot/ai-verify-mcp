@@ -22,7 +22,28 @@ async function handle(name, args, deps) {
   try {
   // ====== browser_network ======
   if (name === 'browser_network') {
-  return text(JSON.stringify(redact(filterNetwork(networkLogs, args)), null, 2));
+    const records = filterNetwork(networkLogs, args);
+    const includeDetails = args.includeDetails === true;
+    const processed = records.map(item => {
+      const base = redact(item);
+      if (!includeDetails) {
+        delete base.requestBody;
+        delete base.responseBody;
+        delete base.requestHeaders;
+        delete base.responseHeaders;
+        return base;
+      }
+      const method = (item.method || '').toUpperCase();
+      const hasRequestBody = method === 'POST' || method === 'PUT' || method === 'PATCH';
+      if (!hasRequestBody) {
+        delete base.requestBody;
+      }
+      if (base.responseBody && base.responseBody.length > 500) {
+        base.responseBody = base.responseBody.slice(0, 500);
+      }
+      return base;
+    });
+    return text(JSON.stringify(processed, null, 2));
   }
 
   // ====== browser_network_detail ======
@@ -40,27 +61,107 @@ const level = args.level && args.level !== 'all' ? args.level : null;
 
   // ====== browser_errors ======
   if (name === 'browser_errors') {
-const result = getUnifiedErrors(args);
-    // 如果页面可用，也从注入脚本直读 console 错误
+    const result = getUnifiedErrors(args);
+
+    // 从 Playwright page 实时获取最新的 console 错误和 pageerror
     if (page && !page.isClosed()) {
       try {
-        const injected = await page.evaluate((since) => {
-          if (!window.__mcpEvents) return [];
-          const sinceTime = since ? new Date(since).getTime() : 0;
-          return window.__mcpEvents
-            .filter(e => (e.type === 'console' && e.level === 'error') || e.type === 'window_error' || e.type === 'unhandledrejection')
-            .filter(e => new Date(e.timestamp || 0).getTime() >= sinceTime)
-            .slice(-30)
-            .map(e => ({ type: e.level || 'error', text: (e.args ? e.args.join(' ') : e.message || e.reason || '').slice(0, 200) }));
-        }, args.since || null).catch(() => []);
-        if (injected.length > 0) {
-          result.injectedConsoleErrors = injected;
-          result.totalInjected = injected.length;
-          result.summary.silentFailCount = (result.summary.silentFailCount || 0) + injected.length;
-          result.silentFailCount = (result.silentFailCount || 0) + injected.length;
+        const freshErrors = await page.evaluate((sinceArg) => {
+          const fresh = { consoleErrors: [], pageErrors: [] };
+          const now = new Date().toISOString();
+          // 读取注入脚本收集的事件
+          if (window.__mcpEvents && Array.isArray(window.__mcpEvents)) {
+            window.__mcpEvents.forEach(e => {
+              if (e.type === 'console' && e.level === 'error') {
+                fresh.consoleErrors.push({
+                  source: 'console',
+                  type: 'error',
+                  text: (e.args ? e.args.join(' ') : '').slice(0, 500),
+                  location: e.location || null,
+                  timestamp: e.timestamp || now
+                });
+              } else if (e.type === 'window_error' || e.type === 'unhandledrejection') {
+                fresh.pageErrors.push({
+                  source: 'pageerror',
+                  type: 'error',
+                  text: (e.message || e.reason || '').slice(0, 800),
+                  stack: e.stack || null,
+                  timestamp: e.timestamp || now
+                });
+              }
+            });
+          }
+          return fresh;
+        }, args.since || null).catch(() => ({ consoleErrors: [], pageErrors: [] }));
+
+        // 按 since/currentOnly 过滤实时错误
+        let filterSince = 0;
+        if (args.since) {
+          filterSince = new Date(args.since).getTime();
+        } else if (args.currentOnly !== false) {
+          filterSince = new Date(result.checkpoint || 0).getTime();
+        }
+
+        const filterByTime = items => items.filter(e => {
+          const t = new Date(e.timestamp || 0).getTime();
+          return !filterSince || t >= filterSince;
+        });
+
+        const freshConsole = filterByTime(freshErrors.consoleErrors);
+        const freshPage = filterByTime(freshErrors.pageErrors);
+
+        // 合并去重辅助函数
+        const makeKey = e => `${e.timestamp}|${e.text}`;
+
+        const mergeUnique = (existing, freshItems) => {
+          const keys = new Set(existing.map(makeKey));
+          const added = [];
+          freshItems.forEach(item => {
+            const k = makeKey(item);
+            if (!keys.has(k)) {
+              added.push(item);
+              keys.add(k);
+            }
+          });
+          return added;
+        };
+
+        const newConsole = mergeUnique(result.consoleErrors, freshConsole);
+        const newPage = mergeUnique(result.pageErrors, freshPage);
+
+        if (newConsole.length > 0 || newPage.length > 0) {
+          // 追加到结果中
+          result.consoleErrors = [...result.consoleErrors, ...newConsole];
+          result.pageErrors = [...result.pageErrors, ...newPage];
+
+          // 更新 summary 计数
+          const newConsoleErrorCount = newConsole.filter(e => e.type === 'error').length;
+          const newConsoleWarnCount = newConsole.filter(e => ['warning', 'warn'].includes(e.type)).length;
+
+          result.summary.consoleErrorCount = (result.summary.consoleErrorCount || 0) + newConsole.length;
+          result.summary.pageErrorCount = (result.summary.pageErrorCount || 0) + newPage.length;
+          result.summary.total = (result.summary.total || 0) + newConsole.length + newPage.length;
+
+          if (result.summary.severity) {
+            result.summary.severity.critical = (result.summary.severity.critical || 0) + newPage.length;
+            result.summary.severity.medium = (result.summary.severity.medium || 0) + newConsoleErrorCount;
+            result.summary.severity.low = (result.summary.severity.low || 0) + newConsoleWarnCount;
+          }
+
+          if (result.byLevel) {
+            result.byLevel.error = (result.byLevel.error || 0) + newConsoleErrorCount + newPage.length;
+            result.byLevel.warning = (result.byLevel.warning || 0) + newConsoleWarnCount;
+          }
+
+          // 标记有实时新增的错误
+          result.realtimeFresh = {
+            consoleAdded: newConsole.length,
+            pageAdded: newPage.length
+          };
         }
       } catch (_) {}
     }
+
     return text(JSON.stringify(result, null, 2));
   }
 

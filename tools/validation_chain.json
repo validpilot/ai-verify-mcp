@@ -1,0 +1,99 @@
+{
+  "name": "validation_chain",
+  "description": "完整功能链路闭环验证工具，按步骤依次执行 navigate/click/type/wait/validate 操作，每步自动检查控制台错误和网络错误，发现错误立即终止并返回详细的失败信息，输出完整的链路验证报告。支持强制执行5步链路验证，缺少关键步骤时拒绝执行。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "steps": {
+        "type": "array",
+        "description": "验证步骤列表，每步包含 type 和相关参数",
+        "items": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "description": "步骤操作类型：navigate/click/type/wait/validate",
+              "enum": ["navigate", "click", "type", "wait", "validate"]
+            },
+            "name": {
+              "type": "string",
+              "description": "步骤名称，用于标识和错误报告"
+            },
+            "url": {
+              "type": "string",
+              "description": "navigate 步骤的目标 URL"
+            },
+            "selector": {
+              "type": "string",
+              "description": "click/type/validate 步骤的 CSS 选择器"
+            },
+            "value": {
+              "type": "string",
+              "description": "type 步骤的输入文本，或 wait 步骤的等待时间（毫秒）"
+            },
+            "expression": {
+              "type": "string",
+              "description": "validate 步骤的 JS 表达式，应返回 boolean"
+            },
+            "expected": {
+              "type": "string",
+              "description": "validate 步骤的预期值"
+            },
+            "timeout": {
+              "type": "number",
+              "description": "单步超时时间（毫秒）"
+            }
+          },
+          "required": ["type"]
+        }
+      },
+      "failOnError": {
+        "type": "boolean",
+        "description": "是否在发现错误时立即停止，默认 true",
+        "default": true
+      },
+      "captureScreenshots": {
+        "type": "boolean",
+        "description": "是否每步截图，默认 false",
+        "default": false
+      },
+      "requiredSteps": {
+        "type": "boolean",
+        "description": "是否强制执行5步链路验证（navigate/click/type/wait/validate），缺少关键步骤时拒绝执行，默认 true",
+        "default": true
+      },
+      "networkFilter": {
+        "type": "object",
+        "description": "网络请求过滤条件",
+        "properties": {
+          "urlContains": {
+            "type": "string",
+            "description": "URL 包含的字符串"
+          },
+          "urlPattern": {
+            "type": "string",
+            "description": "URL 正则表达式模式"
+          },
+          "method": {
+            "type": "string",
+            "description": "HTTP 方法"
+          },
+          "statusMin": {
+            "type": "number",
+            "description": "最小状态码"
+          },
+          "statusMax": {
+            "type": "number",
+            "description": "最大状态码"
+          }
+        }
+      },
+      "timeout": {
+        "type": "number",
+        "description": "整个流程超时时间（毫秒），默认 60000",
+        "default": 60000
+      }
+    },
+    "required": ["steps"]
+  }
+}

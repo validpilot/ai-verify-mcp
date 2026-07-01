@@ -1,0 +1,82 @@
+{
+  "name": "browser_chain",
+  "description": "链式执行多个浏览器操作，每步操作后自动检查控制台错误和网络错误。发现错误可立即终止并返回失败步骤。支持强制执行模式，开启时强制进行错误检查且不可关闭。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "actions": {
+        "type": "array",
+        "description": "操作步骤数组，每个步骤包含 type 和相关参数",
+        "items": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["click", "type", "hover", "scroll", "pressKey", "select", "wait", "evaluate"],
+              "description": "操作类型"
+            },
+            "selector": {
+              "type": "string",
+              "description": "元素选择器（click/type/hover/scroll/select 操作时使用）"
+            },
+            "text": {
+              "type": "string",
+              "description": "输入文本（type 操作时使用）"
+            },
+            "value": {
+              "type": "string",
+              "description": "下拉选项值（select 操作时使用）"
+            },
+            "label": {
+              "type": "string",
+              "description": "下拉选项文本（select 操作时使用）"
+            },
+            "index": {
+              "type": "number",
+              "description": "下拉选项索引（select 操作时使用）"
+            },
+            "key": {
+              "type": "string",
+              "description": "按键名称（pressKey 操作时使用）"
+            },
+            "ms": {
+              "type": "number",
+              "description": "等待毫秒数（wait 操作时使用）"
+            },
+            "direction": {
+              "type": "string",
+              "description": "滚动方向（scroll 操作时使用）"
+            },
+            "distance": {
+              "type": "number",
+              "description": "滚动距离（scroll 操作时使用）"
+            },
+            "expression": {
+              "type": "string",
+              "description": "JS 表达式（evaluate 操作时使用）"
+            }
+          },
+          "required": ["type"]
+        }
+      },
+      "stopOnError": {
+        "type": "boolean",
+        "description": "是否在发现错误时立即停止，默认 true"
+      },
+      "includeNetwork": {
+        "type": "boolean",
+        "description": "是否检查网络错误，默认 true（enforceValidation=true 时强制为 true）"
+      },
+      "includeConsole": {
+        "type": "boolean",
+        "description": "是否检查控制台错误，默认 true（enforceValidation=true 时强制为 true）"
+      },
+      "enforceValidation": {
+        "type": "boolean",
+        "description": "是否强制执行错误检查，开启时 includeNetwork 和 includeConsole 强制为 true 且不可被覆盖，默认 true",
+        "default": true
+      }
+    },
+    "required": ["actions"]
+  }
+}

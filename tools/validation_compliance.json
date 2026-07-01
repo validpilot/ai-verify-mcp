@@ -1,0 +1,80 @@
+{
+  "name": "validation_compliance",
+  "description": "验证当前会话中各功能的链路验证合规性，检查是否完成了完整的5步链路验证（入口可达→操作可行→请求正确→响应正常→状态更新），未完成的功能标记为 NON-COMPLIANT。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "functions": {
+        "type": "array",
+        "description": "需要检查合规性的功能列表",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "功能名称"
+            },
+            "type": {
+              "type": "string",
+              "description": "功能类型：数据提交类/信息展示类/导航跳转类/交互操作类",
+              "enum": ["数据提交类", "信息展示类", "导航跳转类", "交互操作类"]
+            },
+            "steps": {
+              "type": "array",
+              "description": "该功能已执行的验证步骤列表",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "stepName": {
+                    "type": "string",
+                    "description": "步骤名称"
+                  },
+                  "stepType": {
+                    "type": "string",
+                    "description": "步骤类型",
+                    "enum": ["入口可达", "操作可行", "请求正确", "响应正常", "状态更新", "其他"]
+                  },
+                  "status": {
+                    "type": "string",
+                    "description": "步骤状态",
+                    "enum": ["passed", "failed", "skipped", "not_executed"]
+                  },
+                  "evidence": {
+                    "type": "string",
+                    "description": "验证证据（截图路径、日志引用等）"
+                  }
+                },
+                "required": ["stepType", "status"]
+              }
+            }
+          },
+          "required": ["name", "type"]
+        }
+      },
+      "strictMode": {
+        "type": "boolean",
+        "description": "是否严格模式，开启时数据提交类功能必须完成完整5步验证，默认 true",
+        "default": true
+      },
+      "sessionLogs": {
+        "type": "object",
+        "description": "会话日志，包含已执行的验证步骤记录",
+        "properties": {
+          "toolCalls": {
+            "type": "array",
+            "description": "已调用的 MCP 工具列表"
+          },
+          "errorsFound": {
+            "type": "array",
+            "description": "发现的错误列表"
+          },
+          "screenshots": {
+            "type": "array",
+            "description": "已捕获的截图列表"
+          }
+        }
+      }
+    },
+    "required": ["functions"]
+  }
+}

@@ -59,6 +59,7 @@ const state = {
   screenshotWithRedaction: null,
   safeArtifactName: null,
   analyzeScreenshotForErrors: null,
+  analyzeScreenshotContent: null,
   exportHar: null,
   runFullAudit: null,
   visualBaseline: null,
