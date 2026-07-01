@@ -24,7 +24,13 @@ const tools = [
   "browser_instrument",
   "browser_events",
   "browser_events_clear",
-  "browser_form_validate"
+  "browser_form_validate",
+  "browser_chain",
+  "browser_aria_snapshot",
+  "browser_aria_click",
+  "browser_aria_type",
+  "browser_smart_fill",
+  "browser_matrix_test"
 ];
 
 async function handle(name, args, deps) {
@@ -953,6 +959,383 @@ const { target } = await ensurePage(args);
         : `共 ${formAnalysis.fields.length} 个字段，已分析验证规则`,
       recommendations
     }, null, 2));
+  }
+
+  // ====== browser_chain ======
+  if (name === 'browser_chain') {
+const { target } = await ensurePage();
+    const actions = args.actions || [];
+    const stopOnError = args.stopOnError !== false;
+    const includeNetwork = args.includeNetwork !== false;
+    const includeConsole = args.includeConsole !== false;
+
+    const actionResults = [];
+    let allConsoleErrors = [];
+    let allNetworkErrors = [];
+    let failedActionIndex = null;
+    let errorMessage = null;
+
+    for (let i = 0; i < actions.length; i++) {
+      const action = actions[i];
+      const result = {
+        index: i,
+        type: action.type,
+        success: false,
+        consoleErrors: [],
+        networkErrors: []
+      };
+
+      const stepCheckpoint = new Date().toISOString();
+
+      try {
+        switch (action.type) {
+          case 'click':
+            await target.click(action.selector, { timeout: 10000 });
+            result.selector = action.selector;
+            result.success = true;
+            break;
+          case 'type':
+            await target.fill(action.selector, action.text || '', { timeout: 10000 });
+            result.selector = action.selector;
+            result.text = action.text || '';
+            result.success = true;
+            break;
+          case 'hover':
+            await target.hover(action.selector, { timeout: 10000 });
+            result.selector = action.selector;
+            result.success = true;
+            break;
+          case 'scroll':
+            if (action.selector) {
+              await target.$eval(action.selector, el => el.scrollIntoView());
+              result.selector = action.selector;
+            } else {
+              await target.evaluate(({ x, y }) => window.scrollTo(x || 0, y || 0), { x: 0, y: action.distance || 300 });
+              result.distance = action.distance || 300;
+            }
+            result.success = true;
+            break;
+          case 'pressKey':
+            if (action.selector) await target.focus(action.selector);
+            await target.keyboard.press(action.key);
+            result.key = action.key;
+            result.success = true;
+            break;
+          case 'select':
+            await target.selectOption(action.selector, action.value || action.label || action.index);
+            result.selector = action.selector;
+            result.value = action.value || action.label || action.index;
+            result.success = true;
+            break;
+          case 'wait':
+            await target.waitForTimeout(action.ms || 1000);
+            result.ms = action.ms || 1000;
+            result.success = true;
+            break;
+          case 'evaluate':
+            const expression = action.expression || '';
+            const wrapped = expression.trim().startsWith('return') || expression.includes('return ')
+              ? `(function(){${expression}})()`
+              : expression;
+            const evalResult = await target.evaluate(expr => {
+              try {
+                const value = (0, eval)(expr);
+                return typeof value === 'undefined' ? null : value;
+              } catch (e) {
+                if (e instanceof SyntaxError && /return/.test(e.message)) {
+                  return (0, eval)(`(function(){${expr}})()`);
+                }
+                throw e;
+              }
+            }, wrapped);
+            result.result = evalResult;
+            result.success = true;
+            break;
+          default:
+            result.error = `未知操作类型: ${action.type}`;
+            result.success = false;
+        }
+
+        if (result.success) {
+          await new Promise(r => setTimeout(r, 300)).catch(() => {});
+
+          if (includeConsole) {
+            const newConsoleErrors = stateManager.consoleLogs
+              .filter(e => new Date(e.timestamp || 0).getTime() > new Date(stepCheckpoint).getTime())
+              .map(e => ({ type: e.type || 'error', text: (e.text || '').slice(0, 200) }));
+            result.consoleErrors = newConsoleErrors;
+            allConsoleErrors = allConsoleErrors.concat(newConsoleErrors);
+          }
+
+          if (includeNetwork) {
+            const newNetworkErrors = stateManager.networkLogs
+              .filter(e => e.status >= 400 && new Date(e.timestamp || 0).getTime() > new Date(stepCheckpoint).getTime())
+              .map(e => ({ url: (e.url || '').slice(0, 100), status: e.status }));
+            result.networkErrors = newNetworkErrors;
+            allNetworkErrors = allNetworkErrors.concat(newNetworkErrors);
+          }
+
+          const hasErrors = result.consoleErrors.length > 0 || result.networkErrors.length > 0;
+          if (hasErrors && stopOnError) {
+            failedActionIndex = i;
+            errorMessage = `第 ${i + 1} 步操作后检测到错误：控制台错误 ${result.consoleErrors.length} 个，网络错误 ${result.networkErrors.length} 个`;
+            actionResults.push(result);
+            break;
+          }
+        } else {
+          if (stopOnError) {
+            failedActionIndex = i;
+            errorMessage = result.error || `第 ${i + 1} 步操作失败`;
+            actionResults.push(result);
+            break;
+          }
+        }
+      } catch (err) {
+        result.success = false;
+        result.error = err.message;
+        if (stopOnError) {
+          failedActionIndex = i;
+          errorMessage = `第 ${i + 1} 步操作异常: ${err.message}`;
+          actionResults.push(result);
+          break;
+        }
+      }
+
+      actionResults.push(result);
+    }
+
+    const completedActions = actionResults.filter(r => r.success).length;
+    const success = failedActionIndex === null;
+
+    return text(JSON.stringify({
+      success,
+      totalActions: actions.length,
+      completedActions,
+      failedActionIndex,
+      actionResults,
+      consoleErrors: allConsoleErrors,
+      networkErrors: allNetworkErrors,
+      errorMessage
+    }, null, 2));
+  }
+
+  // ====== browser_aria_snapshot ======
+  if (name === 'browser_aria_snapshot') {
+    const { target } = await ensurePage(args);
+    const maxDepth = args.maxDepth || 10;
+    let rootNode;
+    if (args.selector) {
+      const el = await target.$(args.selector);
+      if (!el) {
+        return { isError: true, content: [{ type: 'text', text: `元素未找到: ${args.selector}` }] };
+      }
+      rootNode = await target.accessibility.snapshot({ root: el, interestingOnly: true });
+    } else {
+      rootNode = await target.accessibility.snapshot({ interestingOnly: true });
+    }
+    if (!rootNode) {
+      return { content: [{ type: 'text', text: JSON.stringify({ role: 'document', name: 'empty', children: [] }, null, 2) }] };
+    }
+    let refCounter = 0;
+    function assignRefs(node, depth) {
+      if (!node || depth > maxDepth) return null;
+      const ref = 'ref_' + (refCounter++).toString(36);
+      node._ref = ref;
+      const result = {
+        role: node.role || 'unknown',
+        name: (node.name || '').slice(0, 200),
+        ref,
+        bounds: node.bounds ? {
+          x: Math.round(node.bounds.x || 0), y: Math.round(node.bounds.y || 0),
+          width: Math.round(node.bounds.width || 0), height: Math.round(node.bounds.height || 0)
+        } : null,
+        focused: !!node.focused,
+        enabled: node.disabled !== undefined ? !node.disabled : undefined,
+        value: node.value !== undefined ? String(node.value).slice(0, 100) : undefined
+      };
+      if (node.children && depth < maxDepth) {
+        result.children = node.children.map(child => assignRefs(child, depth + 1)).filter(Boolean);
+        if (result.children.length === 0) delete result.children;
+      }
+      return result;
+    }
+    const tree = assignRefs(rootNode, 0);
+    return { content: [{ type: 'text', text: JSON.stringify(tree, null, 2) }] };
+  }
+
+  // ====== findNodeByRef ======
+  function findNodeByRef(node, ref) {
+    if (!node) return null;
+    if (node._ref === ref) return node;
+    if (node.children) {
+      for (const child of node.children) {
+        const found = findNodeByRef(child, ref);
+        if (found) return found;
+      }
+    }
+    return null;
+  }
+
+  // ====== browser_aria_click ======
+  if (name === 'browser_aria_click') {
+    const { target } = await ensurePage(args);
+    if (!args.ref) return { isError: true, content: [{ type: 'text', text: '缺少必需参数: ref' }] };
+    const snapshot = await target.accessibility.snapshot({ interestingOnly: true });
+    if (!snapshot) return { isError: true, content: [{ type: 'text', text: '页面无可访问性信息' }] };
+    let refCounter = 0;
+    (function assign(node, depth) {
+      if (!node || depth > 20) return;
+      node._ref = 'ref_' + (refCounter++).toString(36);
+      if (node.children) node.children.forEach(c => assign(c, depth + 1));
+    })(snapshot, 0);
+    const node = findNodeByRef(snapshot, args.ref);
+    if (!node || !node.bounds) return { isError: true, content: [{ type: 'text', text: `未找到 ref: ${args.ref}` }] };
+    const x = Math.round(node.bounds.x + node.bounds.width / 2);
+    const y = Math.round(node.bounds.y + node.bounds.height / 2);
+    await target.mouse.click(x, y);
+    return { content: [{ type: 'text', text: JSON.stringify({ success: true, ref: args.ref, x, y }, null, 2) }] };
+  }
+
+  // ====== browser_aria_type ======
+  if (name === 'browser_aria_type') {
+    const { target } = await ensurePage(args);
+    if (!args.ref) return { isError: true, content: [{ type: 'text', text: '缺少必需参数: ref' }] };
+    if (typeof args.text !== 'string') return { isError: true, content: [{ type: 'text', text: '缺少必需参数: text' }] };
+    const snapshot = await target.accessibility.snapshot({ interestingOnly: true });
+    if (!snapshot) return { isError: true, content: [{ type: 'text', text: '页面无可访问性信息' }] };
+    let refCounter = 0;
+    (function assign(node, depth) {
+      if (!node || depth > 20) return;
+      node._ref = 'ref_' + (refCounter++).toString(36);
+      if (node.children) node.children.forEach(c => assign(c, depth + 1));
+    })(snapshot, 0);
+    const node = findNodeByRef(snapshot, args.ref);
+    if (!node || !node.bounds) return { isError: true, content: [{ type: 'text', text: `未找到 ref: ${args.ref}` }] };
+    const x = Math.round(node.bounds.x + node.bounds.width / 2);
+    const y = Math.round(node.bounds.y + node.bounds.height / 2);
+    await target.mouse.click(x, y);
+    if (node.value !== undefined) { await target.keyboard.press('Control+A'); await target.keyboard.press('Delete'); }
+    await target.keyboard.type(args.text);
+    return { content: [{ type: 'text', text: JSON.stringify({ success: true, ref: args.ref, text: args.text }, null, 2) }] };
+  }
+
+  // ====== browser_smart_fill ======
+  if (name === 'browser_smart_fill') {
+    const { target } = await ensurePage(args);
+    const dataGen = require('./hands/data_generator');
+    const fieldType = args.fieldType || 'text';
+    if (!dataGen.isSupported(fieldType)) {
+      return { isError: true, content: [{ type: 'text', text: `不支持的字段类型: ${fieldType}。支持: ${dataGen.getSupportedTypes().join(', ')}` }] };
+    }
+    const generatedValue = dataGen.generate(fieldType, args.options || {});
+    const el = await target.$(args.selector);
+    if (!el) {
+      return { isError: true, content: [{ type: 'text', text: `元素未找到: ${args.selector}` }] };
+    }
+    await el.click();
+    await el.fill('');
+    await el.fill(generatedValue);
+    return { content: [{ type: 'text', text: JSON.stringify({ success: true, selector: args.selector, fieldType, value: generatedValue }, null, 2) }] };
+  }
+
+  // ====== browser_matrix_test ======
+  if (name === 'browser_matrix_test') {
+    const { chromium, firefox, webkit } = require('playwright');
+    const engines = { chromium, firefox, webkit };
+    const browserTypes = Array.isArray(args.browsers) && args.browsers.length > 0 ? args.browsers : ['chromium', 'firefox'];
+    const steps = Array.isArray(args.steps) ? args.steps : [];
+    const headless = args.headless !== false;
+    const timeout = args.timeout || 15000;
+
+    if (steps.length === 0) {
+      return { isError: true, content: [{ type: 'text', text: '缺少必需参数: steps' }] };
+    }
+
+    const results = {};
+
+    for (const browserType of browserTypes) {
+      const engine = engines[browserType];
+      if (!engine) {
+        results[browserType] = { status: 'error', error: `不支持的浏览器类型: ${browserType}` };
+        continue;
+      }
+
+      // 为每个浏览器创建独立实例
+      let browser, page;
+      try {
+        browser = await engine.launch({ headless });
+        const context = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+        page = await context.newPage();
+      } catch (e) {
+        results[browserType] = { status: 'error', error: `浏览器启动失败: ${e.message}` };
+        continue;
+      }
+
+      const stepResults = [];
+      let browserStatus = 'passed';
+
+      for (let i = 0; i < steps.length; i++) {
+        const step = steps[i];
+        const stepResult = { action: step.action, index: i };
+
+        try {
+          switch (step.action) {
+            case 'navigate': {
+              if (!step.url) stepResult.error = 'navigate 需要 url';
+              else await page.goto(step.url, { waitUntil: 'domcontentloaded', timeout });
+              break;
+            }
+            case 'click': {
+              if (!step.target) stepResult.error = 'click 需要 target';
+              else await page.click(step.target, { timeout });
+              break;
+            }
+            case 'type': {
+              if (!step.target) stepResult.error = 'type 需要 target';
+              else await page.fill(step.target, step.value || '', { timeout });
+              break;
+            }
+            case 'screenshot': {
+              const name = step.name || `step-${i}`;
+              const screenshot = await page.screenshot({ encoding: 'base64', fullPage: true });
+              stepResult.screenshot = `data:image/png;base64,${screenshot}`;
+              break;
+            }
+            case 'evaluate': {
+              if (!step.value) stepResult.error = 'evaluate 需要 value';
+              else stepResult.result = await page.evaluate(step.value);
+              break;
+            }
+            default:
+              stepResult.error = `不支持的操作: ${step.action}`;
+          }
+        } catch (e) {
+          stepResult.error = e.message;
+          browserStatus = 'failed';
+        }
+
+        stepResult.status = stepResult.error ? 'error' : 'ok';
+        stepResults.push(stepResult);
+      }
+
+      // 关闭浏览器
+      try {
+        await browser.close();
+      } catch (e) { /* 忽略 */ }
+
+      results[browserType] = {
+        status: browserStatus,
+        steps: stepResults
+      };
+    }
+
+    const summary = { total: browserTypes.length, passed: 0, failed: 0 };
+    for (const bt of browserTypes) {
+      if (results[bt] && results[bt].status === 'passed') summary.passed++;
+      else summary.failed++;
+    }
+
+    return { content: [{ type: 'text', text: JSON.stringify({ results, summary }, null, 2) }] };
   }
 
   return { isError: true, content: [{ type: 'text', text: `未知工具（browser）: ${name}` }] };

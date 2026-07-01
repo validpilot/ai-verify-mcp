@@ -58,8 +58,10 @@ return text(JSON.stringify(await runFullAudit(args), null, 2));
 
   // ====== browser_performance_check ======
   if (name === 'browser_performance_check') {
-	const { target } = await ensurePage(args);
-    return text(JSON.stringify(await runPerformanceCheck(target, args), null, 2));
+    const { target } = await ensurePage(args);
+    const perfAnalyzer = require('../hands/perf_analyzer');
+    const result = await perfAnalyzer.analyzePerformance(target);
+    return text(JSON.stringify(result, null, 2));
   }
 
   // ====== browser_performance_trace ======

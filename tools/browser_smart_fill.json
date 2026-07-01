@@ -1,0 +1,32 @@
+{
+  "name": "browser_smart_fill",
+  "description": "智能表单填充工具。根据字段类型自动生成符合格式的真实测试数据并填入指定输入框。支持 email、phone、name、address、idCard、number、text、url、date、password 等10+字段类型。每次调用生成随机数据，覆盖更多边界场景。符合产品定位 v2.0 能力补齐方案 §P0-2。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "selector": {
+        "type": "string",
+        "description": "目标输入框的 CSS 选择器"
+      },
+      "fieldType": {
+        "type": "string",
+        "description": "字段类型，支持: email | phone | name | address | idCard | number | text | url | date | password",
+        "enum": ["email", "phone", "name", "address", "idCard", "number", "text", "url", "date", "password"]
+      },
+      "options": {
+        "type": "object",
+        "description": "生成选项（可选），各字段类型有不同选项",
+        "properties": {
+          "domain": { "type": "string", "description": "email 类型的域名" },
+          "min": { "type": "number", "description": "number 类型的最小值" },
+          "max": { "type": "number", "description": "number 类型的最大值" },
+          "minLen": { "type": "number", "description": "text 类型的最小长度" },
+          "maxLen": { "type": "number", "description": "text 类型的最大长度" },
+          "start": { "type": "string", "description": "date 类型的起始日期" },
+          "end": { "type": "string", "description": "date 类型的结束日期" }
+        }
+      }
+    },
+    "required": ["selector", "fieldType"]
+  }
+}

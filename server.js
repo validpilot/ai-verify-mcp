@@ -2,7 +2,7 @@ try { require('dotenv').config(); } catch(e) { console.warn('[ValidPilot] dotenv
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
-const { chromium } = require('playwright');
+const { chromium, firefox, webkit } = require('playwright');
 const { Server } = require('@modelcontextprotocol/sdk/server/index.js');
 const { StdioServerTransport } = require('@modelcontextprotocol/sdk/server/stdio.js');
 const {
@@ -463,7 +463,7 @@ async function analyzeScreenshotForErrors(target, imagePath) {
         }).length;
         return { totalErrorElements: total, visibleErrorElements: visible };
       });
-    } catch (_) {}
+    } catch (_) { logger.warn('buildInteractionReport: evaluate 失败', _.message); }
 
     // 4. 构建分析结果
     const analysis = {
@@ -540,7 +540,17 @@ async function ensurePage(args = {}) {
 
   // 3) 新建浏览器实例
   reused = false;
+  const browserType = args.browserType || 'chromium';
+  const browserEngines = { chromium, firefox, webkit };
+  const engine = browserEngines[browserType];
+  if (!engine) {
+    throw new Error(`不支持的浏览器类型: ${browserType}，支持: chromium, firefox, webkit`);
+  }
+
   if (extensionPath) {
+    if (browserType !== 'chromium') {
+      throw new Error('extensionPath (加载扩展) 仅支持 chromium 浏览器');
+    }
     const resolvedExtensionPath = path.resolve(extensionPath);
     const userDataDir = path.join(__dirname, '.browser-profiles', 'default');
     fs.mkdirSync(userDataDir, { recursive: true });
@@ -554,7 +564,7 @@ async function ensurePage(args = {}) {
     });
     page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   } else {
-    browser = await chromium.launch({ headless: args.headless === true ? true : false });
+    browser = await engine.launch({ headless: args.headless === true ? true : false });
     const context = await browser.newContext({ viewport: { width: 1280, height: 720 } });
     page = await context.newPage();
 
@@ -687,9 +697,9 @@ async function probeKnownEndpoints(target, options = {}) {
             timestamp: new Date().toISOString()
           });
         }
-      } catch (_) {}
+      } catch (_) { logger.warn('consoleListener: 处理 console 事件失败', _.message); }
     }
-  } catch (_) {}
+  } catch (_) { logger.warn('setupConsoleListeners: 整体捕获异常', _.message); }
   return results;
 }
 
@@ -761,7 +771,7 @@ async function runFullAudit(args = {}) {
         // 5e. Cross-origin script errors
         result.crossOriginErrors = injected.filter(e => e.type === 'window_error' && e.crossOrigin).map(e => ({ message: (e.message || '').slice(0, 300), timestamp: e.timestamp }));
       }
-    } catch (_) {}
+    } catch (_) { logger.warn('collectConsoleErrors: 收集错误失败', _.message); }
   }
 
   // 6. deduplicate runtimeErrors (same message)
@@ -976,7 +986,7 @@ async function postActionErrorCheck(target, actionName, selector) {
         text: e.args ? e.args.join(' ') : (e.message || e.reason || ''),
         source: 'injected'
       }));
-    } catch (_) {}
+    } catch (_) { logger.warn('injectedConsoleErrors: 处理注入脚本错误失败', _.message); }
     
     // 合并 CDP 捕获 + 注入脚本直读
     const allConsoleEntries = [...newConsoleErrors, ...injectedConsoleErrors];
@@ -2991,7 +3001,7 @@ async function runDeployVerify(args = {}) {
   if (pwObtained && pwPage && !pwPage.isClosed()) {
     try {
       await pwPage.close();
-    } catch (_) {}
+    } catch (_) { logger.warn('pwPage.close 失败', _.message); }
   }
 
   const allPassed = checks.every(c => c.passed);

@@ -1,0 +1,45 @@
+{
+  "name": "browser_matrix_test",
+  "description": "跨浏览器矩阵测试。在指定的多个浏览器引擎上依次执行相同的操作序列，返回各浏览器的执行结果对比。支持 chromium / firefox / webkit 任意组合。自动管理浏览器的创建和关闭，每个浏览器独立隔离。符合产品定位 v2.0 能力补齐方案 §P0-6。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "browsers": {
+        "type": "array",
+        "items": { "type": "string", "enum": ["chromium", "firefox", "webkit"] },
+        "description": "要测试的浏览器列表，默认 ['chromium', 'firefox']",
+        "default": ["chromium", "firefox"]
+      },
+      "steps": {
+        "type": "array",
+        "description": "在每个浏览器上依次执行的操作步骤",
+        "items": {
+          "type": "object",
+          "properties": {
+            "action": {
+              "type": "string",
+              "enum": ["navigate", "click", "type", "screenshot", "evaluate"],
+              "description": "操作类型: navigate / click / type / screenshot / evaluate"
+            },
+            "target": { "type": "string", "description": "CSS 选择器（click/type 需要）" },
+            "value": { "type": "string", "description": "输入值（type 需要）或表达式（evaluate 需要）" },
+            "url": { "type": "string", "description": "目标 URL（navigate 需要）" },
+            "name": { "type": "string", "description": "截图名称（screenshot 需要）" }
+          },
+          "required": ["action"]
+        }
+      },
+      "headless": {
+        "type": "boolean",
+        "description": "是否无头模式，默认 true（矩阵测试默认无头以加速）",
+        "default": true
+      },
+      "timeout": {
+        "type": "number",
+        "description": "每个步骤的超时毫秒，默认 15000",
+        "default": 15000
+      }
+    },
+    "required": ["steps"]
+  }
+}

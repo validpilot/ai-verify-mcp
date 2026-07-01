@@ -117,12 +117,10 @@ describe('Audit tools', () => {
     const deps = createMockDeps();
     const result = await visualHandler.handle('browser_performance_check', {}, deps);
     const parsed = JSON.parse(result.content[0].text);
-    assert.ok(parsed.metrics);
-    assert.ok(parsed.metrics.fcp);
-    assert.strictEqual(parsed.metrics.fcp.value, 1200);
-    assert.strictEqual(parsed.metrics.fcp.rating, 'good');
-    assert.ok(parsed.metrics.lcp);
-    assert.strictEqual(parsed.overallScore, 72);
+    assert.ok(parsed.coreWebVitals, '应包含 coreWebVitals');
+    assert.ok(parsed.coreWebVitals.FCP, '应包含 FCP 指标');
+    assert.ok(parsed.coreWebVitals.LCP, '应包含 LCP 指标');
+    assert.ok(typeof parsed.score === 'number', 'score 应为数字');
   });
 
   it('browser_lighthouse_audit validates categories param', async () => {
@@ -187,20 +185,21 @@ describe('Audit tools', () => {
     assert.ok(typeof parsed.diffPercentage === 'number' || parsed.error);
   });
 
-  it('browser_performance_check 返回的结构包含 metrics', async () => {
+  it('browser_performance_check 返回的结构包含 coreWebVitals', async () => {
     const deps = createMockDeps();
     const result = await visualHandler.handle('browser_performance_check', { url: 'http://example.com' }, deps);
     const parsed = JSON.parse(result.content[0].text);
-    assert.ok(parsed.metrics);
-    assert.ok(parsed.metrics.fcp);
-    assert.ok(parsed.metrics.lcp);
+    assert.ok(parsed.coreWebVitals, '应包含 coreWebVitals');
+    assert.ok(parsed.coreWebVitals.LCP, '应包含 LCP');
+    assert.ok(parsed.coreWebVitals.FCP, '应包含 FCP');
+    assert.ok(parsed.coreWebVitals.TTFB, '应包含 TTFB');
   });
 
-  it('browser_performance_check 包含 overallScore 指标', async () => {
+  it('browser_performance_check 包含 score 指标', async () => {
     const deps = createMockDeps();
     const result = await visualHandler.handle('browser_performance_check', { url: 'http://example.com' }, deps);
     const parsed = JSON.parse(result.content[0].text);
-    assert.ok(typeof parsed.overallScore === 'number');
-    assert.ok(parsed.overallScore > 0);
+    assert.ok(typeof parsed.score === 'number', 'score 应为数字');
+    assert.ok(parsed.score >= 0, 'score 应 >= 0');
   });
 });

@@ -1,10 +1,16 @@
 {
   "name": "browser_open",
-  "description": "打开真实可视化浏览器并导航到目标 URL",
+  "description": "打开真实可视化浏览器并导航到目标 URL。支持多种浏览器引擎。符合产品定位 v2.0 能力补齐方案 §P0-6。",
   "inputSchema": {
     "type": "object",
     "properties": {
       "url": { "type": "string", "description": "要打开的页面 URL" },
+      "browserType": {
+        "type": "string",
+        "enum": ["chromium", "firefox", "webkit"],
+        "description": "浏览器引擎类型，默认 chromium",
+        "default": "chromium"
+      },
       "headless": { "type": "boolean", "description": "是否无头模式，默认 false，建议可视化验证使用 false" }
     },
     "required": ["url"]

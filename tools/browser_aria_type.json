@@ -1,0 +1,18 @@
+{
+  "name": "browser_aria_type",
+  "description": "通过可访问性树的 ref 稳定标识符定位元素并输入文本。与 browser_aria_snapshot 配合使用：先用 snapshot 获取元素的 ref，再用此工具输入文本。自动清空元素已有内容后再输入。不依赖 CSS 选择器，CSS 重构后定位仍然稳定有效。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "ref": {
+        "type": "string",
+        "description": "aria_snapshot 返回的 ref 标识符（如 'ref_0'、'ref_a3'）"
+      },
+      "text": {
+        "type": "string",
+        "description": "要输入的文本内容"
+      }
+    },
+    "required": ["ref", "text"]
+  }
+}

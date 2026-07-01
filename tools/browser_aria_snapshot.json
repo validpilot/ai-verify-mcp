@@ -1,0 +1,18 @@
+{
+  "name": "browser_aria_snapshot",
+  "description": "获取当前页面的可访问性树（Accessibility Tree）快照。每个元素包含 role、name、ref 稳定标识符、bounds 坐标和子节点。ref 基于 role+name+index 哈希生成，CSS 重构后仍保持稳定，适合用于 AI 驱动的元素定位。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "selector": {
+        "type": "string",
+        "description": "CSS 选择器，指定获取某个子树的快照（可选，不传则返回整个页面）"
+      },
+      "maxDepth": {
+        "type": "number",
+        "description": "最大深度，限制返回的树深度（默认 10）",
+        "default": 10
+      }
+    }
+  }
+}

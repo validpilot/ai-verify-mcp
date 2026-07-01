@@ -188,3 +188,45 @@ describe('browser_verify_fix', () => {
     assert.ok(handlerSrc.includes('需要提供 selector 参数'));
   });
 });
+
+// ============================================================
+// browser_aria_snapshot
+// ============================================================
+
+describe('browser_aria_snapshot', () => {
+  test('schema 文件存在且 JSON 合法', () => {
+    const filePath = path.join(TOOLS_DIR, 'browser_aria_snapshot.json');
+    assert.ok(fs.existsSync(filePath));
+    const schema = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    assert.equal(schema.name, 'browser_aria_snapshot');
+    assert.ok(schema.description);
+    assert.ok(schema.inputSchema);
+    assert.ok(schema.inputSchema.properties);
+  });
+
+  test('toolNames 中包含 browser_aria_snapshot（已注册到 MCP）', () => {
+    assert.ok(toolNames.has('browser_aria_snapshot'), '工具 browser_aria_snapshot 应在 toolNames 中');
+  });
+
+  test('schema 包含 selector 和 maxDepth 可选参数', () => {
+    const schema = JSON.parse(fs.readFileSync(path.join(TOOLS_DIR, 'browser_aria_snapshot.json'), 'utf8'));
+    const props = schema.inputSchema.properties;
+    assert.ok(props.selector);
+    assert.equal(props.selector.type, 'string');
+    assert.equal(props.selector.description.includes('CSS'), true);
+    assert.ok(props.maxDepth);
+    assert.equal(props.maxDepth.type, 'number');
+  });
+
+  test('handler 中存在 browser_aria_snapshot 处理逻辑', () => {
+    const handlerSrc = fs.readFileSync(path.join(HANDLERS_DIR, 'browser.js'), 'utf8');
+    assert.ok(handlerSrc.includes('browser_aria_snapshot'));
+    assert.ok(handlerSrc.includes('accessibility.snapshot'), '使用 Playwright accessibility snapshot API');
+    assert.ok(handlerSrc.includes('assignRefs'), '包含 ref 分配逻辑');
+  });
+
+  test('描述中提及 AI 驱动的元素定位（符合产品定位 v2.0）', () => {
+    const schema = JSON.parse(fs.readFileSync(path.join(TOOLS_DIR, 'browser_aria_snapshot.json'), 'utf8'));
+    assert.ok(schema.description.includes('AI') || schema.description.includes('ref'), '描述应提及 AI 或 ref 稳定性');
+  });
+});

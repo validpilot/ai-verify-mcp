@@ -1,0 +1,14 @@
+{
+  "name": "browser_aria_click",
+  "description": "通过可访问性树的 ref 稳定标识符点击元素。与 browser_aria_snapshot 配合使用：先用 snapshot 获取元素的 ref，再用此工具点击。不依赖 CSS 选择器，CSS 重构后定位仍然稳定有效。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "ref": {
+        "type": "string",
+        "description": "aria_snapshot 返回的 ref 标识符（如 'ref_0'、'ref_a3'）"
+      }
+    },
+    "required": ["ref"]
+  }
+}
