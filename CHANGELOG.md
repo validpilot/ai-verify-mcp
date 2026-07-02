@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.5.0] - 2026-07-02
+## [1.6.0] - 2026-07-03
 
 ### Added
 
@@ -10,19 +10,32 @@ All notable changes to this project will be documented in this file.
 - 🆕 **browser_overlay_dismiss 工具**：自动关闭 30+ 种遮挡物模式（Cookie banner、modal、popup 等），关闭后重新检测剩余遮挡物
 - 🆕 **browser_smoke_test 工具**：一键冒烟测试（页面加载/JS 错误/HTTP 错误/无障碍/控制台警告/遮挡物检测），支持 `format=html` 报告
 - 🆕 **browser_counterfactual_analyze 工具**：反事实根因分析，生成 6 类根因假设（遮挡物/JS 错误/HTTP 错误/加载不完整/交互元素/警告过多），按置信度排序，支持 `format=html` 报告
+- 🆕 **browser_memory_check 工具**：浏览器内存健康检查，检测内存泄漏风险
+- 🆕 **browser_visual_component 工具**：可视化组件级截图比对
+- 🆕 **chain_* 系列工具**：chain_list_templates / chain_score_report / chain_spec_run — 验证链模板管理
+- 🆕 **contract_* 系列工具**：contract_guard / contract_baseline — 合约守护与基线管理
+- 🆕 **evidence_* 系列工具**：evidence_index / evidence_pack — 证据索引与打包
+- 🆕 **trace_correlate / trace_correlation_check 工具**：跟踪关联分析
+- 🆕 **state_diff_assert 工具**：状态差异断言
+- 🆕 **validation_data_integrity / validation_permission 工具**：数据完整性 & 权限验证
+- 🆕 **Feature Gate 付费分层系统**：server.js 内置 OSS/Pro/Team/Enterprise 四级功能开关，Pro 以上工具返回引导提示
 - 🆕 **专业 HTML 报告模块** `core/report-html.js`：6 种报告模板（验证报告/冒烟测试/遮挡检测/反事实分析/错误报告/通用页面），暗黑模式、响应式、打印友好
 - 🆕 **集中式错误处理** `core/mcp-error.js`：标准化所有工具错误输出（error/reason/suggestion/paidUpgradeHint 四字段）
-- 🆕 **结构化输出**：全部 84 个工具输出包含 `nextSteps` / `suggestions` / `paidUpgradeHint`，引导用户自然流向 Pro 版
+- 🆕 **结构化输出**：全部工具输出包含 `nextSteps` / `suggestions` / `paidUpgradeHint`，引导用户自然流向 Pro 版
 - 🆕 **Win 中文编码修复** `core/win-encoding.js`：Windows 终端自动切换 UTF-8 代码页，解决中文乱码
 - 🆕 **遮挡物 DOM 检测集成**：`browser_screenshot` 截图后自动检测遮挡物，状态改为 warning 并输出遮挡详情
+- 🆕 **模式分析**：brain/pattern_store.js — 验证模式存储引擎；hands/memory_analyzer.js — 内存泄漏分析器
 
 ### Changed
 
-- 📚 **工具数 78 → 84**：新增 6 个工具，全部测试覆盖
+- 📚 **工具数 78 → 84**：新增 16+ 工具，全部测试覆盖
 - 🧪 **所有 handler 错误输出标准化**：34 处 `isError` 裸输出替换为 `mcpError()` 调用
+- 🔧 **server.js 重构**：拆分解耦，新增 FEATURE_GATE 配置、统一 Run 管理、VALIDATION_RUNS_DIR
+- 🔧 **handlers/validation.js 重构**：browser_smoke_test / counterfactual / chain / contract / trace / state_diff 等全部集成
 - 🔧 **browser_screenshot**：增强遮挡分析，截图前智能等待 networkidle + 500ms 延迟
 - 🔧 **browser_network / browser_errors**：失败时 nextSteps 首项建议启用 `browser_counterfactual_analyze`
 - 🔧 **locator 系列工具全部增强**：browser_find_element / browser_find_page / browser_locator_suggest / browser_locator_validate 添加结构化输出
+- 🔧 **移除 9 个已废弃付费工具 schema**：ai_debug_investigate, auto_fix_pipeline, backend_logs, benchmark_run, browser_deep_interact, browser_flow, fix_verify, skill_mcp_sync, validation_suite_run
 
 ### Fixed
 
