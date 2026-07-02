@@ -9,6 +9,8 @@ const tools = [
   "browser_visual_baseline",
   "browser_visual_compare",
   "browser_visual_report",
+  "browser_visual_check",
+  "browser_visual_snapshot",
   "browser_a11y_check",
   "screenshot_diff",
   "browser_full_audit",
@@ -27,6 +29,158 @@ async function handle(name, args, deps) {
   const _depsPrev = {};
   for (const k of _depsKeys) { _depsPrev[k] = globalThis[k]; globalThis[k] = deps[k]; }
   try {
+  // ====== browser_visual_check ======
+  if (name === 'browser_visual_check') {
+    const { target } = await ensurePage(args);
+    const includeA11y = args.includeAccessibility !== false;
+    const includeResponsive = args.includeResponsive === true;
+    const severity = args.severity || 'major';
+
+    const issues = await target.evaluate((opts) => {
+      const { includeA11y, severity } = opts;
+      const results = [];
+      const severityWeight = { blocking: 3, major: 2, minor: 1 };
+      const minWeight = severityWeight[severity] || 2;
+
+      function addIssue(level, type, description, selector, extra) {
+        if (severityWeight[level] >= minWeight) {
+          results.push({ severity: level, type, description, selector: selector || '', ...(extra || {}) });
+        }
+      }
+
+      const allElements = document.querySelectorAll('*');
+      for (const el of allElements) {
+        const style = window.getComputedStyle(el);
+        const rect = el.getBoundingClientRect();
+        const tag = el.tagName.toLowerCase();
+
+        if (rect.width < 24 || rect.height < 24) {
+          if (tag === 'button' || tag === 'a' || el.getAttribute('role') === 'button') {
+            addIssue('major', 'small_click_target', `${tag} 点击区域过小 (${Math.round(rect.width)}x${Math.round(rect.height)})`,
+              el.tagName.toLowerCase() + (el.id ? '#' + el.id : '') + (el.className ? '.' + [...el.classList].join('.') : ''));
+          }
+        }
+
+        if (includeA11y && tag === 'img' && !el.alt && el.getAttribute('alt') !== '') {
+          if (!el.hasAttribute('alt')) {
+            addIssue('minor', 'missing_alt', '图片缺少 alt 属性',
+              el.tagName.toLowerCase() + (el.id ? '#' + el.id : ''));
+          }
+        }
+
+        if (style.overflow === 'hidden' && (rect.width > 0 && rect.height > 0)) {
+          const scrollWidth = el.scrollWidth;
+          const scrollHeight = el.scrollHeight;
+          if (scrollWidth > rect.width + 1 || scrollHeight > rect.height + 1) {
+            addIssue('minor', 'overflow_hidden', '内容被 overflow:hidden 截断',
+              el.tagName.toLowerCase() + (el.id ? '#' + el.id : ''));
+          }
+        }
+      }
+
+      const body = document.body;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      if (body.scrollWidth > vw + 1) {
+        addIssue('major', 'horizontal_overflow', '页面存在水平滚动条，宽度超出视口', 'body');
+      }
+
+      return results;
+    }, { includeA11y, severity });
+
+    const summary = {
+      total: issues.length,
+      blocking: issues.filter(i => i.severity === 'blocking').length,
+      major: issues.filter(i => i.severity === 'major').length,
+      minor: issues.filter(i => i.severity === 'minor').length,
+    };
+
+    return text(JSON.stringify({
+      ok: true,
+      status: summary.total === 0 ? 'success' : 'warning',
+      summary,
+      issues: issues.slice(0, 50),
+      nextSteps: [
+        summary.total > 0 ? '使用 browser_visual_snapshot 获取详细 DOM 快照' : '继续进行浏览器基本操作验证',
+        '运行 browser_a11y_check 进行完整可访问性审计',
+      ],
+      suggestions: [
+        { type: 'next', tool: 'browser_visual_snapshot', reason: '获取详细 DOM 快照和 CSS 计算属性' },
+        { type: 'next', tool: 'browser_a11y_check', reason: '进行完整的可访问性审计' },
+      ],
+    }, null, 2));
+  }
+
+  // ====== browser_visual_snapshot ======
+  if (name === 'browser_visual_snapshot') {
+    const { target } = await ensurePage(args);
+    const fullPage = args.fullPage !== false;
+    const detectIssues = args.detectIssues !== false;
+
+    const screenshotBuf = await target.screenshot({ fullPage, type: 'png' });
+
+    const domSnapshot = await target.evaluate(() => {
+      const body = document.body;
+      return {
+        url: window.location.href,
+        title: document.title,
+        viewport: { width: window.innerWidth, height: window.innerHeight },
+        body: {
+          scrollWidth: body.scrollWidth,
+          scrollHeight: body.scrollHeight,
+          clientWidth: body.clientWidth,
+          clientHeight: body.clientHeight,
+        },
+        elementCount: document.querySelectorAll('*').length,
+        interactiveElements: {
+          buttons: document.querySelectorAll('button').length,
+          links: document.querySelectorAll('a').length,
+          inputs: document.querySelectorAll('input').length,
+          forms: document.querySelectorAll('form').length,
+        },
+        images: {
+          total: document.querySelectorAll('img').length,
+          withoutAlt: [...document.querySelectorAll('img')].filter(i => !i.alt && !i.hasAttribute('alt')).length,
+        },
+      };
+    });
+
+    let detectedIssues = [];
+    if (detectIssues) {
+      detectedIssues = await target.evaluate(() => {
+        const issues = [];
+        const vw = window.innerWidth;
+        if (document.body.scrollWidth > vw + 1) {
+          issues.push({ severity: 'major', type: 'horizontal_overflow', description: '页面存在水平溢出' });
+        }
+        const imagesWithoutAlt = [...document.querySelectorAll('img')].filter(i => !i.alt && !i.hasAttribute('alt')).length;
+        if (imagesWithoutAlt > 0) {
+          issues.push({ severity: 'minor', type: 'missing_alt', description: `${imagesWithoutAlt} 张图片缺少 alt 属性` });
+        }
+        return issues;
+      });
+    }
+
+    return text(JSON.stringify({
+      ok: true,
+      url: domSnapshot.url,
+      title: domSnapshot.title,
+      viewport: domSnapshot.viewport,
+      domSnapshot,
+      screenshot: screenshotBuf.toString('base64').slice(0, 500),
+      detectedIssues,
+      issueCount: detectedIssues.length,
+      nextSteps: [
+        '使用 browser_visual_check 进行全面 UI 问题扫描',
+        '使用 browser_visual_component 做组件级视觉比对',
+      ],
+      suggestions: [
+        { type: 'next', tool: 'browser_visual_check', reason: '进行全面 UI 问题扫描' },
+        { type: 'next', tool: 'browser_visual_component', reason: '组件级视觉比对' },
+      ],
+    }, null, 2));
+  }
+
   // ====== browser_visual_baseline ======
   if (name === 'browser_visual_baseline') {
 const { target } = await ensurePage(args);

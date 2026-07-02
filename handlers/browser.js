@@ -21,7 +21,6 @@ const tools = [
   "browser_navigate",
   "browser_wait",
   "browser_assert",
-  "browser_flow",
   "browser_instrument",
   "browser_events",
   "browser_events_clear",
@@ -439,6 +438,7 @@ const { target } = await ensurePage();
     }
     return text(JSON.stringify({
       action: 'scroll',
+      message: '已滚动',
       selector: args.selector || null,
       position: args.selector ? null : { x: args.x || 0, y: args.y || 0 },
       success: true,

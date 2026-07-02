@@ -98,7 +98,7 @@ describe('browser_element_status', () => {
   test('toolNames 中包含 browser_element_status 且 handler 验证 selector 为空时返回错误', () => {
     assert.ok(toolNames.has('browser_element_status'), '工具 browser_element_status 应在 toolNames 中');
     const handlerSrc = fs.readFileSync(path.join(HANDLERS_DIR, 'diagnose.js'), 'utf8');
-    assert.ok(handlerSrc.includes('需要提供 selector 参数'));
+    assert.ok(handlerSrc.includes("mcpParamMissing('selector'"));
   });
 });
 
@@ -138,7 +138,7 @@ describe('browser_quick_fix', () => {
   test('toolNames 中包含 browser_quick_fix 且 handler 验证 selector 为空时返回错误', () => {
     assert.ok(toolNames.has('browser_quick_fix'), '工具 browser_quick_fix 应在 toolNames 中');
     const handlerSrc = fs.readFileSync(path.join(HANDLERS_DIR, 'diagnose.js'), 'utf8');
-    assert.ok(handlerSrc.includes('需要提供 selector 参数'));
+    assert.ok(handlerSrc.includes("mcpParamMissing('selector'"));
   });
 });
 
@@ -185,7 +185,7 @@ describe('browser_verify_fix', () => {
   test('toolNames 中包含 browser_verify_fix 且 handler 验证 selector 为空时返回错误', () => {
     assert.ok(toolNames.has('browser_verify_fix'), '工具 browser_verify_fix 应在 toolNames 中');
     const handlerSrc = fs.readFileSync(path.join(HANDLERS_DIR, 'diagnose.js'), 'utf8');
-    assert.ok(handlerSrc.includes('需要提供 selector 参数'));
+    assert.ok(handlerSrc.includes("mcpParamMissing('selector'"));
   });
 });
 

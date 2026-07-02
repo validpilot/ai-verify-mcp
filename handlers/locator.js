@@ -77,7 +77,8 @@ const { target } = await ensurePage();
   if (name === 'browser_locator_suggest') {
 const { target } = await ensurePage(args);
     const result = await suggestLocator(target, args);
-    const hasSuggestions = result?.suggestions?.length > 0 || result?.length > 0;
+    const sugArr = result?.suggestions || [];
+    const hasSuggestions = sugArr.length > 0 || (result?.length ?? 0) > 0;
     const resultData = {
       ...result,
       nextSteps: hasSuggestions ? [
@@ -89,7 +90,7 @@ const { target } = await ensurePage(args);
         '使用更具体的描述重新尝试',
         '调用 browser_snapshot 查看页面元素分布'
       ],
-      suggestions: hasSuggestions ? [
+      toolSuggestions: hasSuggestions ? [
         { type: 'next', tool: 'browser_locator_validate', reason: '验证推荐定位器的准确性' },
         { type: 'next', tool: 'browser_click', reason: '使用定位器进行交互' }
       ] : [

@@ -46,7 +46,7 @@ test('report.buildJsonReport - redacts sensitive data', () => {
 test('report.buildHtmlReport - returns HTML string', () => {
   const html = buildHtmlReport({ pass: true, summary: 'test' });
   assert.ok(html.startsWith('<!doctype html>'));
-  assert.ok(html.includes('ValidPilot Report'));
+  assert.ok(html.includes('ValidPilot Verify'));
   assert.ok(html.includes('pass'));
   assert.ok(html.includes('test'));
 });

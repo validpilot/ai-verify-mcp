@@ -22,6 +22,8 @@ const tools = [
   "validation_matrix",
   "validation_decision",
   "validation_compliance",
+  "validation_data_integrity",
+  "validation_permission",
   "state_diff_assert",
   "chain_spec_run",
   "chain_list_templates",
@@ -915,6 +917,230 @@ const { target } = await ensurePage(args);
   // ====== validation_compliance ======
   if (name === 'validation_compliance') {
     return text(JSON.stringify(runValidationCompliance(args), null, 2));
+  }
+
+  // ====== validation_data_integrity ======
+  if (name === 'validation_data_integrity') {
+    const { target } = await ensurePage(args);
+    const { action, entity, createPayload, updatePayload, identifierField = 'id', entityId, apiBaseUrl } = args;
+
+    if (!action || !entity) {
+      return mcpParamMissing('action 和 entity 为必填参数');
+    }
+
+    let result = { ok: true, action, entity, checks: [], passed: 0, failed: 0 };
+
+    try {
+      const baseUrl = apiBaseUrl || await target.evaluate(() => window.location.origin);
+      const apiPath = `/api/${entity}`;
+
+      if (action === 'check_create_read') {
+        if (!createPayload) {
+          return mcpParamMissing('check_create_read 需要 createPayload 参数');
+        }
+        const createRes = await target.evaluate(async ({ apiPath, payload, identifierField }) => {
+          const res = await fetch(apiPath, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          const data = await res.json();
+          return { ok: res.ok, status: res.status, data, id: data?.[identifierField] || data?.data?.[identifierField] };
+        }, { apiPath, payload: createPayload, identifierField });
+
+        result.checks.push({
+          step: 'create',
+          ok: createRes.ok,
+          status: createRes.status,
+          id: createRes.id,
+        });
+        if (createRes.ok) result.passed++; else result.failed++;
+
+        if (createRes.id) {
+          const readRes = await target.evaluate(async ({ apiPath, id }) => {
+            const res = await fetch(`${apiPath}/${id}`);
+            return { ok: res.ok, status: res.status, data: await res.json() };
+          }, { apiPath, id: createRes.id });
+
+          result.checks.push({ step: 'read', ok: readRes.ok, status: readRes.status });
+          if (readRes.ok) result.passed++; else result.failed++;
+
+          const readData = readRes.data?.data || readRes.data;
+          const mismatched = [];
+          for (const [key, val] of Object.entries(createPayload)) {
+            if (readData && readData[key] !== undefined && readData[key] !== val) {
+              mismatched.push({ field: key, created: val, read: readData[key] });
+            }
+          }
+          result.dataConsistency = mismatched.length === 0;
+          result.mismatchedFields = mismatched;
+          if (mismatched.length === 0) result.passed++; else result.failed++;
+        }
+      }
+
+      if (action === 'check_update_read') {
+        if (!updatePayload || !entityId) {
+          return mcpParamMissing('check_update_read 需要 updatePayload 和 entityId 参数');
+        }
+        const updateRes = await target.evaluate(async ({ apiPath, id, payload }) => {
+          const res = await fetch(`${apiPath}/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          return { ok: res.ok, status: res.status, data: await res.json() };
+        }, { apiPath, id: entityId, payload: updatePayload });
+
+        result.checks.push({ step: 'update', ok: updateRes.ok, status: updateRes.status });
+        if (updateRes.ok) result.passed++; else result.failed++;
+
+        const readRes = await target.evaluate(async ({ apiPath, id }) => {
+          const res = await fetch(`${apiPath}/${id}`);
+          return { ok: res.ok, status: res.status, data: await res.json() };
+        }, { apiPath, id: entityId });
+
+        result.checks.push({ step: 'read_after_update', ok: readRes.ok, status: readRes.status });
+        if (readRes.ok) result.passed++; else result.failed++;
+      }
+
+      if (action === 'check_delete_read') {
+        if (!entityId) {
+          return mcpParamMissing('check_delete_read 需要 entityId 参数');
+        }
+        const deleteRes = await target.evaluate(async ({ apiPath, id }) => {
+          const res = await fetch(`${apiPath}/${id}`, { method: 'DELETE' });
+          return { ok: res.ok, status: res.status };
+        }, { apiPath, id: entityId });
+
+        result.checks.push({ step: 'delete', ok: deleteRes.ok, status: deleteRes.status });
+        if (deleteRes.ok) result.passed++; else result.failed++;
+
+        const readRes = await target.evaluate(async ({ apiPath, id }) => {
+          const res = await fetch(`${apiPath}/${id}`);
+          return { ok: res.ok, status: res.status };
+        }, { apiPath, id: entityId });
+
+        const properlyDeleted = readRes.status === 404 || readRes.status === 200;
+        result.checks.push({ step: 'verify_deletion', ok: properlyDeleted, status: readRes.status });
+        if (properlyDeleted) result.passed++; else result.failed++;
+      }
+    } catch (err) {
+      result.ok = false;
+      result.error = err.message;
+    }
+
+    result.status = result.failed === 0 ? 'success' : 'failed';
+    result.nextSteps = [
+      result.failed > 0 ? '检查 API 接口实现是否正确' : '继续验证其他实体',
+      '使用 validation_flow 进行完整流程验证',
+    ];
+    result.suggestions = [
+      { type: 'next', tool: 'validation_flow', reason: '进行完整流程验证' },
+    ];
+
+    return text(JSON.stringify(result, null, 2));
+  }
+
+  // ====== validation_permission ======
+  if (name === 'validation_permission') {
+    const { target } = await ensurePage(args);
+    const { action, entity, entityId, otherEntityId, adminApiPaths, roleSelector, targetRole, expectedMenuItems, unexpectedMenuItems } = args;
+
+    if (!action) {
+      return mcpParamMissing('action 为必填参数');
+    }
+
+    let result = { ok: true, action, checks: [], passed: 0, failed: 0, vulnerabilities: [] };
+
+    try {
+      if (action === 'horizontal_privilege') {
+        if (!entity || !otherEntityId) {
+          return mcpParamMissing('horizontal_privilege 需要 entity 和 otherEntityId 参数');
+        }
+        const apiPath = `/api/${entity}/${otherEntityId}`;
+        const res = await target.evaluate(async (apiPath) => {
+          const r = await fetch(apiPath);
+          return { ok: r.ok, status: r.status };
+        }, apiPath);
+
+        const isVulnerable = res.ok && res.status < 400;
+        result.checks.push({
+          test: 'horizontal_privilege',
+          apiPath,
+          status: res.status,
+          vulnerable: isVulnerable,
+        });
+        if (isVulnerable) {
+          result.vulnerabilities.push({ type: 'horizontal_privilege', severity: 'blocking', description: `可越权访问其他用户的 ${entity} 数据 (ID: ${otherEntityId})` });
+          result.failed++;
+        } else {
+          result.passed++;
+        }
+      }
+
+      if (action === 'vertical_privilege') {
+        if (!adminApiPaths || !Array.isArray(adminApiPaths)) {
+          return mcpParamMissing('vertical_privilege 需要 adminApiPaths 数组参数');
+        }
+        for (const apiPath of adminApiPaths) {
+          const res = await target.evaluate(async (apiPath) => {
+            const r = await fetch(apiPath);
+            return { ok: r.ok, status: r.status };
+          }, apiPath);
+
+          const isVulnerable = res.ok && res.status < 400;
+          result.checks.push({ test: 'vertical_privilege', apiPath, status: res.status, vulnerable: isVulnerable });
+          if (isVulnerable) {
+            result.vulnerabilities.push({ type: 'vertical_privilege', severity: 'blocking', description: `普通用户可访问管理端 API: ${apiPath}` });
+            result.failed++;
+          } else {
+            result.passed++;
+          }
+        }
+      }
+
+      if (action === 'role_menu') {
+        if (!targetRole) {
+          return mcpParamMissing('role_menu 需要 targetRole 参数');
+        }
+        if (roleSelector) {
+          await target.click(roleSelector);
+          await target.waitForTimeout(500);
+        }
+
+        const pageText = await target.evaluate(() => document.body.innerText);
+
+        if (expectedMenuItems && expectedMenuItems.length > 0) {
+          const missing = expectedMenuItems.filter(item => !pageText.includes(item));
+          result.checks.push({ test: 'expected_menus', items: expectedMenuItems, missing });
+          if (missing.length === 0) result.passed++; else result.failed++;
+        }
+
+        if (unexpectedMenuItems && unexpectedMenuItems.length > 0) {
+          const found = unexpectedMenuItems.filter(item => pageText.includes(item));
+          result.checks.push({ test: 'unexpected_menus', items: unexpectedMenuItems, found });
+          if (found.length === 0) result.passed++;
+          else {
+            result.vulnerabilities.push({ type: 'role_menu_leak', severity: 'major', description: `角色 ${targetRole} 看到了不应看到的菜单项: ${found.join(', ')}` });
+            result.failed++;
+          }
+        }
+      }
+    } catch (err) {
+      result.ok = false;
+      result.error = err.message;
+    }
+
+    result.status = result.failed === 0 ? 'success' : 'failed';
+    result.nextSteps = [
+      result.vulnerabilities.length > 0 ? '修复越权漏洞后重新验证' : '权限验证通过',
+      '使用 validation_flow 进行完整业务流程验证',
+    ];
+    result.suggestions = [
+      { type: 'next', tool: 'validation_flow', reason: '进行完整业务流程验证' },
+    ];
+
+    return text(JSON.stringify(result, null, 2));
   }
 
   // ====== state_diff_assert ======

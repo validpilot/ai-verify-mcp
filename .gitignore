@@ -19,7 +19,15 @@ screenshots/
 traces/
 visual/actual/
 visual/diff/
+visual/baselines/
 artifacts/
+test-reports/
+test-project/
+.cache/
+
+# Docs cache
+docs/.vitepress/cache/
+docs/.vitepress/dist/
 
 # Runtime generated contracts (contains environment-specific URLs)
 contracts/

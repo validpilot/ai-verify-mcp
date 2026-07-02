@@ -28,9 +28,11 @@ function buildHtmlReport(data = {}) {
       return buildMcpErrorHtml(data);
     }
     // 通用验证报告
+    const summaryStr = typeof data.summary === 'string' ? data.summary : '';
+    const extraFindings = summaryStr ? [{ name: '概要', description: summaryStr, severity: 'info' }] : [];
     return buildValidationReportHtml({
       summary: {
-        name: data.name || '验证报告',
+        name: data.name || (summaryStr ? summaryStr.slice(0, 50) : '验证报告'),
         type: data.type || 'general',
         passed: report.passed,
         startedAt: data.startedAt || report.generatedAt,
@@ -43,7 +45,7 @@ function buildHtmlReport(data = {}) {
         runId: data.runId || ''
       },
       toolchain: data.toolchain || { browser: 'chromium', tools: [], version: '1.0.0' },
-      findings: data.findings || data.errors || [],
+      findings: [...extraFindings, ...(data.findings || data.errors || [])],
       networkEvidence: data.networkEvidence || { totalRequests: 0, errorRequests: 0, errors: [] },
       artifacts: data.artifacts || {},
       unknowns: data.unknowns || { count: 0, items: [] }

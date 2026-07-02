@@ -44,9 +44,9 @@ describe('Network tools', () => {
     const result = await networkHandler.handle('browser_network', {}, deps);
     assert.ok(result.content);
     const parsed = JSON.parse(result.content[0].text);
-    assert.ok(Array.isArray(parsed));
-    assert.strictEqual(parsed.length, 3);
-    assert.strictEqual(parsed[0].url, 'http://example.com/api/data');
+    assert.ok(Array.isArray(parsed.records));
+    assert.strictEqual(parsed.total, 3);
+    assert.strictEqual(parsed.records[0].url, 'http://example.com/api/data');
   });
 
   it('browser_network empty logs returns empty array', async () => {
@@ -56,15 +56,16 @@ describe('Network tools', () => {
     });
     const result = await networkHandler.handle('browser_network', {}, deps);
     const parsed = JSON.parse(result.content[0].text);
-    assert.deepStrictEqual(parsed, []);
+    assert.deepStrictEqual(parsed.records, []);
+    assert.strictEqual(parsed.total, 0);
   });
 
   it('browser_network filters by status code', async () => {
     const deps = createMockDeps();
     const result = await networkHandler.handle('browser_network', { status: 404 }, deps);
     const parsed = JSON.parse(result.content[0].text);
-    assert.strictEqual(parsed.length, 1);
-    assert.strictEqual(parsed[0].status, 404);
+    assert.strictEqual(parsed.records.length, 1);
+    assert.strictEqual(parsed.records[0].status, 404);
   });
 
   it('browser_network_detail with specific request returns details', async () => {
