@@ -1,18 +1,18 @@
-# ai-verify-mcp 工具完整性审计报告
-> 日期：2026-06-30 | 版本：v1.2.0+
+# ai-verify-mcp 工具完整性审计报告（OSS 版本）
+> 日期：2026-07-01 | 版本：v1.4.0（付费功能已剥离）
 
 ## 概览
 
 | 指标 | 数量 |
 |------|------|
-| Schema 文件数（tools/*.json） | 87 |
+| Schema 文件数（tools/*.json） | 78 |
 | Handler 模块数 | 9（+1 state 共享状态） |
-| Handler 覆盖工具数 | 87 |
+| Handler 覆盖工具数 | 78 |
 | 差异 - 仅 Schema 有 | 0 |
 | 差异 - 仅 Handler 有 | 0 |
 | 有专用测试覆盖的工具 | 20 |
-| 无专用测试覆盖的工具 | 67 |
-| 桩代码/占位实现 | 5 |
+| 无专用测试覆盖的工具 | 58 |
+| 付费功能（已剥离到闭源） | 9 |
 
 ## 三方完整性结论
 
@@ -40,7 +40,7 @@
 | 14 | browser_navigate | ✅ tools/browser_navigate.json | ✅ browser.js | ✅ 有实现 | ❌ | PASS |
 | 15 | browser_wait | ✅ tools/browser_wait.json | ✅ browser.js | ✅ 有实现 | ❌ | PASS |
 | 16 | browser_assert | ✅ tools/browser_assert.json | ✅ browser.js | ✅ 有实现 | ❌ | PASS |
-| 17 | browser_flow | ✅ tools/browser_flow.json | ✅ browser.js | ✅ 有实现 | ❌ | PASS |
+| 17 | browser_flow | ❌ 已剥离 | ❌ 已剥离 | ❌ Pro 付费 | ❌ | CLOSED |
 | 18 | browser_instrument | ✅ tools/browser_instrument.json | ✅ browser.js | ✅ 有实现 | ❌ | PASS |
 | 19 | browser_events | ✅ tools/browser_events.json | ✅ browser.js | ✅ 有实现 | ❌ | PASS |
 | 20 | browser_events_clear | ✅ tools/browser_events_clear.json | ✅ browser.js | ✅ 有实现 | ❌ | PASS |
@@ -100,7 +100,7 @@
 | 49 | validation_start | ✅ tools/validation_start.json | ✅ validation.js | ✅ 有实现 | ❌ | PASS |
 | 50 | validation_check | ✅ tools/validation_check.json | ✅ validation.js | ✅ 有实现 | ✅ validation_check | PASS |
 | 51 | validation_run | ✅ tools/validation_run.json | ✅ validation.js | ✅ 有实现 | ❌ | PASS |
-| 52 | validation_suite_run | ✅ tools/validation_suite_run.json | ✅ validation.js | ⚠️ 付费占位 | ❌ | PASS* |
+| 52 | validation_suite_run | ❌ 已剥离 | ❌ 已剥离 | ❌ Pro 付费 | ❌ | CLOSED |
 | 53 | validation_element | ✅ tools/validation_element.json | ✅ validation.js | ✅ 有实现 | ✅ validation_element | PASS |
 | 54 | validation_flow | ✅ tools/validation_flow.json | ✅ validation.js | ✅ 有实现 | ✅ validation_flow | PASS |
 | 55 | validation_report | ✅ tools/validation_report.json | ✅ validation.js | ✅ 有实现 | ❌ | PASS |
@@ -138,19 +138,19 @@
 | 72 | project_audit | ✅ tools/project_audit.json | ✅ system.js | ✅ 有实现 | ✅ project_audit_sql_col | PASS |
 | 73 | css_var_check | ✅ tools/css_var_check.json | ✅ system.js | ✅ 有实现 | ❌ | PASS |
 | 74 | skill_mcp_validate | ✅ tools/skill_mcp_validate.json | ✅ system.js | ✅ 有实现 | ❌ | PASS |
-| 75 | skill_mcp_sync | ✅ tools/skill_mcp_sync.json | ✅ system.js | ✅ 有实现 | ❌ | PASS |
+| 75 | skill_mcp_sync | ❌ 已剥离 | ❌ 已剥离 | ❌ Team 付费 | ❌ | CLOSED |
 | 76 | browser_trace_chain | ✅ tools/browser_trace_chain.json | ✅ system.js | ✅ 有实现 | ❌ | PASS |
-| 77 | backend_logs | ✅ tools/backend_logs.json | ✅ system.js | ✅ 有实现 | ❌ | PASS |
+| 77 | backend_logs | ❌ 已剥离 | ❌ 已剥离 | ❌ Pro 付费 | ❌ | CLOSED |
 | 78 | browser_full_regression | ✅ tools/browser_full_regression.json | ✅ system.js | ✅ 有实现 | ❌ | PASS |
-| 79 | browser_deep_interact | ✅ tools/browser_deep_interact.json | ✅ system.js | ✅ 有实现 | ❌ | PASS |
+| 79 | browser_deep_interact | ❌ 已剥离 | ❌ 已剥离 | ❌ Pro 付费 | ❌ | CLOSED |
 | 80 | browser_links | ✅ tools/browser_links.json | ✅ system.js | ✅ 有实现 | ✅ browser_p1 | PASS |
 | 81 | browser_traverse_menu | ✅ tools/browser_traverse_menu.json | ✅ system.js | ✅ 有实现 | ❌ | PASS |
 | 82 | mcp_health_check | ✅ tools/mcp_health_check.json | ✅ system.js | ✅ 有实现 | ❌ | PASS |
 | 83 | mcp_self_test | ✅ tools/mcp_self_test.json | ✅ system.js | ✅ 有实现 | ❌ | PASS |
-| 84 | benchmark_run | ✅ tools/benchmark_run.json | ✅ system.js | ⚠️ 闭源占位 | ❌ | PASS* |
-| 85 | ai_debug_investigate | ✅ tools/ai_debug_investigate.json | ✅ system.js | ⚠️ 闭源占位 | ❌ | PASS* |
-| 86 | auto_fix_pipeline | ✅ tools/auto_fix_pipeline.json | ✅ system.js | ✅ 有实现 | ❌ | PASS |
-| 87 | fix_verify | ✅ tools/fix_verify.json | ✅ system.js | ✅ 有实现 | ❌ | PASS |
+| 84 | benchmark_run | ❌ 已剥离 | ❌ 已剥离 | ❌ Pro 付费 | ❌ | CLOSED |
+| 85 | ai_debug_investigate | ❌ 已剥离 | ❌ 已剥离 | ❌ Pro 付费 | ❌ | CLOSED |
+| 86 | auto_fix_pipeline | ❌ 已剥离 | ❌ 已剥离 | ❌ Pro 付费 | ❌ | CLOSED |
+| 87 | fix_verify | ❌ 已剥离 | ❌ 已剥离 | ❌ Pro 付费 | ❌ | CLOSED |
 
 ## 差异详细
 
@@ -160,17 +160,30 @@
 ### 仅 Handler 有的工具
 **无。** 所有 handler 中注册的工具均存在对应的 JSON schema 文件。
 
-## 桩代码 / 占位实现（5 个）
+## 付费功能剥离清单（9 个）
 
-以下工具在 handler 中有注册和处理分支，但返回的是占位信息而非完整实现：
+以下工具已从 OSS 版本中完全剥离，移至闭源版本：
+
+| # | 工具名 | 原 Handler | 付费版本 | 剥离原因 |
+|---|--------|-----------|---------|----------|
+| 1 | skill_mcp_sync | system.js | Team 版 | 技能同步涉及团队协作和权限管理 |
+| 2 | backend_logs | system.js | Pro 版 | 后端日志收集需要企业级权限 |
+| 3 | browser_deep_interact | system.js | Pro 版 | AI 深度交互自动化属于高级功能 |
+| 4 | benchmark_run | system.js | Pro 版 | 基准测试性能分析属于高级功能 |
+| 5 | ai_debug_investigate | system.js | Pro 版 | AI 调试调查需要高级模型支持 |
+| 6 | auto_fix_pipeline | system.js | Pro 版 | 自动修复流水线属于高级功能 |
+| 7 | fix_verify | system.js | Pro 版 | 修复验证属于高级功能 |
+| 8 | browser_flow | browser.js | Pro 版 | 工作流自动化属于高级功能 |
+| 9 | validation_suite_run | validation.js | Pro 版 | 套件级验证属于高级功能 |
+
+## 桩代码 / 占位实现（2 个）
+
+以下工具在 handler 中有注册和处理分支，但返回的是占位信息而非完整实现（保留在 OSS 中用于 API 兼容性）：
 
 | # | 工具名 | Handler | 占位说明 |
 |---|--------|---------|----------|
-| 1 | validation_suite_run | validation.js | 付费功能占位：返回 "该工具为付费版本功能，请升级到团队版或企业版" |
-| 2 | validation_matrix | validation.js | 闭源占位：返回 "validation_matrix: 权限矩阵验证。该能力在闭源端完整实现，开源版本仅作为占位" |
-| 3 | validation_decision | validation.js | 闭源占位：返回 "validation_decision: 决策建议。该能力在闭源端完整实现，开源版本仅作为占位" |
-| 4 | benchmark_run | system.js | 闭源占位：返回 "benchmark_run: 基准测试。该能力在闭源端完整实现，开源版本仅作为占位" |
-| 5 | ai_debug_investigate | system.js | 闭源占位：返回 "ai_debug_investigate: AI调试调查。该能力在闭源端完整实现，开源版本建议使用 debug_investigate" |
+| 1 | validation_matrix | validation.js | 闭源占位：返回 "validation_matrix: 权限矩阵验证。该能力在闭源端完整实现，开源版本仅作为占位" |
+| 2 | validation_decision | validation.js | 闭源占位：返回 "validation_decision: 决策建议。该能力在闭源端完整实现，开源版本仅作为占位" |
 
 ## 测试覆盖详情
 
@@ -241,10 +254,12 @@
 
 ## 结论
 
-1. **Schema ↔ Handler 匹配度：100%** — 87 个 JSON schema 与 87 个 handler 注册的工具完全一一对应，无遗漏、无冗余。
-2. **实现质量：82/87 有完整实现（94.3%）** — 5 个工具为闭源/付费版的占位实现，在开源版本中属于预期行为。
-3. **测试覆盖率：20/87 有专用测试（23.0%）** — 测试覆盖率偏低，大量工具仅通过 tools.test.js 进行 schema 格式验证，缺乏运行时行为和集成测试。
-4. **建议**：
+1. **Schema ↔ Handler 匹配度：100%** — 78 个 JSON schema 与 78 个 handler 注册的工具完全一一对应，无遗漏、无冗余。
+2. **付费功能剥离完成** — 9 个付费工具已从 OSS 版本中完全移除，保留 2 个闭源占位工具用于 API 兼容性。
+3. **实现质量：76/78 有完整实现（97.4%）** — 2 个工具为闭源版的占位实现，在开源版本中属于预期行为。
+4. **测试覆盖率：20/78 有专用测试（25.6%）** — 测试覆盖率偏低，但所有付费工具剥离后的测试已更新为验证其不存在于 OSS 版本中。
+5. **建议**：
    - 为高频工具（browser_open, browser_click, browser_screenshot 等）补充基本功能测试
    - 为 session/evidence 模块补充测试
    - 占位工具可在后续闭源版本发布后补充完整实现和测试
+   - 定期更新审计报告以反映 OSS/闭源边界变化

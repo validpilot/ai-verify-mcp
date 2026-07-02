@@ -1,0 +1,85 @@
+{
+  "name": "evidence_pack",
+  "description": "生成单步证据包（v2.0），把截图、DOM 摘要、错误、网络请求、API 响应摘要、数据 diff、traceId 汇总、Console、PageError、HAR 和现有产物汇总成一个 JSON 文件，用于后续双链路验证复盘。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "runId": {
+        "type": "string",
+        "description": "本次验证运行 ID，不传则自动生成"
+      },
+      "stepId": {
+        "type": "string",
+        "description": "当前步骤 ID，如 marketplace.purchase.after-click"
+      },
+      "label": {
+        "type": "string",
+        "description": "步骤名称，stepId 未传时作为 stepId"
+      },
+      "traceId": {
+        "type": "string",
+        "description": "可选链路追踪 ID，用于和后端日志关联"
+      },
+      "captureStep": {
+        "type": "boolean",
+        "description": "是否同时调用 browser_step 采集截图和 DOM，默认 true"
+      },
+      "screenshot": {
+        "type": "boolean",
+        "description": "是否截图，默认 true"
+      },
+      "snapshot": {
+        "type": "boolean",
+        "description": "是否采集 DOM 简要快照，默认 true"
+      },
+      "har": {
+        "type": "boolean",
+        "description": "是否导出 HAR，默认 false"
+      },
+      "currentOnly": {
+        "type": "boolean",
+        "description": "是否只采集当前 checkpoint 后的错误和网络，默认 true"
+      },
+      "includeWarnings": {
+        "type": "boolean",
+        "description": "错误摘要是否包含 warning，默认 false"
+      },
+      "autoAnalyze": {
+        "type": "boolean",
+        "description": "截图后是否自动分析可见错误，默认 true"
+      },
+      "networkLimit": {
+        "type": "number",
+        "description": "证据包中保留最近网络请求条数，默认 30"
+      },
+      "consoleLimit": {
+        "type": "number",
+        "description": "证据包中保留最近 Console 条数，默认 30"
+      },
+      "pageErrorLimit": {
+        "type": "number",
+        "description": "证据包中保留最近 PageError 条数，默认 10"
+      },
+      "apiResponseLimit": {
+        "type": "number",
+        "description": "证据包中保留最近 API 响应摘要数，默认 10"
+      },
+      "beforeData": {
+        "type": "object",
+        "description": "操作前数据快照，用于生成 data diff"
+      },
+      "afterData": {
+        "type": "object",
+        "description": "操作后数据快照，用于生成 data diff"
+      },
+      "beforeState": {
+        "type": "object",
+        "description": "操作前状态快照引用"
+      },
+      "afterState": {
+        "type": "object",
+        "description": "操作后状态快照引用"
+      }
+    }
+  }
+}

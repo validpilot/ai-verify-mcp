@@ -70,7 +70,7 @@ describe('handlers 模块导出验证', () => {
 
   test('handlers/system.js 工具列表包含核心工具', () => {
     const system = require('../handlers/system');
-    const coreTools = ['project_audit', 'css_var_check', 'browser_full_regression', 'browser_form_fill', 'browser_deep_interact'];
+    const coreTools = ['project_audit', 'css_var_check', 'browser_full_regression', 'browser_form_fill'];
     for (const tool of coreTools) {
       assert.ok(system.tools.includes(tool), `system handler 缺少工具: ${tool}`);
     }

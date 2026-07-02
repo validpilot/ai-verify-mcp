@@ -1,0 +1,45 @@
+{
+  "name": "validation_data_integrity",
+  "description": "验证 CRUD 全链路数据一致性。通过 browser_eval 调用 API 并拦截响应，对比 Create/Read/Update/Delete 各阶段的数据是否一致。支持三种验证模式：check_create_read、check_update_read、check_delete_read",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "targetUrl": {"type": "string", "description": "目标页面 URL，用于 API 调用的基础路径"},
+      "action": {
+        "type": "string",
+        "enum": ["check_create_read", "check_update_read", "check_delete_read"],
+        "description": "验证模式：check_create_read=创建后立即查询验证数据一致性；check_update_read=更新后查询验证字段已更新；check_delete_read=删除后验证已标记删除或 404"
+      },
+      "entity": {"type": "string", "description": "实体名称，如 leads/orders/customers（对应 API 路径中的资源名）"},
+      "createPayload": {
+        "type": "object",
+        "description": "创建操作的请求体（JSON 对象），action=check_create_read 时必填",
+        "additionalProperties": true
+      },
+      "updatePayload": {
+        "type": "object",
+        "description": "更新操作的请求体（JSON 对象），action=check_update_read 时必填",
+        "additionalProperties": true
+      },
+      "identifierField": {"type": "string", "description": "标识字段名（如 id/leadId/orderNo），默认 'id'", "default": "id"},
+      "apiBaseUrl": {"type": "string", "description": "API 基础 URL，默认从当前页面 URL 推导"},
+      "expectedCreateFields": {
+        "type": "array",
+        "items": {"type": "string"},
+        "description": "创建后需要验证的字段列表（默认验证 createPayload 中的所有字段）"
+      },
+      "expectedUpdatedFields": {
+        "type": "array",
+        "items": {"type": "string"},
+        "description": "更新后需要验证的字段列表（默认验证 updatePayload 中的所有字段）"
+      },
+      "entityId": {"type": "string", "description": "操作的实体 ID（check_update_read/check_delete_read 时需要提供，或由前一步自动提取）"},
+      "name": {"type": "string", "description": "检测名称，用于报告标识"},
+      "noErrors": {"type": "boolean", "description": "是否检查页面错误，默认 true"},
+      "evidence": {"type": "boolean", "description": "是否生成证据包，默认 true"},
+      "screenshot": {"type": "boolean", "description": "是否截图，默认失败时截图"},
+      "timeout": {"type": "number", "description": "API 调用超时时间（毫秒），默认 15000"}
+    },
+    "required": ["action", "entity"]
+  }
+}

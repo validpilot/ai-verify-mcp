@@ -1,23 +1,280 @@
 'use strict';
 
 // Handler: validation
-// Extracted from server.js callTool switch statements
+// Extracted from server.js callCall switch statements
+
+const fs = require('fs');
+const path = require('path');
+const { mcpError, mcpParamMissing } = require('../core/mcp-error');
 
 const tools = [
   "validation_start",
   "validation_check",
   "validation_run",
-  "validation_suite_run",
   "validation_element",
   "validation_flow",
   "validation_chain",
   "validation_report",
   "validation_report_export",
   "validation_quick_run",
+  "browser_smoke_test",
+  "browser_counterfactual_analyze",
   "validation_matrix",
   "validation_decision",
-  "validation_compliance"
+  "validation_compliance",
+  "state_diff_assert",
+  "chain_spec_run",
+  "chain_list_templates",
+  "trace_correlation_check",
+  "chain_score_report",
+  "contract_guard",
+  "contract_baseline"
 ];
+
+const stateDiffSnapshots = new Map();
+
+function normalizeStateValue(value) {
+  if (typeof value === 'string') return value.trim();
+  return value;
+}
+
+function readJsonPath(obj, jsonPath) {
+  if (!jsonPath) return obj;
+  const parts = String(jsonPath).replace(/^\$\.?/, '').replace(/\[(\d+)\]/g, '.$1').split('.').filter(Boolean);
+  let current = obj;
+  for (const part of parts) {
+    if (current == null) return undefined;
+    current = current[part];
+  }
+  return current;
+}
+
+function toComparableNumber(value) {
+  if (typeof value === 'number') return value;
+  const textValue = typeof value === 'string' ? value : JSON.stringify(value ?? '');
+  const matched = String(textValue).replace(/,/g, '').match(/-?\d+(?:\.\d+)?/);
+  return matched ? Number(matched[0]) : NaN;
+}
+
+function sameValue(a, b) {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
+function validateApiStepResult(apiResult, step) {
+  const checks = [];
+  const expectedStatus = step.expectedStatus ?? step.status;
+  if (expectedStatus !== undefined) {
+    checks.push({
+      name: 'status',
+      passed: Number(apiResult.status) === Number(expectedStatus),
+      expected: Number(expectedStatus),
+      actual: apiResult.status
+    });
+  }
+  if (Array.isArray(step.expectations)) {
+    for (const expectation of step.expectations) {
+      const actual = readJsonPath(apiResult.data, expectation.path || expectation.jsonPath || expectation.name);
+      const op = expectation.operator || 'equals';
+      let passed = false;
+      if (op === 'exists') passed = actual !== undefined && actual !== null && actual !== '';
+      else if (op === 'equals') passed = sameValue(actual, expectation.value);
+      else if (op === 'notEquals') passed = !sameValue(actual, expectation.value);
+      else if (op === 'contains') passed = String(actual ?? '').includes(String(expectation.value ?? ''));
+      else if (op === 'min') passed = toComparableNumber(actual) >= Number(expectation.value);
+      else if (op === 'max') passed = toComparableNumber(actual) <= Number(expectation.value);
+      checks.push({ name: expectation.name || expectation.path || expectation.jsonPath, operator: op, passed, expected: expectation.value, actual });
+    }
+  }
+  return { passed: checks.every(check => check.passed), checks };
+}
+
+async function collectStateSource(target, source) {
+  const type = source.type || 'selectorText';
+  const name = source.name || source.selector || source.url || source.key || type;
+  try {
+    if (type === 'selectorText') {
+      const textValue = await target.locator(source.selector).first().innerText({ timeout: source.timeout || 5000 });
+      return { name, type, value: normalizeStateValue(textValue) };
+    }
+    if (type === 'selectorNumber') {
+      const textValue = await target.locator(source.selector).first().innerText({ timeout: source.timeout || 5000 });
+      return { name, type, value: toComparableNumber(textValue), raw: normalizeStateValue(textValue) };
+    }
+    if (type === 'bodyText') {
+      const textValue = await target.locator('body').innerText({ timeout: source.timeout || 5000 }).catch(() => '');
+      return { name, type, value: normalizeStateValue(textValue) };
+    }
+    if (type === 'localStorage') {
+      const value = await target.evaluate(key => window.localStorage.getItem(key), source.key);
+      return { name, type, value };
+    }
+    if (type === 'eval') {
+      const value = await target.evaluate(expression => {
+        const fn = new Function(`return (${expression})`);
+        return fn();
+      }, source.expression);
+      return { name, type, value: normalizeStateValue(value) };
+    }
+    if (type === 'apiJson') {
+      const result = await target.evaluate(async sourceConfig => {
+        const requestUrl = sourceConfig.url || new URL(sourceConfig.path || '/', location.origin).toString();
+        const headers = Object.assign({ 'content-type': 'application/json' }, sourceConfig.headers || {});
+        const options = { method: sourceConfig.method || 'GET', headers, credentials: 'include' };
+        if (sourceConfig.body != null) options.body = typeof sourceConfig.body === 'string' ? sourceConfig.body : JSON.stringify(sourceConfig.body);
+        const response = await fetch(requestUrl, options);
+        const text = await response.text();
+        let data = null;
+        try { data = text ? JSON.parse(text) : null; } catch (_) { data = text; }
+        return { status: response.status, ok: response.ok, data };
+      }, source);
+      return {
+        name,
+        type,
+        status: result.status,
+        ok: result.ok,
+        value: normalizeStateValue(readJsonPath(result.data, source.jsonPath)),
+        raw: result.data
+      };
+    }
+    if (type === 'file' || type === 'runtimeData') {
+      const projectRoot = path.resolve(__dirname, '..');
+      const allowedRoots = [
+        path.join(projectRoot),
+        path.resolve(projectRoot, '..', 'commercial')
+      ];
+      let filePath;
+      if (type === 'runtimeData') {
+        const basePath = source.basePath || path.resolve(projectRoot, '..', 'commercial', 'poc', 'data');
+        const dataset = source.dataset || source.name;
+        const fileName = dataset.endsWith('.json') ? dataset : `${dataset}.json`;
+        filePath = path.join(basePath, fileName);
+      } else {
+        filePath = source.path || source.filePath;
+      }
+      if (!filePath) return { name, type, error: '缺少 path/filePath 参数' };
+      const resolved = path.resolve(filePath);
+      const isAllowed = allowedRoots.some(root => resolved.startsWith(root));
+      if (!isAllowed) return { name, type, error: `文件路径超出允许范围：${resolved}` };
+      if (!fs.existsSync(resolved)) return { name, type, error: `文件不存在：${resolved}` };
+      const rawText = fs.readFileSync(resolved, 'utf8');
+      let data;
+      try { data = JSON.parse(rawText); } catch (_) {
+        const match = rawText.match(/module\.exports\s*=\s*([\s\S]+)/);
+        if (match) {
+          try { data = eval(`(${match[1].replace(/;\s*$/, '')})`); } catch (__) {
+            return { name, type, error: '无法解析文件内容为 JSON 或 CommonJS' };
+          }
+        } else {
+          return { name, type, error: '文件内容不是合法 JSON' };
+        }
+      }
+      return {
+        name,
+        type,
+        filePath: resolved,
+        value: normalizeStateValue(readJsonPath(data, source.jsonPath)),
+        raw: data
+      };
+    }
+    return { name, type, error: `不支持的状态源类型：${type}` };
+  } catch (error) {
+    return { name, type, error: error.message };
+  }
+}
+
+async function captureStateSnapshot(target, args = {}) {
+  const sources = Array.isArray(args.sources) ? args.sources : [];
+  const values = {};
+  for (const source of sources) {
+    const item = await collectStateSource(target, source);
+    values[item.name] = item;
+  }
+  const snapshot = {
+    snapshotId: args.snapshotId || `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+    label: args.label || 'state-snapshot',
+    timestamp: new Date().toISOString(),
+    url: target.url(),
+    values
+  };
+  stateDiffSnapshots.set(snapshot.snapshotId, snapshot);
+  if (stateDiffSnapshots.size > 30) {
+    const firstKey = stateDiffSnapshots.keys().next().value;
+    stateDiffSnapshots.delete(firstKey);
+  }
+  return snapshot;
+}
+
+function compareStateSnapshots(before, after, expectations = []) {
+  const diffs = Object.keys(Object.assign({}, before?.values || {}, after?.values || {})).map(name => {
+    const beforeItem = before?.values?.[name];
+    const afterItem = after?.values?.[name];
+    return {
+      name,
+      before: beforeItem?.value,
+      after: afterItem?.value,
+      changed: !sameValue(beforeItem?.value, afterItem?.value),
+      beforeError: beforeItem?.error,
+      afterError: afterItem?.error
+    };
+  });
+
+  const checks = expectations.map(expectation => {
+    const name = expectation.name;
+    const op = expectation.operator || 'changed';
+    const beforeValue = before?.values?.[name]?.value;
+    const afterValue = after?.values?.[name]?.value;
+    let passed = false;
+    let actual = afterValue;
+    if (op === 'exists') passed = afterValue !== undefined && afterValue !== null && afterValue !== '';
+    else if (op === 'equals') passed = sameValue(afterValue, expectation.value !== undefined ? expectation.value : beforeValue);
+    else if (op === 'notEquals') passed = !sameValue(afterValue, expectation.value !== undefined ? expectation.value : beforeValue);
+    else if (op === 'changed') passed = !sameValue(beforeValue, afterValue);
+    else if (op === 'unchanged') passed = sameValue(beforeValue, afterValue);
+    else if (op === 'contains') passed = String(afterValue ?? '').includes(String(expectation.value ?? ''));
+    else if (op === 'increased') passed = toComparableNumber(afterValue) > toComparableNumber(beforeValue);
+    else if (op === 'decreased') passed = toComparableNumber(afterValue) < toComparableNumber(beforeValue);
+    else if (op === 'delta') {
+      const delta = toComparableNumber(afterValue) - toComparableNumber(beforeValue);
+      actual = delta;
+      const tolerance = Number(expectation.tolerance || 0);
+      passed = Math.abs(delta - Number(expectation.by || 0)) <= tolerance;
+    }
+    return { name, operator: op, passed, expected: expectation.value ?? expectation.by, actual, before: beforeValue, after: afterValue };
+  });
+
+  return {
+    passed: checks.every(check => check.passed) && diffs.every(diff => !diff.beforeError && !diff.afterError),
+    checks,
+    diffs,
+    summary: {
+      changed: diffs.filter(diff => diff.changed).length,
+      unchanged: diffs.filter(diff => !diff.changed).length,
+      failedChecks: checks.filter(check => !check.passed).length,
+      sourceErrors: diffs.filter(diff => diff.beforeError || diff.afterError).length
+    }
+  };
+}
+
+async function runStateDiffAssert(target, args = {}) {
+  const action = args.action || 'capture';
+  if (args.targetUrl) {
+    await target.goto(args.targetUrl, { waitUntil: 'domcontentloaded', timeout: args.timeout || 30000 });
+    try { await target.waitForLoadState('networkidle', { timeout: 8000 }); } catch (_) {}
+  }
+
+  if (action === 'capture') {
+    const snapshot = await captureStateSnapshot(target, args);
+    const evidence = args.evidence === false ? null : await captureStepEvidence(target, args.label || 'state-capture', { screenshot: args.screenshot, snapshot: args.snapshot });
+    return redact({ action, passed: true, snapshot, evidence });
+  }
+
+  const before = args.before || stateDiffSnapshots.get(args.compareTo || args.beforeSnapshotId);
+  if (!before) throw new Error('state_diff_assert compare 需要 before、compareTo 或 beforeSnapshotId');
+  const after = args.after || await captureStateSnapshot(target, { ...args, label: args.afterLabel || `${args.label || 'state'}-after` });
+  const comparison = compareStateSnapshots(before, after, Array.isArray(args.expectations) ? args.expectations : []);
+  const evidence = args.evidence === false ? null : await captureStepEvidence(target, args.label || 'state-diff', { screenshot: args.screenshot, snapshot: args.snapshot });
+  return redact({ action, passed: comparison.passed, beforeSnapshotId: before.snapshotId, afterSnapshotId: after.snapshotId, comparison, before, after, evidence });
+}
 
 async function handle(name, args, deps) {
 
@@ -45,8 +302,591 @@ if (args.check_type === 'deploy_verify') {
 
   // ====== validation_run ======
   if (name === 'validation_run') {
-const { target } = await ensurePage(args);
+    const { target } = await ensurePage(args);
     return text(JSON.stringify(await runValidationPlan(target, args), null, 2));
+  }
+
+  // ====== browser_smoke_test ======
+  if (name === 'browser_smoke_test') {
+    const { target } = await ensurePage(args);
+    const startTime = Date.now();
+    
+    if (args.url) {
+      await target.goto(args.url, { waitUntil: 'networkidle', timeout: 30000 });
+    }
+    
+    const results = {};
+    const allPassed = [];
+    
+    results.pageLoad = await target.evaluate(() => {
+      const performance = window.performance || { timing: {} };
+      const timing = performance.timing || {};
+      const loadTime = timing.loadEventEnd - timing.navigationStart;
+      return {
+        url: window.location.href,
+        title: document.title,
+        loadTime,
+        loadTimeLabel: loadTime < 3000 ? 'fast' : loadTime < 8000 ? 'normal' : 'slow',
+        domContentLoaded: timing.domContentLoadedEventEnd - timing.navigationStart,
+        firstContentfulPaint: performance.getEntriesByType ? performance.getEntriesByType('paint').find(e => e.name === 'first-contentful-paint')?.startTime || null : null
+      };
+    }).catch(e => ({ error: e.message }));
+    allPassed.push(results.pageLoad.error ? false : results.pageLoad.loadTime < 15000);
+    
+    results.jsErrors = await target.evaluate(() => {
+      const errors = window.__mcp_errors || [];
+      return {
+        count: errors.length,
+        errors: errors.slice(0, 5).map(e => ({ message: e.message?.slice(0, 100), type: e.type }))
+      };
+    }).catch(e => ({ error: e.message, count: -1 }));
+    allPassed.push(results.jsErrors.error ? false : results.jsErrors.count === 0);
+    
+    results.httpErrors = await target.evaluate(() => {
+      const requests = window.__mcp_network || [];
+      const errors = requests.filter(r => r.status >= 400);
+      return {
+        count: errors.length,
+        errors: errors.slice(0, 5).map(r => ({ url: r.url?.slice(0, 80), status: r.status }))
+      };
+    }).catch(e => ({ error: e.message, count: -1 }));
+    allPassed.push(results.httpErrors.error ? false : results.httpErrors.count === 0);
+    
+    results.elements = await target.evaluate(() => {
+      const stats = {
+        links: document.querySelectorAll('a').length,
+        buttons: document.querySelectorAll('button').length,
+        forms: document.querySelectorAll('form').length,
+        inputs: document.querySelectorAll('input').length,
+        images: document.querySelectorAll('img').length,
+        scripts: document.querySelectorAll('script').length,
+        stylesheets: document.querySelectorAll('link[rel="stylesheet"]').length
+      };
+      return stats;
+    }).catch(e => ({ error: e.message }));
+    
+    results.accessibility = await target.evaluate(() => {
+      const issues = [];
+      const labels = document.querySelectorAll('label');
+      labels.forEach(label => {
+        if (!label.getAttribute('for')) issues.push('label missing "for" attribute');
+      });
+      const images = document.querySelectorAll('img');
+      images.forEach(img => {
+        if (!img.getAttribute('alt')) issues.push('image missing "alt" attribute');
+      });
+      return {
+        checked: ['labels', 'images'],
+        issuesFound: issues.length,
+        issues: issues.slice(0, 10)
+      };
+    }).catch(e => ({ error: e.message }));
+    allPassed.push(results.accessibility.error ? false : results.accessibility.issuesFound < 5);
+    
+    results.consoleWarnings = await target.evaluate(() => {
+      const warnings = window.__mcp_warnings || [];
+      return {
+        count: warnings.length,
+        warnings: warnings.slice(0, 5).map(w => w.message?.slice(0, 100))
+      };
+    }).catch(e => ({ error: e.message, count: -1 }));
+    allPassed.push(results.consoleWarnings.error ? false : results.consoleWarnings.count < 10);
+    
+    results.overlay = await target.evaluate(() => {
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      const viewportArea = viewportWidth * viewportHeight;
+      const overlays = [];
+      
+      document.querySelectorAll('body *').forEach(el => {
+        const style = window.getComputedStyle(el);
+        if (!style || style.display === 'none' || style.visibility === 'hidden') return;
+        
+        const rect = el.getBoundingClientRect();
+        if (!rect || rect.width === 0 || rect.height === 0) return;
+        
+        const zIndex = parseInt(style.zIndex) || 0;
+        const position = style.position;
+        const opacity = parseFloat(style.opacity) || 1;
+        
+        const viewportOverlapWidth = Math.max(0, Math.min(rect.right, viewportWidth) - Math.max(rect.left, 0));
+        const viewportOverlapHeight = Math.max(0, Math.min(rect.bottom, viewportHeight) - Math.max(rect.top, 0));
+        const overlapArea = viewportOverlapWidth * viewportOverlapHeight;
+        const coveragePercent = Math.round((overlapArea / viewportArea) * 100);
+        
+        let isOverlay = false;
+        let overlayType = 'unknown';
+        
+        if (zIndex >= 1000) { isOverlay = true; overlayType = 'high-zindex'; }
+        if (position === 'fixed' && coveragePercent >= 10) { isOverlay = true; overlayType = 'fixed-overlay'; }
+        if (position === 'absolute' && zIndex > 0 && coveragePercent >= 20) { isOverlay = true; overlayType = 'absolute-overlay'; }
+        if (opacity < 1 && opacity > 0.3 && coveragePercent >= 30) { isOverlay = true; overlayType = 'semi-transparent-mask'; }
+        
+        const className = typeof el.className === 'string' ? el.className : '';
+        const classLower = className.toLowerCase();
+        if (classLower.includes('cookie') || classLower.includes('banner') || 
+            classLower.includes('consent') || classLower.includes('modal') ||
+            classLower.includes('popup') || classLower.includes('dialog')) {
+          isOverlay = true;
+          overlayType = 'detected-by-class';
+        }
+        
+        if ((el.tagName === 'DIV' || el.tagName === 'SPAN') && 
+            rect.width >= viewportWidth * 0.8 && 
+            rect.height >= viewportHeight * 0.5) {
+          isOverlay = true;
+          overlayType = 'fullscreen-overlay';
+        }
+        
+        if (isOverlay) {
+          overlays.push({
+            tagName: el.tagName.toLowerCase(),
+            className: className.slice(0, 100),
+            rect: { x: Math.round(rect.x), y: Math.round(rect.y), width: Math.round(rect.width), height: Math.round(rect.height) },
+            zIndex,
+            position,
+            opacity: Math.round(opacity * 100) / 100,
+            coveragePercent,
+            overlayType,
+            text: el.innerText.slice(0, 100).trim()
+          });
+        }
+      });
+      
+      overlays.sort((a, b) => b.coveragePercent - a.coveragePercent);
+      const totalCoverage = overlays.reduce((sum, o) => sum + o.coveragePercent, 0);
+      const hasBlockingOverlay = overlays.some(o => o.coveragePercent >= 50 || o.overlayType === 'fullscreen-overlay');
+      
+      return {
+        count: overlays.length,
+        hasBlockingOverlay,
+        totalCoveragePercent: Math.min(totalCoverage, 100),
+        overlays: overlays.slice(0, 5)
+      };
+    }).catch(e => ({ error: e.message, count: 0, hasBlockingOverlay: false }));
+    allPassed.push(results.overlay.error ? false : !results.overlay.hasBlockingOverlay);
+    
+    const totalTime = Date.now() - startTime;
+    const passed = allPassed.every(Boolean);
+    
+    const resultData = {
+      status: passed ? 'success' : 'warning',
+      passed,
+      totalTime,
+      summary: {
+        pageLoad: results.pageLoad.loadTimeLabel || 'unknown',
+        jsErrors: results.jsErrors.count || 0,
+        httpErrors: results.httpErrors.count || 0,
+        accessibilityIssues: results.accessibility.issuesFound || 0,
+        consoleWarnings: results.consoleWarnings.count || 0,
+        overlayCount: results.overlay.count || 0,
+        hasBlockingOverlay: results.overlay.hasBlockingOverlay || false,
+        elementCount: results.elements.links + results.elements.buttons + results.elements.forms
+      },
+      details: results,
+      nextSteps: passed ? [
+        '调用 browser_screenshot 截图留存证据',
+        '调用 browser_a11y_check 深入检查无障碍',
+        '调用 validation_run 运行完整验证流程',
+        '调用 evidence_pack 打包所有证据'
+      ] : [
+        '调用 browser_counterfactual_analyze 进行反事实根因分析',
+        '调用 browser_errors 查看详细 JS 错误',
+        '调用 browser_network 查看网络请求详情',
+        '调用 browser_diagnose 分析页面问题'
+      ],
+      suggestions: [
+        { type: passed ? 'next' : 'fix', tool: 'browser_screenshot', reason: passed ? '留存基准证据' : '查看页面实际状态' },
+        { type: passed ? 'next' : 'fix', tool: 'browser_errors', reason: passed ? '检查是否有潜在错误' : '查看详细错误信息' },
+        { type: results.overlay?.hasBlockingOverlay ? 'fix' : 'next', tool: 'browser_overlay_dismiss', reason: results.overlay?.hasBlockingOverlay ? '关闭遮挡物' : '继续验证流程' },
+        { type: 'next', tool: 'validation_run', reason: '运行完整的验证流程' }
+      ],
+      paidUpgradeHint: '需要更深入的性能分析、自动化回归测试、团队协作？升级到 Pro/Team 版本获取完整验证能力。'
+    };
+    
+    let response = `🚀 冒烟测试完成（${totalTime}ms）\n\n`;
+    response += `📊 结果：${passed ? '✅ 全部通过' : '⚠️ 部分警告'}\n\n`;
+    response += `📋 检查项汇总：\n`;
+    response += `   🖥️ 页面加载：${results.pageLoad.loadTime}ms（${results.pageLoad.loadTimeLabel}）${allPassed[0] ? '✅' : '❌'}\n`;
+    response += `   📜 JS 错误：${results.jsErrors.count || 0} 个 ${allPassed[1] ? '✅' : '❌'}\n`;
+    response += `   🌐 HTTP 错误：${results.httpErrors.count || 0} 个 ${allPassed[2] ? '✅' : '❌'}\n`;
+    response += `   ♿ 无障碍问题：${results.accessibility.issuesFound || 0} 个 ${allPassed[3] ? '✅' : '⚠️'}\n`;
+    response += `   ⚠️ 控制台警告：${results.consoleWarnings.count || 0} 个 ${allPassed[4] ? '✅' : '⚠️'}\n`;
+    response += `   🔲 遮挡物检测：${results.overlay?.count || 0} 个（${results.overlay?.hasBlockingOverlay ? '❌ 有遮挡' : '✅ 无遮挡'}）${allPassed[5] ? '✅' : '❌'}\n\n`;
+    
+    response += `📄 页面信息：\n`;
+    response += `   标题：${results.pageLoad.title || 'N/A'}\n`;
+    response += `   URL：${results.pageLoad.url || 'N/A'}\n`;
+    response += `   链接：${results.elements.links || 0} | 按钮：${results.elements.buttons || 0} | 表单：${results.elements.forms || 0}\n\n`;
+    
+    if (!passed) {
+      if (results.jsErrors.count > 0) {
+        response += `🔍 JS 错误详情：\n`;
+        results.jsErrors.errors.forEach((e, i) => {
+          response += `   ${i + 1}. ${e.message}\n`;
+        });
+      }
+      if (results.overlay?.hasBlockingOverlay) {
+        response += `\n⚠️ 遮挡物详情：\n`;
+        results.overlay.overlays.forEach((o, i) => {
+          response += `   ${i + 1}. [${o.overlayType}] ${o.tagName}.${o.className.split(' ')[0]} | 覆盖率: ${o.coveragePercent}%\n`;
+        });
+      }
+    }
+    
+    response += `🚀 下一步建议：\n`;
+    if (results.overlay?.hasBlockingOverlay) {
+      response += `   1. browser_overlay_dismiss → 自动关闭遮挡物\n`;
+      response += `   2. browser_click → 手动点击关闭按钮\n`;
+      response += `   3. browser_screenshot → 查看页面状态\n`;
+    } else if (passed) {
+      response += `   1. browser_screenshot → 截图留存证据\n`;
+      response += `   2. browser_a11y_check → 深入无障碍检查\n`;
+      response += `   3. validation_run → 完整验证流程\n`;
+    } else {
+      response += `   1. browser_counterfactual_analyze → 反事实根因分析\n`;
+      response += `   2. browser_errors → 查看详细错误\n`;
+      response += `   3. browser_diagnose → 分析问题根因\n`;
+    }
+    
+    if (args.format === 'html') {
+      const { buildSmokeTestHtml } = require('../core/report-html');
+      return text(buildSmokeTestHtml({
+        items: results.smokeItems || allPassed.map((passed, i) => ({
+          name: ['页面加载', 'JS 错误', 'HTTP 错误', '无障碍检查', '控制台警告', '遮挡物检测'][i],
+          check: ['页面加载', 'JS 错误', 'HTTP 错误', '无障碍检查', '控制台警告', '遮挡物检测'][i],
+          passed
+        })),
+        passed,
+        url: target.url(),
+        timestamp: new Date().toISOString()
+      }));
+    }
+    return text(JSON.stringify(resultData, null, 2));
+  }
+
+  // ====== browser_counterfactual_analyze ======
+  // 反事实根因分析：分析"如果消除因素 X，测试是否还会失败"
+  if (name === 'browser_counterfactual_analyze') {
+    const { target } = await ensurePage(args);
+    const failureContext = args.failureContext || null;
+    
+    const pageState = await target.evaluate(() => {
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      const viewportArea = viewportWidth * viewportHeight;
+      
+      const jsErrors = (window.__mcp_errors || []).slice(0, 10);
+      const httpErrors = (window.__mcp_network || []).filter(r => r.status >= 400).slice(0, 10);
+      const consoleWarnings = (window.__mcp_warnings || []).slice(0, 10);
+      
+      const overlays = [];
+      document.querySelectorAll('body *').forEach(el => {
+        const style = window.getComputedStyle(el);
+        if (!style || style.display === 'none' || style.visibility === 'hidden') return;
+        const rect = el.getBoundingClientRect();
+        if (!rect || rect.width === 0 || rect.height === 0) return;
+        
+        const zIndex = parseInt(style.zIndex) || 0;
+        const position = style.position;
+        const opacity = parseFloat(style.opacity) || 1;
+        const className = typeof el.className === 'string' ? el.className : '';
+        const classLower = className.toLowerCase();
+        
+        const overlapW = Math.max(0, Math.min(rect.right, viewportWidth) - Math.max(rect.left, 0));
+        const overlapH = Math.max(0, Math.min(rect.bottom, viewportHeight) - Math.max(rect.top, 0));
+        const coverage = Math.round((overlapW * overlapH / viewportArea) * 100);
+        
+        let isOverlay = false;
+        let type = 'unknown';
+        if (zIndex >= 1000) { isOverlay = true; type = 'high-zindex'; }
+        if (position === 'fixed' && coverage >= 10) { isOverlay = true; type = 'fixed-overlay'; }
+        if (position === 'absolute' && zIndex > 0 && coverage >= 20) { isOverlay = true; type = 'absolute-overlay'; }
+        if (opacity < 1 && opacity > 0.3 && coverage >= 30) { isOverlay = true; type = 'semi-transparent-mask'; }
+        if (classLower.includes('cookie') || classLower.includes('banner') || classLower.includes('modal') ||
+            classLower.includes('popup') || classLower.includes('dialog') || classLower.includes('overlay')) {
+          isOverlay = true; type = 'detected-by-class';
+        }
+        if ((el.tagName === 'DIV' || el.tagName === 'SPAN') && 
+            rect.width >= viewportWidth * 0.8 && rect.height >= viewportHeight * 0.5) {
+          isOverlay = true; type = 'fullscreen-overlay';
+        }
+        
+        if (isOverlay) {
+          overlays.push({ type, coverage, tagName: el.tagName.toLowerCase(), className: className.slice(0, 50) });
+        }
+      });
+      
+      const loadingState = document.readyState;
+      const perf = window.performance?.timing || {};
+      const loadTime = perf.loadEventEnd && perf.navigationStart ? perf.loadEventEnd - perf.navigationStart : 0;
+      
+      const interactiveElements = document.querySelectorAll('button, a, input, select, textarea').length;
+      const visibleButtons = document.querySelectorAll('button:not([disabled]):not([style*="display: none"])').length;
+      
+      return {
+        url: window.location.href,
+        title: document.title,
+        loadingState,
+        loadTime,
+        jsErrors,
+        httpErrors,
+        consoleWarnings,
+        overlays: overlays.sort((a, b) => b.coverage - a.coverage).slice(0, 5),
+        hasBlockingOverlay: overlays.some(o => o.coverage >= 50 || o.type === 'fullscreen-overlay'),
+        interactiveElements,
+        visibleButtons,
+        viewport: { width: viewportWidth, height: viewportHeight }
+      };
+    }).catch(e => ({ error: e.message }));
+    
+    if (pageState.error) {
+      return mcpError(`页面状态收集失败: ${pageState.error}`, { error: 'PAGE_EVALUATE_FAILED', toolName: 'browser_counterfactual_analyze' });
+    }
+    
+    const hypotheses = [];
+    
+    // 假设1：遮挡物导致测试失败
+    if (pageState.hasBlockingOverlay) {
+      const maxCoverage = Math.max(...pageState.overlays.map(o => o.coverage));
+      const confidence = Math.min(0.9, 0.4 + maxCoverage / 200);
+      hypotheses.push({
+        id: 'overlay-blocking',
+        factor: '页面遮挡物',
+        description: `检测到 ${pageState.overlays.length} 个遮挡元素，最大覆盖率 ${maxCoverage}%`,
+        counterfactual: '如果调用 browser_overlay_dismiss 关闭遮挡物，被遮挡的元素将变得可交互',
+        wouldStillFail: maxCoverage < 80 ? 'maybe' : 'unlikely',
+        confidence,
+        evidence: pageState.overlays.map(o => ({ type: o.type, coverage: o.coverage, element: `${o.tagName}.${o.className.split(' ')[0]}` })),
+        verifyTool: 'browser_overlay_dismiss',
+        verifyAction: '调用 browser_overlay_dismiss 后重新运行测试',
+        impact: 'high'
+      });
+    }
+    
+    // 假设2：JS 错误导致测试失败
+    if (pageState.jsErrors.length > 0) {
+      const errorCount = pageState.jsErrors.length;
+      const confidence = Math.min(0.85, 0.3 + errorCount * 0.15);
+      hypotheses.push({
+        id: 'js-errors',
+        factor: 'JavaScript 错误',
+        description: `检测到 ${errorCount} 个 JS 错误，可能导致页面功能异常`,
+        counterfactual: '如果修复这些 JS 错误，页面功能可能恢复正常',
+        wouldStillFail: errorCount > 5 ? 'unlikely' : 'maybe',
+        confidence,
+        evidence: pageState.jsErrors.map(e => ({ message: (e.message || '').slice(0, 80), type: e.type })),
+        verifyTool: 'browser_errors',
+        verifyAction: '调用 browser_errors 查看详细错误堆栈',
+        impact: errorCount > 3 ? 'high' : 'medium'
+      });
+    }
+    
+    // 假设3：HTTP 错误导致测试失败
+    if (pageState.httpErrors.length > 0) {
+      const errorCount = pageState.httpErrors.length;
+      const has5xx = pageState.httpErrors.some(e => e.status >= 500);
+      const confidence = Math.min(0.8, 0.3 + errorCount * 0.1);
+      hypotheses.push({
+        id: 'http-errors',
+        factor: 'HTTP 请求错误',
+        description: `检测到 ${errorCount} 个 HTTP 错误请求${has5xx ? '（包含服务器错误）' : ''}`,
+        counterfactual: '如果这些请求成功，依赖的后端数据/功能将正常可用',
+        wouldStillFail: has5xx ? 'unlikely' : 'maybe',
+        confidence,
+        evidence: pageState.httpErrors.map(e => ({ url: (e.url || '').slice(0, 80), status: e.status })),
+        verifyTool: 'browser_network',
+        verifyAction: '调用 browser_network 查看网络请求详情',
+        impact: has5xx ? 'high' : 'medium'
+      });
+    }
+    
+    // 假设4：页面未完全加载
+    if (pageState.loadingState !== 'complete' || pageState.loadTime > 8000) {
+      const confidence = pageState.loadingState !== 'complete' ? 0.75 : 0.5;
+      hypotheses.push({
+        id: 'page-not-loaded',
+        factor: '页面加载不完整',
+        description: `页面状态: ${pageState.loadingState}，加载时间: ${pageState.loadTime}ms`,
+        counterfactual: '如果等待页面完全加载（networkidle），元素可能变得可交互',
+        wouldStillFail: 'maybe',
+        confidence,
+        evidence: [{ loadingState: pageState.loadingState, loadTime: pageState.loadTime }],
+        verifyTool: 'browser_wait',
+        verifyAction: '调用 browser_wait 等待 networkidle 后重新测试',
+        impact: 'medium'
+      });
+    }
+    
+    // 假设5：元素未渲染（无交互元素）
+    if (pageState.interactiveElements === 0) {
+      hypotheses.push({
+        id: 'no-interactive-elements',
+        factor: '页面无交互元素',
+        description: '页面未检测到任何按钮、链接、输入框等交互元素',
+        counterfactual: '如果页面是 SPA，可能需要等待动态渲染或导航到正确路由',
+        wouldStillFail: 'likely',
+        confidence: 0.7,
+        evidence: [{ interactiveElements: 0 }],
+        verifyTool: 'browser_wait',
+        verifyAction: '调用 browser_wait 等待动态渲染，或检查 URL 是否正确',
+        impact: 'high'
+      });
+    }
+    
+    // 假设6：控制台警告过多（潜在问题）
+    if (pageState.consoleWarnings.length >= 10) {
+      hypotheses.push({
+        id: 'excessive-warnings',
+        factor: '控制台警告过多',
+        description: `检测到 ${pageState.consoleWarnings.length} 个控制台警告，可能是潜在问题的信号`,
+        counterfactual: '警告本身不直接导致测试失败，但可能暗示有废弃 API 或即将失败的功能',
+        wouldStillFail: 'likely',
+        confidence: 0.4,
+        evidence: pageState.consoleWarnings.slice(0, 3).map(w => ({ message: (w.message || '').slice(0, 80) })),
+        verifyTool: 'browser_console',
+        verifyAction: '调用 browser_console 查看完整控制台输出',
+        impact: 'low'
+      });
+    }
+    
+    // 如果用户提供了失败上下文，匹配相关假设
+    if (failureContext) {
+      const ctx = failureContext.toLowerCase();
+      hypotheses.forEach(h => {
+        if (h.id === 'overlay-blocking' && (ctx.includes('遮挡') || ctx.includes('overlay') || ctx.includes('block') || ctx.includes('不可见') || ctx.includes('not visible'))) {
+          h.confidence = Math.min(0.95, h.confidence + 0.2);
+          h.contextMatch = true;
+        }
+        if (h.id === 'js-errors' && (ctx.includes('js') || ctx.includes('javascript') || ctx.includes('脚本') || ctx.includes('error'))) {
+          h.confidence = Math.min(0.95, h.confidence + 0.2);
+          h.contextMatch = true;
+        }
+        if (h.id === 'http-errors' && (ctx.includes('http') || ctx.includes('网络') || ctx.includes('network') || ctx.includes('请求'))) {
+          h.confidence = Math.min(0.95, h.confidence + 0.2);
+          h.contextMatch = true;
+        }
+        if (h.id === 'page-not-loaded' && (ctx.includes('加载') || ctx.includes('load') || ctx.includes('timeout') || ctx.includes('超时'))) {
+          h.confidence = Math.min(0.95, h.confidence + 0.2);
+          h.contextMatch = true;
+        }
+      });
+    }
+    
+    // 按置信度排序
+    hypotheses.sort((a, b) => b.confidence - a.confidence);
+    
+    const topHypothesis = hypotheses[0];
+    const hasHighConfidenceRootCause = topHypothesis && topHypothesis.confidence >= 0.7;
+    
+    const resultData = {
+      status: hypotheses.length > 0 ? 'success' : 'warning',
+      failureContext: failureContext || '未提供失败上下文（基于页面状态自动推断）',
+      pageState: {
+        url: pageState.url,
+        title: pageState.title,
+        loadingState: pageState.loadingState,
+        loadTime: pageState.loadTime,
+        jsErrorCount: pageState.jsErrors.length,
+        httpErrorCount: pageState.httpErrors.length,
+        overlayCount: pageState.overlays.length,
+        hasBlockingOverlay: pageState.hasBlockingOverlay,
+        interactiveElements: pageState.interactiveElements
+      },
+      hypotheses: hypotheses.map(h => ({
+        factor: h.factor,
+        description: h.description,
+        counterfactual: h.counterfactual,
+        wouldStillFail: h.wouldStillFail,
+        confidence: Math.round(h.confidence * 100) / 100,
+        contextMatch: h.contextMatch || false,
+        impact: h.impact,
+        evidence: h.evidence,
+        verifyTool: h.verifyTool,
+        verifyAction: h.verifyAction
+      })),
+      rootCause: topHypothesis ? {
+        factor: topHypothesis.factor,
+        confidence: Math.round(topHypothesis.confidence * 100) / 100,
+        verifyTool: topHypothesis.verifyTool,
+        verifyAction: topHypothesis.verifyAction
+      } : null,
+      hasHighConfidenceRootCause,
+      nextSteps: hasHighConfidenceRootCause ? [
+        `调用 ${topHypothesis.verifyTool} 验证根因假设`,
+        `根据验证结果修复问题`,
+        '修复后重新运行失败的测试',
+        '调用 evidence_pack 打包问题定位证据'
+      ] : hypotheses.length > 0 ? [
+        '调用 browser_diagnose 进行深度诊断',
+        '调用 browser_screenshot 查看页面实际状态',
+        '调用 browser_errors 查看所有错误',
+        '调用 evidence_pack 打包诊断证据'
+      ] : [
+        '页面状态正常，失败可能是测试本身的问题',
+        '检查测试断言是否正确',
+        '调用 browser_assert 验证预期元素',
+        '调用 evidence_pack 打包证据'
+      ],
+      suggestions: hypotheses.slice(0, 3).map(h => ({
+        type: 'verify',
+        tool: h.verifyTool,
+        reason: `验证根因假设: ${h.factor}（置信度 ${Math.round(h.confidence * 100)}%）`
+      })),
+      paidUpgradeHint: '需要 AI 深度根因分析、自动修复建议、历史趋势对比？升级到 Pro 版本获取完整反事实推理引擎能力。'
+    };
+    
+    let response = `🔍 反事实根因分析\n\n`;
+    response += `📊 页面状态：${pageState.url}\n`;
+    response += `   加载: ${pageState.loadingState} (${pageState.loadTime}ms) | JS错误: ${pageState.jsErrors.length} | HTTP错误: ${pageState.httpErrors.length} | 遮挡物: ${pageState.overlays.length}\n\n`;
+    
+    if (hypotheses.length === 0) {
+      response += `✅ 未检测到明显根因\n`;
+      response += `   页面状态正常，失败可能是测试本身的问题\n\n`;
+    } else {
+      response += `🧠 根因假设（按置信度排序）：\n\n`;
+      hypotheses.forEach((h, i) => {
+        const confidenceEmoji = h.confidence >= 0.7 ? '🔴' : h.confidence >= 0.5 ? '🟡' : '🟢';
+        response += `${i + 1}. ${confidenceEmoji} ${h.factor}（置信度 ${Math.round(h.confidence * 100)}%）${h.contextMatch ? ' ⭐匹配失败上下文' : ''}\n`;
+        response += `   ${h.description}\n`;
+        response += `   反事实: ${h.counterfactual}\n`;
+        response += `   若消除该因素，测试${h.wouldStillFail === 'unlikely' ? '✅ 大概率通过' : h.wouldStillFail === 'maybe' ? '⚠️ 可能通过' : '❌ 仍可能失败'}\n`;
+        response += `   验证: 调用 ${h.verifyTool} → ${h.verifyAction}\n\n`;
+      });
+      
+      if (topHypothesis) {
+        response += `🎯 最可能根因：${topHypothesis.factor}\n`;
+        response += `   置信度: ${Math.round(topHypothesis.confidence * 100)}%\n`;
+        response += `   建议先调用 ${topHypothesis.verifyTool} 验证\n\n`;
+      }
+    }
+    
+    response += `🚀 下一步建议：\n`;
+    if (hasHighConfidenceRootCause) {
+      response += `   1. ${topHypothesis.verifyTool} → 验证根因假设\n`;
+      response += `   2. 根据验证结果修复问题\n`;
+      response += `   3. 重新运行失败的测试\n`;
+    } else if (hypotheses.length > 0) {
+      response += `   1. browser_diagnose → 深度诊断\n`;
+      response += `   2. browser_screenshot → 查看页面状态\n`;
+      response += `   3. browser_errors → 查看所有错误\n`;
+    } else {
+      response += `   1. 检查测试断言是否正确\n`;
+      response += `   2. browser_assert → 验证预期元素\n`;
+      response += `   3. evidence_pack → 打包证据\n`;
+    }
+    
+    if (args.format === 'html' && args.format !== 'json') {
+      const { buildCounterfactualHtml } = require('../core/report-html');
+      return text(buildCounterfactualHtml({
+        hypotheses: resultData.hypotheses,
+        pageState: resultData.pageState,
+        failureContext: resultData.failureContext,
+        url: resultData.pageState?.url || pageState.url,
+        timestamp: new Date().toISOString()
+      }));
+    }
+    return text(JSON.stringify(resultData, null, 2));
   }
 
   // ====== validation_suite_run ======
@@ -75,6 +915,52 @@ const { target } = await ensurePage(args);
   // ====== validation_compliance ======
   if (name === 'validation_compliance') {
     return text(JSON.stringify(runValidationCompliance(args), null, 2));
+  }
+
+  // ====== state_diff_assert ======
+  if (name === 'state_diff_assert') {
+    const { target } = await ensurePage(args);
+    return text(JSON.stringify(await runStateDiffAssert(target, args), null, 2));
+  }
+
+  // ====== chain_spec_run ======
+  if (name === 'chain_spec_run') {
+    const { target } = await ensurePage(args);
+    return text(JSON.stringify(await runChainSpecRun(target, args), null, 2));
+  }
+
+  // ====== trace_correlation_check ======
+  if (name === 'trace_correlation_check') {
+    return text(JSON.stringify(await runTraceCorrelationCheck(args), null, 2));
+  }
+
+  // ====== chain_list_templates ======
+  if (name === 'chain_list_templates') {
+    return text(JSON.stringify({
+      tool: 'chain_list_templates',
+      templates: Object.entries(BUILTIN_TEMPLATES).map(([key, tpl]) => ({
+        name: key,
+        description: tpl.description,
+        stepCount: (tpl.steps || []).length,
+        hasStateSources: Array.isArray(tpl.stateSources) && tpl.stateSources.length > 0,
+        targetUrl: tpl.targetUrl || null
+      }))
+    }, null, 2));
+  }
+
+  // ====== chain_score_report ======
+  if (name === 'chain_score_report') {
+    return text(JSON.stringify(runChainScoreReport(args), null, 2));
+  }
+
+  // ====== contract_guard ======
+  if (name === 'contract_guard') {
+    return text(JSON.stringify(await runContractGuard(args), null, 2));
+  }
+
+  // ====== contract_baseline ======
+  if (name === 'contract_baseline') {
+    return text(JSON.stringify(runContractBaseline(args), null, 2));
   }
 
   // ====== validation_report ======
@@ -370,7 +1256,7 @@ const { target } = await ensurePage(args);
   return text('validation_decision: 决策建议。该能力在闭源端完整实现，开源版本仅作为占位');
   }
 
-  return { isError: true, content: [{ type: 'text', text: `未知工具（validation）: ${name}` }] };
+  return mcpError(`未知工具（validation）: ${name}`, { error: 'UNKNOWN_TOOL', toolName: name });
   } finally {
     for (const k of _depsKeys) { deps[k] = globalThis[k]; }
     for (const k of _depsKeys) { if (k in _depsPrev) globalThis[k] = _depsPrev[k]; else delete globalThis[k]; }
@@ -998,6 +1884,897 @@ async function runValidationChain(target, args = {}) {
     duration: totalDuration,
     url: target.url()
   });
+}
+
+async function runChainSpecStep(target, step, index) {
+  const action = step.action || step.type;
+  const stepName = step.name || `${index + 1}-${action || 'step'}`;
+  const timeout = step.timeout || 10000;
+  const result = { stepIndex: index, stepName, action, passed: false, duration: 0 };
+  const startedAt = Date.now();
+
+  if (!action) throw new Error(`步骤 ${stepName} 缺少 type/action`);
+
+  switch (action) {
+    case 'navigate':
+    case 'goto': {
+      const url = step.url || step.value;
+      if (!url) throw new Error('navigate 步骤需要 url 参数');
+      await target.goto(url, { waitUntil: 'domcontentloaded', timeout });
+      if (step.waitForLoadState !== false) {
+        try { await target.waitForLoadState(step.loadState || 'networkidle', { timeout: Math.min(timeout, 8000) }); } catch (_) {}
+      }
+      break;
+    }
+    case 'reload':
+    case 'refresh': {
+      await target.reload({ waitUntil: 'domcontentloaded', timeout });
+      if (step.waitForLoadState !== false) {
+        try { await target.waitForLoadState(step.loadState || 'networkidle', { timeout: Math.min(timeout, 8000) }); } catch (_) {}
+      }
+      break;
+    }
+    case 'click': {
+      if (!step.selector) throw new Error('click 步骤需要 selector 参数');
+      await target.locator(step.selector).first().click({ timeout });
+      break;
+    }
+    case 'type':
+    case 'fill': {
+      if (!step.selector) throw new Error('type 步骤需要 selector 参数');
+      const value = step.value || '';
+      await target.locator(step.selector).first().fill(value, { timeout });
+      await target.evaluate(({ selector, value }) => {
+        const el = document.querySelector(selector);
+        if (!el) return;
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      }, { selector: step.selector, value });
+      break;
+    }
+    case 'press': {
+      if (!step.selector || !step.key) throw new Error('press 步骤需要 selector 和 key 参数');
+      await target.locator(step.selector).first().press(step.key, { timeout });
+      break;
+    }
+    case 'wait': {
+      if (step.selector) await target.locator(step.selector).first().waitFor({ timeout, state: step.state || 'visible' });
+      else await target.waitForTimeout(Number(step.value || step.ms || 1000));
+      break;
+    }
+    case 'eval': {
+      if (!step.expression) throw new Error('eval 步骤需要 expression 参数');
+      result.value = await target.evaluate(expression => {
+        const fn = new Function(`return (${expression})`);
+        return fn();
+      }, step.expression);
+      break;
+    }
+    case 'apiRequest':
+    case 'api': {
+      const requestUrl = step.url || step.path;
+      if (!requestUrl) throw new Error('apiRequest 步骤需要 url 或 path 参数');
+      const apiResult = await target.evaluate(async stepConfig => {
+        const requestUrl = stepConfig.url || new URL(stepConfig.path || '/', location.origin).toString();
+        const authRaw = (() => {
+          try { return localStorage.getItem('validpilot-auth'); } catch (_) { return null; }
+        })();
+        let token = null;
+        try { token = authRaw ? JSON.parse(authRaw)?.state?.accessToken : null; } catch (_) {}
+        const headers = Object.assign({ 'content-type': 'application/json' }, stepConfig.headers || {});
+        if (token && !headers.Authorization && !headers.authorization) headers.Authorization = `Bearer ${token}`;
+        const options = { method: stepConfig.method || 'GET', headers, credentials: 'include' };
+        if (stepConfig.body != null) options.body = typeof stepConfig.body === 'string' ? stepConfig.body : JSON.stringify(stepConfig.body);
+        const response = await fetch(requestUrl, options);
+        const text = await response.text();
+        let data = null;
+        try { data = text ? JSON.parse(text) : null; } catch (_) { data = text; }
+        return { status: response.status, ok: response.ok, url: response.url, data };
+      }, step);
+      result.api = apiResult;
+      result.validation = validateApiStepResult(apiResult, step);
+      if (!result.validation.passed) throw new Error('API 步骤断言失败');
+      break;
+    }
+    case 'assert':
+    case 'validate': {
+      if (step.selector) {
+        const locator = target.locator(step.selector).first();
+        if (step.visible !== false) await locator.waitFor({ timeout, state: step.state || 'visible' });
+        if (step.textContains !== undefined) {
+          const textValue = await locator.innerText({ timeout });
+          result.actual = textValue;
+          if (!String(textValue).includes(String(step.textContains))) throw new Error(`断言失败：${step.selector} 文本不包含 ${step.textContains}`);
+        }
+      } else if (step.expression) {
+        const value = await target.evaluate(expression => {
+          const fn = new Function(`return (${expression})`);
+          return fn();
+        }, step.expression);
+        result.actual = value;
+        if (value !== true) throw new Error(`断言失败：表达式返回 ${JSON.stringify(value)}`);
+      } else if (step.bodyContains !== undefined) {
+        const bodyText = await target.locator('body').innerText({ timeout }).catch(() => '');
+        result.actual = bodyText.slice(0, 500);
+        if (!bodyText.includes(String(step.bodyContains))) throw new Error(`断言失败：页面文本不包含 ${step.bodyContains}`);
+      } else {
+        throw new Error('assert/validate 步骤需要 selector、expression 或 bodyContains 参数');
+      }
+      break;
+    }
+    case 'stateCapture':
+    case 'captureState': {
+      result.snapshot = await captureStateSnapshot(target, {
+        label: step.label || stepName,
+        snapshotId: step.snapshotId,
+        sources: step.sources || []
+      });
+      break;
+    }
+    case 'stateCompare':
+    case 'compareState': {
+      result.stateDiff = await runStateDiffAssert(target, {
+        action: 'compare',
+        label: step.label || stepName,
+        compareTo: step.compareTo || step.beforeSnapshotId,
+        before: step.before,
+        sources: step.sources || [],
+        expectations: step.expectations || [],
+        evidence: false,
+        screenshot: false,
+        snapshot: false
+      });
+      if (!result.stateDiff.passed) throw new Error('状态对比断言失败');
+      break;
+    }
+    default:
+      throw new Error(`不支持的链路步骤类型：${action}`);
+  }
+
+  if (step.waitAfter) await target.waitForTimeout(Number(step.waitAfter));
+  result.duration = Date.now() - startedAt;
+  result.passed = true;
+  return result;
+}
+
+const BUILTIN_TEMPLATES = {
+  'marketplace-purchase': {
+    description: 'Marketplace 商品购买完整功能链路验证',
+    targetUrl: '/dashboard/marketplace',
+    stateSources: [
+      { name: 'balance', type: 'eval', expression: "JSON.parse(localStorage.getItem('validpilot-auth')||'{}')?.state?.creditsBalance || 0" },
+      { name: 'hasOwned', type: 'eval', expression: "document.body.innerText.includes('已拥有')" }
+    ],
+    steps: [
+      { type: 'assert', name: 'marketplace-loaded', expression: "document.body.innerText.includes('Marketplace')" },
+      { type: 'apiRequest', name: 'purchases-before', path: '/api/marketplace/purchases?page=1&limit=100', method: 'GET', expectedStatus: 200 },
+      { type: 'eval', name: 'click-purchase', expression: "(() => { const buttons = document.querySelectorAll('button'); for (const btn of buttons) { if ((btn.textContent || '').trim() === '购买') { btn.click(); return 'clicked'; } } return 'no-purchase-button'; })()" },
+      { type: 'wait', name: 'wait-purchase-complete', ms: 3000 },
+      { type: 'assert', name: 'purchase-success', expression: "document.body.innerText.includes('购买成功') || document.body.innerText.includes('已拥有')" },
+      { type: 'apiRequest', name: 'purchases-after', path: '/api/marketplace/purchases?page=1&limit=100', method: 'GET', expectedStatus: 200, expectations: [{ name: 'purchases', path: 'items', operator: 'exists' }] },
+      { type: 'reload', name: 'reload-marketplace' },
+      { type: 'wait', name: 'wait-after-reload', ms: 2000 },
+      { type: 'assert', name: 'owned-persists', expression: "document.body.innerText.includes('已拥有')" }
+    ],
+    expectations: [
+      { name: 'balance', operator: 'decreased' },
+      { name: 'hasOwned', operator: 'equals', value: true }
+    ]
+  },
+  'login-basic': {
+    description: '登录页基础可用性验证',
+    targetUrl: '/login',
+    steps: [
+      { type: 'assert', name: 'login-form-visible', expression: "document.querySelector('form') !== null" },
+      { type: 'assert', name: 'email-input-exists', expression: "document.querySelector('input[type=\"email\"]') !== null" },
+      { type: 'assert', name: 'password-input-exists', expression: "document.querySelector('input[type=\"password\"]') !== null" },
+      { type: 'assert', name: 'submit-button-exists', expression: "document.querySelector('button[type=\"submit\"]') !== null" }
+    ]
+  },
+  'credits-balance': {
+    description: '点数中心余额与交易记录验证',
+    targetUrl: '/dashboard/credits',
+    stateSources: [
+      { name: 'balance', type: 'eval', expression: "JSON.parse(localStorage.getItem('validpilot-auth')||'{}')?.state?.creditsBalance || 0" }
+    ],
+    steps: [
+      { type: 'assert', name: 'credits-page-loaded', expression: "document.body.innerText.includes('点数') || document.body.innerText.includes('Credits')" },
+      { type: 'apiRequest', name: 'balance-api', path: '/api/credits/balance', method: 'GET', expectedStatus: 200, expectations: [{ name: 'balanceExists', path: 'balance', operator: 'exists' }] }
+    ],
+    expectations: [
+      { name: 'balance', operator: 'exists' }
+    ]
+  },
+  'shopping-cart': {
+    description: '购物车添加/查看/删除完整流程验证',
+    targetUrl: '/dashboard/marketplace',
+    stateSources: [
+      { name: 'cartCount', type: 'eval', expression: "parseInt(localStorage.getItem('cart-count')||'0')" }
+    ],
+    steps: [
+      { type: 'assert', name: 'marketplace-loaded', expression: "document.body.innerText.includes('Marketplace')" },
+      { type: 'eval', name: 'click-add-to-cart', expression: "(() => { const buttons = document.querySelectorAll('button'); for (const btn of buttons) { if ((btn.textContent || '').includes('加入购物车') || (btn.textContent || '').includes('Add to Cart')) { btn.click(); return 'added'; } } return 'no-cart-button'; })()" },
+      { type: 'wait', name: 'wait-cart-update', ms: 1500 },
+      { type: 'navigate', name: 'goto-cart', url: '/dashboard/cart' },
+      { type: 'wait', name: 'wait-cart-page', ms: 2000 },
+      { type: 'assert', name: 'cart-page-loaded', expression: "document.body.innerText.includes('购物车') || document.body.innerText.includes('Cart')" },
+      { type: 'assert', name: 'cart-has-items', expression: "document.querySelectorAll('.cart-item, [data-testid=\"cart-item\"]').length > 0" },
+      { type: 'apiRequest', name: 'cart-api', path: '/api/cart/items', method: 'GET', expectedStatus: 200, expectations: [{ name: 'itemsExists', path: 'items', operator: 'exists' }] },
+      { type: 'eval', name: 'click-remove', expression: "(() => { const btn = document.querySelector('.remove-item, [data-testid=\"remove-item\"]'); if (btn) { btn.click(); return 'removed'; } return 'no-remove-button'; })()" },
+      { type: 'wait', name: 'wait-remove-complete', ms: 1500 },
+      { type: 'reload', name: 'reload-cart' },
+      { type: 'wait', name: 'wait-after-reload', ms: 1500 },
+      { type: 'assert', name: 'cart-updated', expression: "true" }
+    ],
+    expectations: [
+      { name: 'cartCount', operator: 'exists' }
+    ]
+  },
+  'register-flow': {
+    description: '用户注册完整流程验证（含表单校验）',
+    targetUrl: '/register',
+    steps: [
+      { type: 'assert', name: 'register-form-visible', expression: "document.querySelector('form') !== null" },
+      { type: 'assert', name: 'username-input-exists', expression: "document.querySelector('input[name=\"username\"], input[type=\"text\"]') !== null" },
+      { type: 'assert', name: 'email-input-exists', expression: "document.querySelector('input[type=\"email\"]') !== null" },
+      { type: 'assert', name: 'password-input-exists', expression: "document.querySelector('input[type=\"password\"]') !== null" },
+      { type: 'assert', name: 'submit-button-exists', expression: "document.querySelector('button[type=\"submit\"]') !== null" },
+      { type: 'fill', name: 'fill-username', selector: 'input[name=\"username\"], input[type=\"text\"]', value: 'testuser_e2e' },
+      { type: 'fill', name: 'fill-email', selector: 'input[type=\"email\"]', value: 'testuser_e2e@test.com' },
+      { type: 'fill', name: 'fill-password', selector: 'input[type=\"password\"]', value: 'Test@12345' },
+      { type: 'click', name: 'submit-register', selector: 'button[type=\"submit\"]' },
+      { type: 'wait', name: 'wait-register-response', ms: 3000 },
+      { type: 'assert', name: 'register-success', expression: "document.body.innerText.includes('注册成功') || document.body.innerText.includes('Register') && document.body.innerText.includes('success') || !document.querySelector('form')" }
+    ]
+  },
+  'checkout-payment': {
+    description: '结账支付流程验证（订单创建 + 支付确认）',
+    targetUrl: '/dashboard/cart',
+    stateSources: [
+      { name: 'orderCount', type: 'eval', expression: "parseInt(localStorage.getItem('order-count')||'0')" }
+    ],
+    steps: [
+      { type: 'assert', name: 'cart-loaded', expression: "document.body.innerText.includes('购物车') || document.body.innerText.includes('Cart')" },
+      { type: 'assert', name: 'cart-has-items', expression: "document.querySelectorAll('.cart-item, [data-testid=\"cart-item\"]').length > 0" },
+      { type: 'eval', name: 'click-checkout', expression: "(() => { const buttons = document.querySelectorAll('button'); for (const btn of buttons) { if ((btn.textContent || '').includes('结账') || (btn.textContent || '').includes('Checkout')) { btn.click(); return 'clicked'; } } return 'no-checkout-button'; })()" },
+      { type: 'wait', name: 'wait-checkout-page', ms: 2000 },
+      { type: 'assert', name: 'checkout-page-loaded', expression: "document.body.innerText.includes('支付') || document.body.innerText.includes('Payment') || document.body.innerText.includes('结账')" },
+      { type: 'apiRequest', name: 'create-order', path: '/api/orders', method: 'POST', body: { source: 'cart' }, expectedStatus: [200, 201] },
+      { type: 'eval', name: 'click-confirm-pay', expression: "(() => { const buttons = document.querySelectorAll('button'); for (const btn of buttons) { if ((btn.textContent || '').includes('确认支付') || (btn.textContent || '').includes('Confirm')) { btn.click(); return 'clicked'; } } return 'no-confirm-button'; })()" },
+      { type: 'wait', name: 'wait-payment-complete', ms: 3000 },
+      { type: 'assert', name: 'payment-success', expression: "document.body.innerText.includes('支付成功') || document.body.innerText.includes('success') || document.body.innerText.includes('订单已生成')" },
+      { type: 'apiRequest', name: 'orders-list', path: '/api/orders?page=1&limit=10', method: 'GET', expectedStatus: 200, expectations: [{ name: 'ordersExists', path: 'items', operator: 'exists' }] }
+    ],
+    expectations: [
+      { name: 'orderCount', operator: 'exists' }
+    ]
+  }
+};
+
+function loadChainTemplate(templateName, args = {}) {
+  if (!templateName) return null;
+  const template = BUILTIN_TEMPLATES[templateName];
+  if (!template) return null;
+  const merged = Object.assign({}, template, args);
+  if (args.overrides && typeof args.overrides === 'object') {
+    for (const [key, value] of Object.entries(args.overrides)) {
+      merged[key] = value;
+    }
+  }
+  return merged;
+}
+
+async function runChainSpecRun(target, args = {}) {
+  let resolvedArgs = args;
+  if (args.template) {
+    const template = loadChainTemplate(args.template, args);
+    if (template) resolvedArgs = template;
+  }
+
+  const runId = resolvedArgs.runId || resolvedArgs.name || `chain-${Date.now()}`;
+  const steps = Array.isArray(resolvedArgs.steps) ? resolvedArgs.steps : [];
+  const stateSources = Array.isArray(resolvedArgs.stateSources) ? resolvedArgs.stateSources : [];
+  const expectations = Array.isArray(resolvedArgs.expectations) ? resolvedArgs.expectations : [];
+  const failFast = resolvedArgs.failFast !== false;
+  const captureEvidence = resolvedArgs.evidence === true;
+  const startTime = Date.now();
+  const startedAt = new Date().toISOString();
+  const stepResults = [];
+  const failures = [];
+  let before = resolvedArgs.before || null;
+  let after = null;
+  const targetUrl = resolvedArgs.targetUrl;
+
+  resetRuntimeLogs();
+
+  if (targetUrl) {
+    await target.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: resolvedArgs.timeout || 30000 });
+    try { await target.waitForLoadState('networkidle', { timeout: 8000 }); } catch (_) {}
+  }
+
+  if (stateSources.length > 0 && resolvedArgs.captureBefore !== false) {
+    before = await captureStateSnapshot(target, {
+      label: `${runId}-before`,
+      snapshotId: resolvedArgs.beforeSnapshotId || `${runId}-before`,
+      sources: stateSources
+    });
+  }
+
+  for (let index = 0; index < steps.length; index += 1) {
+    const step = steps[index];
+    const stepCheckpoint = new Date().toISOString();
+    let stepResult;
+    try {
+      stepResult = await runChainSpecStep(target, step, index);
+      await target.waitForTimeout(Number(step.settleMs || resolvedArgs.settleMs || 300));
+    } catch (error) {
+      stepResult = {
+        stepIndex: index,
+        stepName: step.name || `${index + 1}-${step.type || step.action || 'step'}`,
+        action: step.type || step.action,
+        passed: false,
+        duration: 0,
+        error: error.message
+      };
+    }
+
+    const stepConsoleErrors = filterBySince(consoleLogs, stepCheckpoint).filter(item => item.type === 'error');
+    const stepPageErrors = filterBySince(pageErrors, stepCheckpoint);
+    const stepNetworkRequests = filterNetwork(networkLogs, Object.assign({}, resolvedArgs.networkFilter || {}, { since: stepCheckpoint }));
+    const stepNetworkErrors = stepNetworkRequests.filter(item => item.failed || item.status >= 400);
+
+    stepResult.consoleErrors = stepConsoleErrors.map(e => redact(e));
+    stepResult.pageErrors = stepPageErrors.map(e => redact(e));
+    stepResult.networkErrors = stepNetworkErrors.map(e => redact(stripNetworkDetails(e)));
+    stepResult.networkRequests = stepNetworkRequests.map(e => redact(stripNetworkDetails(e)));
+
+    if (stepResult.passed && (stepConsoleErrors.length > 0 || stepPageErrors.length > 0 || stepNetworkErrors.length > 0) && resolvedArgs.failOnRuntimeError !== false) {
+      stepResult.passed = false;
+      stepResult.error = `步骤执行后发现运行时错误：console=${stepConsoleErrors.length}, pageError=${stepPageErrors.length}, network=${stepNetworkErrors.length}`;
+    }
+
+    if (!stepResult.passed) {
+      if (resolvedArgs.evidenceOnFail !== false) {
+        stepResult.evidence = await captureStepEvidence(target, `${runId}-${stepResult.stepName}-failed`, { screenshot: true, snapshot: true }).catch(error => ({ error: error.message }));
+      }
+      failures.push({
+        stepIndex: stepResult.stepIndex,
+        stepName: stepResult.stepName,
+        action: stepResult.action,
+        error: stepResult.error,
+        consoleErrors: stepResult.consoleErrors,
+        pageErrors: stepResult.pageErrors,
+        networkErrors: stepResult.networkErrors
+      });
+      stepResults.push(redact(stepResult));
+      if (failFast) break;
+      continue;
+    }
+
+    if (captureEvidence || step.evidence === true) {
+      stepResult.evidence = await captureStepEvidence(target, `${runId}-${stepResult.stepName}`, {
+        screenshot: resolvedArgs.screenshot !== false,
+        snapshot: resolvedArgs.snapshot !== false
+      }).catch(error => ({ error: error.message }));
+    }
+
+    stepResults.push(redact(stepResult));
+  }
+
+  let stateDiff = null;
+  if (stateSources.length > 0 && before) {
+    after = await captureStateSnapshot(target, {
+      label: `${runId}-after`,
+      snapshotId: resolvedArgs.afterSnapshotId || `${runId}-after`,
+      sources: stateSources
+    });
+    stateDiff = compareStateSnapshots(before, after, expectations);
+    if (!stateDiff.passed) {
+      failures.push({
+        stepIndex: null,
+        stepName: 'state_diff',
+        action: 'stateCompare',
+        error: '链路最终状态断言失败',
+        stateDiff
+      });
+    }
+  }
+
+  const chainNetworkRequests = filterNetwork(networkLogs, Object.assign({}, resolvedArgs.networkFilter || {}, { since: startedAt }))
+    .map(e => redact(stripNetworkDetails(e)));
+  const runtimeErrors = getUnifiedErrors({ currentOnly: true, includeWarnings: resolvedArgs.includeWarnings === true });
+  const finalEvidence = resolvedArgs.finalEvidence === true
+    ? await captureStepEvidence(target, `${runId}-final`, { screenshot: resolvedArgs.screenshot !== false, snapshot: resolvedArgs.snapshot !== false }).catch(error => ({ error: error.message }))
+    : null;
+
+  return redact({
+    tool: 'chain_spec_run',
+    runId,
+    passed: failures.length === 0,
+    totalSteps: steps.length,
+    passedSteps: stepResults.filter(step => step.passed).length,
+    failedSteps: stepResults.filter(step => !step.passed).length,
+    duration: Date.now() - startTime,
+    url: target.url(),
+    before,
+    after,
+    stateDiff,
+    steps: stepResults,
+    failures,
+    runtimeErrors,
+    networkRequests: chainNetworkRequests,
+    evidence: finalEvidence
+  });
+}
+
+async function runTraceCorrelationCheck(args = {}) {
+  const since = args.since || currentCheckpoint;
+  const urlContains = args.urlContains;
+  const backendLogPath = args.backendLogPath;
+  const useSshBackend = args.useSshBackend === true;
+
+  const filteredNetwork = filterNetwork(networkLogs, { since, urlContains });
+
+  const tracedRequests = [];
+  const untracedRequests = [];
+  const traceIdMap = new Map();
+
+  for (const entry of filteredNetwork) {
+    let traceId = entry.traceId;
+    if (!traceId && typeof findTraceId === 'function') {
+      traceId = findTraceId(entry.requestHeaders)?.traceId || findTraceId(entry.responseHeaders)?.traceId;
+    }
+    const reqSummary = { url: entry.url, status: entry.status, method: entry.method, timestamp: entry.timestamp };
+    if (traceId) {
+      tracedRequests.push(Object.assign({ traceId }, reqSummary));
+      if (!traceIdMap.has(traceId)) traceIdMap.set(traceId, []);
+      traceIdMap.get(traceId).push(entry.url);
+    } else {
+      untracedRequests.push(reqSummary);
+    }
+  }
+
+  let backendMatches = [];
+  let backendChecked = false;
+
+  if (backendLogPath) {
+    backendChecked = true;
+    const resolved = path.resolve(backendLogPath);
+    if (fs.existsSync(resolved)) {
+      const backendLogContent = fs.readFileSync(resolved, 'utf8');
+      for (const [traceId, urls] of traceIdMap) {
+        backendMatches.push({ traceId, found: backendLogContent.includes(traceId), requestCount: urls.length });
+      }
+    } else {
+      backendMatches.push({ error: `后端日志文件不存在：${resolved}` });
+    }
+  } else if (useSshBackend && typeof fetchBackendLogs === 'function') {
+    backendChecked = true;
+    for (const [traceId, urls] of traceIdMap) {
+      try {
+        const result = await fetchBackendLogs({ traceId, lines: 5 });
+        const found = result.logs && result.logs.length > 0;
+        backendMatches.push({ traceId, found, requestCount: urls.length, services: result.logs?.map(l => l.service) || [] });
+      } catch (e) {
+        backendMatches.push({ traceId, found: false, requestCount: urls.length, error: e.message });
+      }
+    }
+  }
+
+  const totalRequests = tracedRequests.length + untracedRequests.length;
+  const traceCoverage = totalRequests > 0 ? tracedRequests.length / totalRequests : 0;
+  const backendMatched = backendMatches.filter(m => m.found).length;
+  const backendCorrelation = backendMatches.length > 0 ? backendMatched / backendMatches.length : null;
+
+  return {
+    tool: 'trace_correlation_check',
+    since,
+    totalRequests,
+    tracedRequests: tracedRequests.length,
+    untracedRequests: untracedRequests.length,
+    uniqueTraceIds: traceIdMap.size,
+    traceCoverage: Math.round(traceCoverage * 100) + '%',
+    backendChecked,
+    backendMatched,
+    backendCorrelation: backendCorrelation !== null ? Math.round(backendCorrelation * 100) + '%' : null,
+    traceIds: Array.from(traceIdMap.entries()).map(([traceId, urls]) => ({
+      traceId,
+      requestCount: urls.length,
+      sampleUrls: urls.slice(0, 3),
+      backendMatched: backendMatches.find(m => m.traceId === traceId)?.found ?? null
+    })),
+    untracedSample: untracedRequests.slice(0, 10),
+    score: {
+      traceCoverage: Math.round(traceCoverage * 100),
+      backendCorrelation: backendCorrelation !== null ? Math.round(backendCorrelation * 100) : 0,
+      overall: backendCorrelation !== null
+        ? Math.round((traceCoverage * 50 + backendCorrelation * 50))
+        : Math.round(traceCoverage * 100)
+    }
+  };
+}
+
+function runChainScoreReport(args = {}) {
+  const chainResult = args.chainResult || args.result || args;
+
+  const totalSteps = chainResult.totalSteps || 0;
+  const passedSteps = chainResult.passedSteps || 0;
+  const failedSteps = chainResult.failedSteps || 0;
+  const steps = Array.isArray(chainResult.steps) ? chainResult.steps : [];
+  const failures = Array.isArray(chainResult.failures) ? chainResult.failures : [];
+  const runtimeErrors = chainResult.runtimeErrors || {};
+  const stateDiff = chainResult.stateDiff || {};
+  const networkRequests = Array.isArray(chainResult.networkRequests) ? chainResult.networkRequests : [];
+
+  const functionalScore = totalSteps > 0 ? Math.round((passedSteps / totalSteps) * 100) : 0;
+
+  const apiSteps = steps.filter(s => s.action === 'apiRequest' || s.action === 'api');
+  const apiSuccess = apiSteps.filter(s => s.passed).length;
+  const networkSuccess = networkRequests.filter(r => r.status && r.status < 400).length;
+  const networkTotal = networkRequests.length;
+  const technicalScore = networkTotal > 0
+    ? Math.round((networkSuccess / networkTotal) * 100)
+    : (apiSteps.length > 0 ? Math.round((apiSuccess / apiSteps.length) * 100) : 100);
+
+  const stateChecks = stateDiff.checks || [];
+  const statePassed = stateChecks.filter(c => c.passed).length;
+  const consistencyScore = stateChecks.length > 0 ? Math.round((statePassed / stateChecks.length) * 100) : 100;
+
+  const contractChecks = [];
+  for (const step of apiSteps) {
+    if (step.validation && Array.isArray(step.validation.checks)) {
+      contractChecks.push(...step.validation.checks);
+    }
+  }
+  const contractPassed = contractChecks.filter(c => c.passed).length;
+  const contractScore = contractChecks.length > 0 ? Math.round((contractPassed / contractChecks.length) * 100) : 100;
+
+  const errorSummary = runtimeErrors.summary || {};
+  const observabilityScore = Math.max(0, 100
+    - (errorSummary.severity?.critical || 0) * 25
+    - (errorSummary.severity?.high || 0) * 10
+    - (errorSummary.severity?.medium || 0) * 5
+  );
+
+  const overall = Math.round(
+    functionalScore * 0.30 +
+    technicalScore * 0.25 +
+    consistencyScore * 0.20 +
+    contractScore * 0.15 +
+    observabilityScore * 0.10
+  );
+
+  return {
+    tool: 'chain_score_report',
+    runId: chainResult.runId || args.runId || null,
+    scores: {
+      functional: { score: functionalScore, passedSteps, totalSteps, failedSteps },
+      technical: { score: technicalScore, networkSuccess, networkTotal, apiSteps: apiSteps.length, apiSuccess },
+      consistency: { score: consistencyScore, stateChecks: stateChecks.length, statePassed },
+      contract: { score: contractScore, contractChecks: contractChecks.length, contractPassed },
+      observability: { score: observabilityScore, totalErrors: errorSummary.total || 0, severity: errorSummary.severity || {} }
+    },
+    overall,
+    grade: overall >= 90 ? 'A' : overall >= 80 ? 'B' : overall >= 70 ? 'C' : overall >= 60 ? 'D' : 'F',
+    summary: {
+      passed: failures.length === 0,
+      totalSteps,
+      passedSteps,
+      failedSteps,
+      duration: chainResult.duration || 0,
+      url: chainResult.url || null
+    }
+  };
+}
+
+function inferType(value) {
+  if (value === null) return 'null';
+  if (Array.isArray(value)) return 'array';
+  return typeof value;
+}
+
+function extractSchema(value, depth = 0, maxDepth = 4) {
+  const type = inferType(value);
+  const schema = { type };
+
+  if (type === 'object' && value !== null && depth < maxDepth) {
+    schema.properties = {};
+    schema.required = [];
+    for (const [key, val] of Object.entries(value)) {
+      schema.properties[key] = extractSchema(val, depth + 1, maxDepth);
+      if (val !== null && val !== undefined) schema.required.push(key);
+    }
+  } else if (type === 'array' && depth < maxDepth && value.length > 0) {
+    schema.items = extractSchema(value[0], depth + 1, maxDepth);
+    schema.minItems = value.length;
+  }
+
+  return schema;
+}
+
+async function discoverEndpoints(target, urlContains) {
+  const endpoints = [];
+  const seenPaths = new Set();
+  const since = currentCheckpoint;
+  const networkEntries = filterNetwork(networkLogs, { since, urlContains });
+  for (const entry of networkEntries) {
+    if (!entry.url || !entry.status || entry.status >= 500) continue;
+    try {
+      const urlObj = new URL(entry.url);
+      const pathname = urlObj.pathname;
+      if (!pathname.startsWith('/api/') && !pathname.startsWith('/v1/') && !pathname.startsWith('/v2/')) continue;
+      const pathKey = `${entry.method || 'GET'}:${pathname}`;
+      if (seenPaths.has(pathKey)) continue;
+      seenPaths.add(pathKey);
+      endpoints.push({ path: pathname, method: entry.method || 'GET' });
+    } catch (_) {}
+  }
+  return endpoints;
+}
+
+async function runContractGuard(args = {}) {
+  const { target } = args.target ? { target: args.target } : await ensurePage(args);
+  let endpoints = Array.isArray(args.endpoints) ? args.endpoints : [];
+  const fromNetwork = args.fromNetwork !== false;
+  const urlContains = args.urlContains;
+  const autoDiscover = args.autoDiscover === true;
+
+  const contracts = [];
+
+  if (autoDiscover && endpoints.length === 0) {
+    const discoveredEndpoints = await discoverEndpoints(target, urlContains);
+    endpoints = discoveredEndpoints;
+  }
+
+  if (endpoints.length > 0) {
+    for (const endpoint of endpoints) {
+      try {
+        const apiResult = await target.evaluate(async ep => {
+          const requestUrl = ep.url || new URL(ep.path || '/', location.origin).toString();
+          const authRaw = (() => { try { return localStorage.getItem('validpilot-auth'); } catch (_) { return null; } })();
+          let token = null;
+          try { token = authRaw ? JSON.parse(authRaw)?.state?.accessToken : null; } catch (_) {}
+          const headers = Object.assign({ 'content-type': 'application/json' }, ep.headers || {});
+          if (token && !headers.Authorization && !headers.authorization) headers.Authorization = 'Bearer ' + token;
+          const options = { method: ep.method || 'GET', headers, credentials: 'include' };
+          if (ep.body != null) options.body = typeof ep.body === 'string' ? ep.body : JSON.stringify(ep.body);
+          const response = await fetch(requestUrl, options);
+          const text = await response.text();
+          let data = null;
+          try { data = text ? JSON.parse(text) : null; } catch (_) { data = text; }
+          return { status: response.status, ok: response.ok, url: response.url, data, contentType: response.headers.get('content-type') };
+        }, endpoint);
+
+        const schema = apiResult.data && typeof apiResult.data === 'object' ? extractSchema(apiResult.data) : null;
+        contracts.push({
+          endpoint: endpoint.path || endpoint.url || apiResult.url,
+          method: endpoint.method || 'GET',
+          status: apiResult.status,
+          contentType: apiResult.contentType,
+          schema,
+          sampleSize: Array.isArray(apiResult.data?.items) ? apiResult.data.items.length : undefined,
+          generatedAt: new Date().toISOString(),
+          source: 'direct-fetch'
+        });
+      } catch (error) {
+        contracts.push({ endpoint: endpoint.path || endpoint.url, error: error.message, source: 'direct-fetch' });
+      }
+    }
+  }
+
+  if (fromNetwork) {
+    const since = args.since || currentCheckpoint;
+    const networkEntries = filterNetwork(networkLogs, { since, urlContains })
+      .filter(item => item.status && item.status < 500 && !item.failed);
+
+    const seenEndpoints = new Set();
+    for (const entry of networkEntries) {
+      const urlObj = new URL(entry.url);
+      const pathKey = `${entry.method || 'GET'}:${urlObj.pathname}`;
+      if (seenEndpoints.has(pathKey)) continue;
+      seenEndpoints.add(pathKey);
+
+      const responseBody = entry.responseBody;
+      if (!responseBody || typeof responseBody !== 'string' || !responseBody.trim().startsWith('{')) continue;
+
+      try {
+        const data = JSON.parse(responseBody);
+        const schema = extractSchema(data);
+        contracts.push({
+          endpoint: urlObj.pathname,
+          method: entry.method || 'GET',
+          status: entry.status,
+          schema,
+          sampleSize: Array.isArray(data?.items) ? data.items.length : undefined,
+          generatedAt: new Date().toISOString(),
+          source: 'network-capture'
+        });
+      } catch (_) {}
+    }
+  }
+
+  const validContracts = contracts.filter(c => c.schema);
+  const errors = contracts.filter(c => c.error);
+
+  let driftResults = null;
+  if (args.compareBaseline === true || args.baseline === true) {
+    driftResults = compareContractsWithBaseline(validContracts, args.baselineName || 'default');
+  }
+  if (args.saveBaseline === true) {
+    saveContractBaseline(validContracts, args.baselineName || 'default');
+  }
+
+  return {
+    tool: 'contract_guard',
+    totalContracts: validContracts.length,
+    errorCount: errors.length,
+    contracts: validContracts,
+    errors,
+    drift: driftResults,
+    baselineSaved: args.saveBaseline === true,
+    autoDiscovered: autoDiscover ? endpoints.length : 0,
+    summary: {
+      endpointsCovered: validContracts.length,
+      typesObserved: [...new Set(validContracts.map(c => c.method))].sort(),
+      driftDetected: driftResults ? driftResults.hasDrift : false,
+      generatedAt: new Date().toISOString()
+    }
+  };
+}
+
+function getContractBaselineDir() {
+  const dir = path.join(__dirname, '..', 'contracts');
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
+function getContractBaselinePath(baselineName) {
+  const safe = String(baselineName || 'default').replace(/[^a-zA-Z0-9_-]/g, '_');
+  return path.join(getContractBaselineDir(), `baseline-${safe}.json`);
+}
+
+function saveContractBaseline(contracts, baselineName = 'default') {
+  const baseline = {
+    name: baselineName,
+    savedAt: new Date().toISOString(),
+    contracts: contracts.map(c => ({
+      endpoint: c.endpoint,
+      method: c.method,
+      status: c.status,
+      schema: c.schema
+    }))
+  };
+  const filePath = getContractBaselinePath(baselineName);
+  fs.writeFileSync(filePath, JSON.stringify(baseline, null, 2), 'utf8');
+  return { saved: true, filePath, contractCount: contracts.length };
+}
+
+function loadContractBaseline(baselineName = 'default') {
+  const filePath = getContractBaselinePath(baselineName);
+  if (!fs.existsSync(filePath)) return null;
+  try {
+    return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  } catch (_) {
+    return null;
+  }
+}
+
+function listContractBaselines() {
+  const dir = getContractBaselineDir();
+  const files = fs.readdirSync(dir).filter(f => f.startsWith('baseline-') && f.endsWith('.json'));
+  return files.map(f => {
+    const name = f.replace(/^baseline-/, '').replace(/\.json$/, '');
+    try {
+      const content = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'));
+      return { name, savedAt: content.savedAt, contractCount: content.contracts ? content.contracts.length : 0 };
+    } catch (_) {
+      return { name, savedAt: null, contractCount: 0 };
+    }
+  });
+}
+
+function compareSchemas(current, baseline) {
+  const drifts = [];
+  if (!current || !baseline) {
+    if (current || baseline) drifts.push({ type: 'schema_missing', current: !!current, baseline: !!baseline });
+    return drifts;
+  }
+  if (current.type !== baseline.type) {
+    drifts.push({ type: 'type_changed', path: '', current: current.type, baseline: baseline.type });
+    return drifts;
+  }
+  const currentProps = current.properties || {};
+  const baselineProps = baseline.properties || {};
+  const allKeys = new Set([...Object.keys(currentProps), ...Object.keys(baselineProps)]);
+  for (const key of allKeys) {
+    if (!(key in baselineProps)) drifts.push({ type: 'field_added', path: key });
+    else if (!(key in currentProps)) drifts.push({ type: 'field_removed', path: key });
+    else {
+      const currentRequired = (current.required || []).includes(key);
+      const baselineRequired = (baseline.required || []).includes(key);
+      if (currentRequired !== baselineRequired) {
+        drifts.push({ type: 'required_changed', path: key, current: currentRequired, baseline: baselineRequired });
+      }
+      if (JSON.stringify(currentProps[key]) !== JSON.stringify(baselineProps[key])) {
+        const nestedDrifts = compareSchemas(currentProps[key], baselineProps[key]);
+        for (const d of nestedDrifts) {
+          drifts.push({ type: d.type, path: key + (d.path ? '.' + d.path : ''), current: d.current, baseline: d.baseline });
+        }
+      }
+    }
+  }
+  if (current.items && baseline.items) {
+    const itemDrifts = compareSchemas(current.items, baseline.items);
+    for (const d of itemDrifts) {
+      drifts.push({ type: d.type, path: '[items]' + (d.path ? '.' + d.path : ''), current: d.current, baseline: d.baseline });
+    }
+  } else if (current.items && !baseline.items) {
+    drifts.push({ type: 'items_added', path: '[items]' });
+  } else if (!current.items && baseline.items) {
+    drifts.push({ type: 'items_removed', path: '[items]' });
+  }
+  return drifts;
+}
+
+function compareContractsWithBaseline(contracts, baselineName = 'default') {
+  const baseline = loadContractBaseline(baselineName);
+  if (!baseline) {
+    return { hasDrift: false, driftCount: 0, drifts: [], message: `Baseline '${baselineName}' 不存在，请先 saveBaseline` };
+  }
+  const baselineMap = new Map();
+  for (const c of baseline.contracts) baselineMap.set(`${c.method}:${c.endpoint}`, c);
+  const currentMap = new Map();
+  for (const c of contracts) currentMap.set(`${c.method}:${c.endpoint}`, c);
+
+  const drifts = [];
+  for (const [key, current] of currentMap.entries()) {
+    const base = baselineMap.get(key);
+    if (!base) {
+      drifts.push({ endpoint: current.endpoint, method: current.method, type: 'endpoint_added', message: '新增端点（基线中不存在）' });
+      continue;
+    }
+    const schemaDrifts = compareSchemas(current.schema, base.schema);
+    for (const d of schemaDrifts) {
+      drifts.push({ endpoint: current.endpoint, method: current.method, ...d });
+    }
+  }
+  for (const [key, base] of baselineMap.entries()) {
+    if (!currentMap.has(key)) {
+      drifts.push({ endpoint: base.endpoint, method: base.method, type: 'endpoint_removed', message: '端点已移除（当前不存在）' });
+    }
+  }
+  return {
+    hasDrift: drifts.length > 0,
+    driftCount: drifts.length,
+    drifts,
+    baselineName,
+    baselineSavedAt: baseline.savedAt
+  };
+}
+
+function runContractBaseline(args = {}) {
+  const action = args.action || 'list';
+  if (action === 'list') {
+    return { tool: 'contract_baseline', action, baselines: listContractBaselines() };
+  }
+  if (action === 'save') {
+    return { tool: 'contract_baseline', action, result: saveContractBaseline(args.contracts || [], args.name || 'default') };
+  }
+  if (action === 'load') {
+    return { tool: 'contract_baseline', action, baseline: loadContractBaseline(args.name || 'default') };
+  }
+  if (action === 'compare') {
+    return { tool: 'contract_baseline', action, result: compareContractsWithBaseline(args.contracts || [], args.name || 'default') };
+  }
+  if (action === 'delete') {
+    const filePath = getContractBaselinePath(args.name || 'default');
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+      return { tool: 'contract_baseline', action, deleted: true, name: args.name };
+    }
+    return { tool: 'contract_baseline', action, deleted: false, message: 'Baseline 不存在' };
+  }
+  return { tool: 'contract_baseline', error: '未知 action: ' + action };
 }
 
 function runValidationCompliance(args = {}) {

@@ -1,14 +1,14 @@
 # 工具总览
 
-AI-Verify MCP 提供 **83 个工具**，按功能分为 8 大类。
+AI-Verify MCP 提供 **84 个工具**，按功能分为 8 大类。
 
 ## 工具分类
 
 | 类别 | 数量 | 说明 |
 |------|------|------|
-| [浏览器操作](./browser) | 25 | 页面导航、元素操作、截图等 |
+| [浏览器操作](./browser) | 29 | 页面导航、元素操作、截图、遮挡检测等 |
 | 诊断与调试 | 17 | 错误捕获、网络分析、性能检查 |
-| 验证框架 | 14 | 断言、流程验证、报告生成 |
+| 验证框架 | 16 | 断言、流程验证、报告生成、冒烟测试 |
 | [视觉验证](./visual) | 3 | 视觉对比、基线管理 |
 | 会话管理 | 7 | 多会话、Cookie、存储 |
 | 证据产物 | 4 | 产物管理、追踪、HAR 导出 |
@@ -31,6 +31,10 @@ AI-Verify MCP 提供 **83 个工具**，按功能分为 8 大类。
 | `validation_quick_run` | 一键 7 项快速验证 |
 | `browser_a11y_check` | 无障碍扫描 |
 | `browser_visual_compare` | 视觉对比 |
+| `browser_overlay_detect` | 遮挡物检测 |
+| `browser_overlay_dismiss` | 遮挡物关闭 |
+| `browser_smoke_test` | 冒烟测试 |
+| `browser_counterfactual_analyze` | 反事实根因分析 |
 
 ### 按场景选择
 
@@ -48,3 +52,9 @@ AI-Verify MCP 提供 **83 个工具**，按功能分为 8 大类。
 
 **修复验证闭环：**
 `browser_diagnose` → `browser_quick_fix` → `browser_verify_fix` → `fix_verify`
+
+**遮挡物处理：**
+`browser_overlay_detect` → `browser_overlay_dismiss` → `browser_screenshot`
+
+**冒烟测试与根因分析：**
+`browser_smoke_test` → `browser_counterfactual_analyze` → `validation_report`

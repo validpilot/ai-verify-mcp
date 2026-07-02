@@ -52,9 +52,9 @@ describe('validation_matrix handler', () => {
     assert.ok(typeof val.handle === 'function');
   });
 
-  test('handler 包含 validation_matrix 在内的所有验证工具', () => {
+  test('handler 包含 validation_matrix 在内的 OSS 验证工具', () => {
     const val = require('../handlers/validation');
-    const expectedTools = ['validation_start', 'validation_check', 'validation_run', 'validation_suite_run',
+    const expectedTools = ['validation_start', 'validation_check', 'validation_run',
       'validation_element', 'validation_flow', 'validation_matrix', 'validation_decision',
       'validation_quick_run', 'validation_report', 'validation_report_export'];
     for (const tool of expectedTools) {

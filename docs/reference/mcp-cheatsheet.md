@@ -50,7 +50,7 @@ AI Client ←HTTP→ MCP Server
 
 ```
 1. Client → tools/list  （请求工具列表
-2. Server →  返回 83 个工具定义
+2. Server →  返回 78 个工具定义
 3. Client → tools/call  （调用工具）
 4. Server →  返回结果
    ↓
@@ -84,7 +84,7 @@ AI Client ←HTTP→ MCP Server
 
 ## 常用工具分类
 
-本项目提供 83 个工具，8 大分类：
+本项目提供 78 个工具，8 大分类：
 
 1. **浏览器操作** (25) - 页面导航、元素交互
 2. **诊断调试** (17) - 错误、网络、性能

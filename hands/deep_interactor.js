@@ -187,7 +187,7 @@ const FIELD_VALUES = {
   province: '北京市',
   url: 'https://example.com',
   website: 'https://example.com',
-  password: 'Test123456!',
+  password: 'test-password-placeholder',
   date: '2026-06-29',
   time: '10:00',
   datetime: '2026-06-29T10:00:00',

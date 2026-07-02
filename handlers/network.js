@@ -2,6 +2,7 @@
 
 // Handler: network
 // Extracted from server.js callTool switch statements
+const { mcpError, mcpParamMissing } = require('../core/mcp-error');
 
 const tools = [
   "browser_network",
@@ -43,12 +44,45 @@ async function handle(name, args, deps) {
       }
       return base;
     });
-    return text(JSON.stringify(processed, null, 2));
+    const errors = processed.filter(r => r.status >= 400);
+    const slow = processed.filter(r => r.duration && r.duration > 3000);
+    const resultData = {
+      total: processed.length,
+      errors: errors.length,
+      slowRequests: slow.length,
+      records: processed.slice(0, args.limit || 50),
+      nextSteps: errors.length > 0 ? [
+        '调用 browser_network_detail 查看失败请求详情',
+        '调用 browser_errors 查看控制台错误',
+        '调用 browser_counterfactual_analyze 分析网络错误根因',
+        '调用 browser_diagnose 诊断页面问题'
+      ] : slow.length > 0 ? [
+        '调用 browser_performance_check 检查页面性能',
+        '调用 browser_network_detail 查看慢请求详情',
+        '调用 browser_diagnose 分析性能瓶颈'
+      ] : [
+        '调用 browser_screenshot 截图留存证据',
+        '调用 validation_run 运行完整验证流程'
+      ],
+      suggestions: errors.length > 0 ? [
+        { type: 'fix', tool: 'browser_network_detail', reason: '查看失败请求的详细信息' },
+        { type: 'fix', tool: 'browser_counterfactual_analyze', reason: '分析网络错误是否是测试失败的根因' }
+      ] : [
+        { type: 'next', tool: 'browser_screenshot', reason: '网络正常，截图留存证据' }
+      ],
+      paidUpgradeHint: '需要网络请求拦截和修改、Mock API 响应、性能瓶颈智能分析？升级到 Pro 版本获取高级网络调试能力。'
+    };
+    return text(JSON.stringify(resultData, null, 2));
   }
 
   // ====== browser_network_detail ======
   if (name === 'browser_network_detail') {
-  return text(JSON.stringify(filterNetworkDetails(args), null, 2));
+  return text(JSON.stringify({
+    ...filterNetworkDetails(args),
+    nextSteps: ['使用 browser_errors 查看聚合错误', '使用 browser_performance_check 分析性能'],
+    suggestions: [{ type: 'next', tool: 'browser_errors', reason: '查看聚合错误信息' }],
+    paidUpgradeHint: '需要网络请求拦截和修改、Mock API 响应、性能瓶颈智能分析？升级到 Pro 版本获取高级网络调试能力。'
+  }, null, 2));
   }
 
   // ====== browser_console ======
@@ -56,7 +90,18 @@ async function handle(name, args, deps) {
 const level = args.level && args.level !== 'all' ? args.level : null;
     const filtered = level ? consoleLogs.filter(item => item.type === level) : consoleLogs;
     const limited = (args.limit ? filtered.slice(-args.limit) : filtered.slice(-50));
-    return text(JSON.stringify(redact(limited), null, 2));
+    const logs = redact(limited);
+    return text(JSON.stringify({
+      logs,
+      count: logs.length,
+      nextSteps: logs.length > 0 ? [
+        '使用 browser_errors 查看聚合错误信息',
+        '使用 browser_smoke_test 执行冒烟测试'
+      ] : [
+        '使用 browser_screenshot 截图留存证据'
+      ],
+      paidUpgradeHint: '需要 AI 自动分析控制台日志模式、关联错误与操作步骤、生成修复建议？升级到 Pro 版本获取智能日志分析能力。'
+    }, null, 2));
   }
 
   // ====== browser_errors ======
@@ -162,19 +207,47 @@ const level = args.level && args.level !== 'all' ? args.level : null;
       } catch (_) {}
     }
 
-    return text(JSON.stringify(result, null, 2));
+    return text(JSON.stringify({
+      ...result,
+      nextSteps: result?.summary?.total > 0 ? [
+        '调用 browser_network 查看网络请求详情',
+        '调用 browser_diagnose 分析错误根因',
+        '调用 browser_screenshot 截图留存错误状态',
+        '调用 browser_counterfactual_analyze 进行反事实根因分析'
+      ] : [
+        '页面无新错误，继续验证流程',
+        '调用 browser_screenshot 截图留存证据',
+        '调用 validation_run 运行完整验证'
+      ],
+      suggestions: result?.summary?.total > 0 ? [
+        { type: 'fix', tool: 'browser_diagnose', reason: '分析错误的根因和修复方案' },
+        { type: 'fix', tool: 'browser_counterfactual_analyze', reason: '分析错误是否是测试失败的根因' }
+      ] : [
+        { type: 'next', tool: 'browser_screenshot', reason: '无错误，截图留存证据' }
+      ],
+      paidUpgradeHint: '需要 AI 自动分析错误堆栈、匹配已知问题模式、生成修复代码？升级到 Pro 版本获取智能错误分析能力。'
+    }, null, 2));
   }
 
   // ====== browser_errors_clear ======
   if (name === 'browser_errors_clear') {
   resetRuntimeLogs();
-    return text(JSON.stringify({ cleared: true, checkpoint: currentCheckpoint }, null, 2));
+    return text(JSON.stringify({
+      cleared: true,
+      checkpoint: currentCheckpoint,
+      nextSteps: ['使用 browser_screenshot 进行截图验证', '使用 browser_smoke_test 执行冒烟测试'],
+      paidUpgradeHint: '需要自动错误清理与跟踪、历史错误趋势分析？升级到 Pro 版本获取智能错误管理能力。'
+    }, null, 2));
   }
 
   // ====== browser_storage ======
   if (name === 'browser_storage') {
 const { target } = await ensurePage();
-    return text(JSON.stringify(await getStorageSnapshot(target, args.scope || 'all'), null, 2));
+    return text(JSON.stringify({
+      ...(await getStorageSnapshot(target, args.scope || 'all')),
+      nextSteps: ['使用 browser_cookies 检查 Cookie 状态', '使用 browser_events 查看浏览器事件'],
+      paidUpgradeHint: '需要跨页面状态同步、存储变更监控、AI 驱动状态分析？升级到 Pro 版本获取智能状态管理能力。'
+    }, null, 2));
   }
 
   // ====== browser_cookies ======
@@ -187,7 +260,7 @@ const { target } = await ensurePage();
     }
     if (action === 'set') {
       if (!args.cookie || !args.cookie.name) {
-        return { isError: true, content: [{ type: 'text', text: '设置Cookie需要提供 cookie.name 和 cookie.value' }] };
+        return mcpParamMissing('cookie.name', name);
       }
       await target.context().addCookies([{
         name: args.cookie.name,
@@ -220,10 +293,16 @@ const { target } = await ensurePage();
       secure: c.secure,
       sameSite: c.sameSite
     }));
-    return text(JSON.stringify({ action: 'get', total: cookies.length, cookies: safeCookies }, null, 2));
+    return text(JSON.stringify({
+      action: 'get',
+      total: cookies.length,
+      cookies: safeCookies,
+      nextSteps: ['使用 browser_storage 查看本地存储', '使用 browser_network 分析网络请求中的 Cookie'],
+      paidUpgradeHint: '需要自动 Cookie 管理、隐私合规检查、跨域 Cookie 分析？升级到 Pro 版本获取智能 Cookie 管理能力。'
+    }, null, 2));
   }
 
-  return { isError: true, content: [{ type: 'text', text: `未知工具（network）: ${name}` }] };
+  return mcpError(`未知工具（network）: ${name}`, { error: 'UNKNOWN_TOOL', toolName: name });
   } finally {
     for (const k of _depsKeys) { deps[k] = globalThis[k]; }
     for (const k of _depsKeys) { if (k in _depsPrev) globalThis[k] = _depsPrev[k]; else delete globalThis[k]; }

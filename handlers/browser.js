@@ -1,7 +1,8 @@
-'use strict';
+﻿'use strict';
 
 // Handler: browser
 // Extracted from server.js callTool switch statements
+const { mcpError, mcpParamMissing, mcpPageNotFound, mcpElementNotFound } = require('../core/mcp-error');
 
 const tools = [
   "browser_open",
@@ -30,7 +31,9 @@ const tools = [
   "browser_aria_click",
   "browser_aria_type",
   "browser_smart_fill",
-  "browser_matrix_test"
+  "browser_matrix_test",
+  "browser_overlay_detect",
+  "browser_overlay_dismiss"
 ];
 
 async function handle(name, args, deps) {
@@ -131,6 +134,11 @@ const { target } = await ensurePage();
         ...baseResult,
         error_warning: `点击后检测到 ${postErrors.count} 个新错误（${errorSummary.join('、')}）`,
         suggestions,
+        nextSteps: [
+          '使用 browser_counterfactual_analyze 分析点击失败原因',
+          '使用 browser_errors 查看完整错误详情'
+        ],
+        paidUpgradeHint: '需要智能点击验证、自动对比点击前后页面变化、自动错误关联分析？升级到 Pro 版本获取智能点击分析能力。',
         errors: {
           count: postErrors.count,
           console: postErrors.console.slice(0, 5),
@@ -142,7 +150,13 @@ const { target } = await ensurePage();
     
     return text(JSON.stringify({
       ...baseResult,
-      errors: { count: 0 }
+      errors: { count: 0 },
+      handledSuggestions: ['点击完成，使用 browser_snapshot 确认页面状态变化'],
+      nextSteps: [
+        '使用 browser_snapshot 确认页面状态变化',
+        '使用 browser_errors 检查页面错误'
+      ],
+      paidUpgradeHint: '需要智能点击验证、自动对比点击前后页面变化、自动错误关联分析？升级到 Pro 版本获取智能点击分析能力。'
     }, null, 2));
   }
 
@@ -305,6 +319,21 @@ const { target } = await ensurePage();
       timestamp: new Date().toISOString()
     };
     
+    result.nextSteps = result.success ? [
+      '使用 browser_snapshot 确认点击后页面状态',
+      '使用 browser_errors 检查点击后错误'
+    ] : [
+      '使用 browser_counterfactual_analyze 分析失败原因',
+      '检查选择器是否正确'
+    ];
+    result.suggestions = result.success ? [
+      { type: 'next', tool: 'browser_snapshot', reason: '查看点击后页面内容' },
+      { type: 'next', tool: 'browser_errors', reason: '检查点击后是否出现错误' }
+    ] : [
+      { type: 'next', tool: 'browser_counterfactual_analyze', reason: '分析点击失败的根因' }
+    ];
+    result.paidUpgradeHint = '需要智能点击验证、自动对比点击前后页面变化、自动错误关联分析？升级到 Pro 版本获取智能点击分析能力。';
+    
     return text(JSON.stringify(redact(result), null, 2));
   }
 
@@ -380,7 +409,17 @@ const { target } = await ensurePage();
 const { target } = await ensurePage();
     await target.hover(args.selector, { timeout: 10000 });
     lastAction = { type: 'hover', selector: args.selector, timestamp: new Date().toISOString() };
-    return text(`已悬浮：${args.selector}`);
+    const postErrors = await postActionErrorCheck(target, 'hover', args.selector);
+    return text(JSON.stringify({
+      action: 'hover',
+      selector: args.selector,
+      success: true,
+      errors: { count: postErrors.count, detected: postErrors.detected },
+      lastAction,
+      nextSteps: ['调用 browser_click 点击悬浮后出现的元素', '调用 browser_snapshot 查看悬浮后页面变化'],
+      suggestions: [{ type: 'next', tool: 'browser_click', reason: '点击悬浮后出现的交互元素' }],
+      paidUpgradeHint: '需要 AI 智能悬浮定位、自动检测悬浮后出现的元素、鼠标轨迹模拟？升级到 Pro 版本获取高级交互能力。'
+    }, null, 2));
   }
 
   // ====== browser_scroll ======
@@ -398,7 +437,15 @@ const { target } = await ensurePage();
         window.scrollTo({ left: x || 0, top: y || 0, behavior: behavior || 'auto' });
       }, { x: args.x, y: args.y, behavior: args.behavior || 'auto' });
     }
-    return text(`已滚动`);
+    return text(JSON.stringify({
+      action: 'scroll',
+      selector: args.selector || null,
+      position: args.selector ? null : { x: args.x || 0, y: args.y || 0 },
+      success: true,
+      nextSteps: ['调用 browser_snapshot 确认滚动后页面状态', '调用 browser_find_element 查找滚动后显示的元素'],
+      suggestions: [{ type: 'next', tool: 'browser_snapshot', reason: '查看滚动后的页面内容' }],
+      paidUpgradeHint: '需要智能滚动定位、自动检测可滚动区域、滚动后元素可见性分析？升级到 Pro 版本获取智能滚动能力。'
+    }, null, 2));
   }
 
   // ====== browser_press_key ======
@@ -496,7 +543,19 @@ const { target } = await ensurePage();
         })()
       };
     });
-    return text(JSON.stringify(redact(snapshot), null, 2));
+    return text(JSON.stringify({
+      ...redact(snapshot),
+      nextSteps: [
+        '调用 browser_find_element 搜索页面中特定元素',
+        '调用 browser_click 点击按钮或链接进行交互',
+        '调用 browser_screenshot 截图留存页面状态'
+      ],
+      suggestions: [
+        { type: 'next', tool: 'browser_find_element', reason: '搜索页面中的特定元素' },
+        { type: 'next', tool: 'browser_click', reason: '点击按钮或链接进行交互验证' }
+      ],
+      paidUpgradeHint: '需要页面变化智能比对、AI 驱动页面分析、自动生成页面摘要？升级到 Pro 版本获取智能页面洞察能力。'
+    }, null, 2));
   }
 
   // ====== browser_batch ======
@@ -558,7 +617,18 @@ const { target } = await ensurePage();
         results.push({ type: step.type, selector: step.selector, success: false, error: err.message });
       }
     }
-    return text(JSON.stringify({ total: steps.length, results }, null, 2));
+    const hasFailed = results.some(r => !r.success);
+    return text(JSON.stringify({
+      total: steps.length,
+      results,
+      nextSteps: hasFailed
+        ? ['使用 browser_counterfactual_analyze 分析失败步骤的根因', '检查失败步骤的选择器或参数是否正确']
+        : ['使用 browser_snapshot 确认批量操作后的页面状态', '使用 browser_errors 检查批量操作后的错误'],
+      suggestions: [
+        { type: 'next', tool: 'browser_snapshot', reason: '查看批量操作后的页面状态' }
+      ],
+      paidUpgradeHint: '需要批量操作智能编排、失败自动重试、操作链路追踪？升级到 Pro 版本获取高级批量操作能力。'
+    }, null, 2));
   }
 
   // ====== browser_eval ======
@@ -590,7 +660,18 @@ const { target } = await ensurePage();
         throw e;
       }
     }, wrapped);
-    return text(JSON.stringify(redact({ result, expressionLength: expression.length }), null, 2));
+    return text(JSON.stringify(redact({
+      result,
+      expressionLength: expression.length,
+      nextSteps: [
+        '使用 browser_snapshot 查看 eval 执行后的页面状态',
+        '使用 browser_dom 检查页面元素变化'
+      ],
+      suggestions: [
+        { type: 'next', tool: 'browser_snapshot', reason: '查看 eval 执行后的页面变化' }
+      ],
+      paidUpgradeHint: '需要 AI 智能脚本生成、表达式安全性分析、自动结果断言？升级到 Pro 版本获取高级脚本执行能力。'
+    }), null, 2));
   }
 
   // ====== browser_dom ======
@@ -633,7 +714,30 @@ const { target } = await ensurePage();
       return items;
     }, { sel: selector, max: limit });
 
-    return text(JSON.stringify(redact({ selector, count: totalCount, returned: elements.length, elements }), null, 2));
+    const resultData = { selector, count: totalCount, returned: elements.length, elements };
+    if (totalCount === 0) {
+      resultData.nextSteps = [
+        '调用 browser_find_element 智能搜索元素',
+        '检查选择器是否正确',
+        '调用 browser_snapshot 查看页面完整结构'
+      ];
+      resultData.suggestions = [
+        { type: 'fix', tool: 'browser_find_element', reason: '智能搜索页面元素' }
+      ];
+      resultData.paidUpgradeHint = '需要 AI 智能元素定位？升级到 Pro 版本获取高级定位能力。';
+    } else {
+      resultData.nextSteps = [
+        '调用 browser_click 点击元素进行交互',
+        '调用 browser_type 在输入框中输入文本',
+        '调用 browser_highlight 高亮元素确认位置'
+      ];
+      resultData.suggestions = [
+        { type: 'next', tool: 'browser_click', reason: '点击找到的元素进行交互验证' },
+        { type: 'next', tool: 'browser_highlight', reason: '高亮元素确认位置' }
+      ];
+      resultData.paidUpgradeHint = '需要 AI 智能元素定位、自动生成稳定选择器？升级到 Pro 版本获取高级 DOM 分析能力。';
+    }
+    return text(JSON.stringify(redact(resultData), null, 2));
   }
 
   // ====== browser_highlight ======
@@ -673,7 +777,15 @@ const { target } = await ensurePage();
       selector: args.selector,
       value: selectValue,
       success: true,
-      errors: { count: postErrors.count, detected: postErrors.detected }
+      errors: { count: postErrors.count, detected: postErrors.detected },
+      nextSteps: [
+        '使用 browser_snapshot 确认选择后的页面状态',
+        '使用 browser_errors 检查选择后是否出现错误'
+      ],
+      suggestions: [
+        { type: 'next', tool: 'browser_snapshot', reason: '查看选择后的页面变化' }
+      ],
+      paidUpgradeHint: '需要 AI 智能选项推荐、自动检测选项变化、跨浏览器选择测试？升级到 Pro 版本获取高级选择能力。'
     }, null, 2));
   }
 
@@ -697,24 +809,43 @@ const { target } = await ensurePage();
           await target.reload({ waitUntil, timeout });
           break;
         default:
-          return { isError: true, content: [{ type: 'text', text: `不支持的导航操作: ${action}，支持 forward/back/refresh/reload` }] };
+          return mcpError(`不支持的导航操作: ${action}，支持 forward/back/refresh/reload`, { error: 'EXECUTION_ERROR', toolName: name });
       }
 
       return text(JSON.stringify({
         action,
         success: true,
         currentUrl: target.url(),
-        waitUntil
+        waitUntil,
+        nextSteps: [
+          '使用 browser_snapshot 查看导航后的页面内容',
+          '使用 browser_errors 检查导航后是否出现错误'
+        ],
+        suggestions: [
+          { type: 'next', tool: 'browser_snapshot', reason: '查看导航后的页面状态' }
+        ],
+        paidUpgradeHint: '需要智能页面导航、自动等待页面加载完成、导航链路追踪？升级到 Pro 版本获取高级导航能力。'
       }, null, 2));
     } catch (e) {
-      return { isError: true, content: [{ type: 'text', text: `导航失败: ${e.message}` }] };
+      return mcpError(`导航失败: ${e.message}`, { error: 'EXECUTION_ERROR', toolName: name });
     }
   }
 
   // ====== browser_wait ======
   if (name === 'browser_wait') {
 const { target } = await ensurePage();
-    return text(JSON.stringify(await waitForCondition(target, args), null, 2));
+    const waitResult = await waitForCondition(target, args);
+    return text(JSON.stringify({
+      ...waitResult,
+      nextSteps: [
+        '使用 browser_snapshot 查看等待后的页面状态',
+        '使用 browser_click 与页面进行交互'
+      ],
+      suggestions: [
+        { type: 'next', tool: 'browser_snapshot', reason: '确认等待条件满足后的页面内容' }
+      ],
+      paidUpgradeHint: '需要智能等待策略、自动检测页面加载完成、超时自动诊断？升级到 Pro 版本获取高级等待能力。'
+    }, null, 2));
   }
 
   // ====== browser_assert ======
@@ -1127,7 +1258,7 @@ const { target } = await ensurePage();
     if (args.selector) {
       const el = await target.$(args.selector);
       if (!el) {
-        return { isError: true, content: [{ type: 'text', text: `元素未找到: ${args.selector}` }] };
+        return mcpElementNotFound(args.selector, name);
       }
       rootNode = await target.accessibility.snapshot({ root: el, interestingOnly: true });
     } else {
@@ -1179,9 +1310,9 @@ const { target } = await ensurePage();
   // ====== browser_aria_click ======
   if (name === 'browser_aria_click') {
     const { target } = await ensurePage(args);
-    if (!args.ref) return { isError: true, content: [{ type: 'text', text: '缺少必需参数: ref' }] };
+    if (!args.ref) return mcpParamMissing('ref', name);
     const snapshot = await target.accessibility.snapshot({ interestingOnly: true });
-    if (!snapshot) return { isError: true, content: [{ type: 'text', text: '页面无可访问性信息' }] };
+    if (!snapshot) return mcpError('页面无可访问性信息', { error: 'EXECUTION_ERROR', toolName: name });
     let refCounter = 0;
     (function assign(node, depth) {
       if (!node || depth > 20) return;
@@ -1189,7 +1320,7 @@ const { target } = await ensurePage();
       if (node.children) node.children.forEach(c => assign(c, depth + 1));
     })(snapshot, 0);
     const node = findNodeByRef(snapshot, args.ref);
-    if (!node || !node.bounds) return { isError: true, content: [{ type: 'text', text: `未找到 ref: ${args.ref}` }] };
+    if (!node || !node.bounds) return mcpError(`未找到 ref: ${args.ref}`, { error: 'EXECUTION_ERROR', toolName: name });
     const x = Math.round(node.bounds.x + node.bounds.width / 2);
     const y = Math.round(node.bounds.y + node.bounds.height / 2);
     await target.mouse.click(x, y);
@@ -1199,10 +1330,10 @@ const { target } = await ensurePage();
   // ====== browser_aria_type ======
   if (name === 'browser_aria_type') {
     const { target } = await ensurePage(args);
-    if (!args.ref) return { isError: true, content: [{ type: 'text', text: '缺少必需参数: ref' }] };
-    if (typeof args.text !== 'string') return { isError: true, content: [{ type: 'text', text: '缺少必需参数: text' }] };
+    if (!args.ref) return mcpParamMissing('ref', name);
+    if (typeof args.text !== 'string') return mcpParamMissing('text', name);
     const snapshot = await target.accessibility.snapshot({ interestingOnly: true });
-    if (!snapshot) return { isError: true, content: [{ type: 'text', text: '页面无可访问性信息' }] };
+    if (!snapshot) return mcpError('页面无可访问性信息', { error: 'EXECUTION_ERROR', toolName: name });
     let refCounter = 0;
     (function assign(node, depth) {
       if (!node || depth > 20) return;
@@ -1210,7 +1341,7 @@ const { target } = await ensurePage();
       if (node.children) node.children.forEach(c => assign(c, depth + 1));
     })(snapshot, 0);
     const node = findNodeByRef(snapshot, args.ref);
-    if (!node || !node.bounds) return { isError: true, content: [{ type: 'text', text: `未找到 ref: ${args.ref}` }] };
+    if (!node || !node.bounds) return mcpError(`未找到 ref: ${args.ref}`, { error: 'EXECUTION_ERROR', toolName: name });
     const x = Math.round(node.bounds.x + node.bounds.width / 2);
     const y = Math.round(node.bounds.y + node.bounds.height / 2);
     await target.mouse.click(x, y);
@@ -1225,12 +1356,12 @@ const { target } = await ensurePage();
     const dataGen = require('./hands/data_generator');
     const fieldType = args.fieldType || 'text';
     if (!dataGen.isSupported(fieldType)) {
-      return { isError: true, content: [{ type: 'text', text: `不支持的字段类型: ${fieldType}。支持: ${dataGen.getSupportedTypes().join(', ')}` }] };
+      return mcpError(`不支持的字段类型: ${fieldType}。支持: ${dataGen.getSupportedTypes().join(', ')}`, { error: 'EXECUTION_ERROR', toolName: name });
     }
     const generatedValue = dataGen.generate(fieldType, args.options || {});
     const el = await target.$(args.selector);
     if (!el) {
-      return { isError: true, content: [{ type: 'text', text: `元素未找到: ${args.selector}` }] };
+      return mcpElementNotFound(args.selector, name);
     }
     await el.click();
     await el.fill('');
@@ -1248,7 +1379,7 @@ const { target } = await ensurePage();
     const timeout = args.timeout || 15000;
 
     if (steps.length === 0) {
-      return { isError: true, content: [{ type: 'text', text: '缺少必需参数: steps' }] };
+      return mcpError('缺少必需参数: steps', { error: 'EXECUTION_ERROR', toolName: name });
     }
 
     const results = {};
@@ -1338,7 +1469,299 @@ const { target } = await ensurePage();
     return { content: [{ type: 'text', text: JSON.stringify({ results, summary }, null, 2) }] };
   }
 
-  return { isError: true, content: [{ type: 'text', text: `未知工具（browser）: ${name}` }] };
+  // ====== browser_overlay_detect ======
+  if (name === 'browser_overlay_detect') {
+    const { target } = await ensurePage();
+    
+    const overlayAnalysis = await target.evaluate(() => {
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      const viewportArea = viewportWidth * viewportHeight;
+      const overlays = [];
+      
+      document.querySelectorAll('body *').forEach(el => {
+        const style = window.getComputedStyle(el);
+        if (!style || style.display === 'none' || style.visibility === 'hidden') return;
+        
+        const rect = el.getBoundingClientRect();
+        if (!rect || rect.width === 0 || rect.height === 0) return;
+        
+        const zIndex = parseInt(style.zIndex) || 0;
+        const position = style.position;
+        const opacity = parseFloat(style.opacity) || 1;
+        const className = typeof el.className === 'string' ? el.className : '';
+        const classLower = className.toLowerCase();
+        const id = el.id || '';
+        const tagName = el.tagName.toLowerCase();
+        
+        // 不检测 body、html 自身
+        if (tagName === 'body' || tagName === 'html') return;
+        
+        // 计算覆盖面积
+        const overlapW = Math.max(0, Math.min(rect.right, viewportWidth) - Math.max(rect.left, 0));
+        const overlapH = Math.max(0, Math.min(rect.bottom, viewportHeight) - Math.max(rect.top, 0));
+        const coverage = Math.round((overlapW * overlapH / viewportArea) * 100);
+        
+        // 筛选：覆盖面积 >= 5% 才考虑（忽略极小元素）
+        if (coverage < 5) return;
+        
+        let isOverlay = false;
+        let type = 'unknown';
+        
+        // 高 z-index 元素
+        if (zIndex >= 1000 && coverage >= 10) { isOverlay = true; type = 'high-zindex'; }
+        // fixed 定位且覆盖面积大
+        if (position === 'fixed' && coverage >= 15) { isOverlay = true; type = 'fixed-overlay'; }
+        // absolute 定位且高 z-index
+        if (position === 'absolute' && zIndex > 0 && coverage >= 20) { isOverlay = true; type = 'absolute-overlay'; }
+        // 半透明遮罩
+        if (opacity < 1 && opacity > 0.2 && coverage >= 25) { isOverlay = true; type = 'semi-transparent-mask'; }
+        // sticky 顶部/底部导航
+        if (position === 'sticky' && coverage >= 20) { isOverlay = true; type = 'sticky-overlay'; }
+        // class 名称匹配常见弹窗
+        if (classLower.includes('cookie') || classLower.includes('banner') || classLower.includes('modal') ||
+            classLower.includes('popup') || classLower.includes('dialog') || classLower.includes('overlay') ||
+            classLower.includes('mask') || classLower.includes('toast') || classLower.includes('alert')) {
+          isOverlay = true; type = 'detected-by-class';
+        }
+        // 全屏覆盖（遮挡大部分视口）
+        if ((tagName === 'div' || tagName === 'section' || tagName === 'aside') && 
+            rect.top <= 10 && rect.left <= 10 &&
+            rect.width >= viewportWidth * 0.8 && rect.height >= viewportHeight * 0.5 &&
+            zIndex >= 100) {
+          isOverlay = true; type = 'fullscreen-overlay';
+        }
+        
+        if (isOverlay) {
+          overlays.push({
+            tagName,
+            className: className.slice(0, 80),
+            id: id.slice(0, 40),
+            rect: { x: Math.round(rect.x), y: Math.round(rect.y), width: Math.round(rect.width), height: Math.round(rect.height) },
+            zIndex,
+            position,
+            opacity: Math.round(opacity * 100) / 100,
+            coveragePercent: coverage,
+            overlayType: type,
+            text: (el.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 200)
+          });
+        }
+      });
+      
+      // 按覆盖率降序排列
+      overlays.sort((a, b) => b.coveragePercent - a.coveragePercent);
+      
+      const totalCoverage = overlays.reduce((sum, o) => sum + o.coveragePercent, 0);
+      const hasBlockingOverlay = overlays.some(o => 
+        o.coveragePercent >= 50 || o.overlayType === 'fullscreen-overlay' || o.overlayType === 'semi-transparent-mask'
+      );
+      
+      // 统计类型
+      const typeCounts = {};
+      overlays.forEach(o => { typeCounts[o.overlayType] = (typeCounts[o.overlayType] || 0) + 1; });
+      
+      return {
+        hasBlockingOverlay,
+        totalOverlays: overlays.length,
+        totalCoveragePercent: Math.min(totalCoverage, 100),
+        typeCounts,
+        overlays: overlays.slice(0, 10),
+        viewportInfo: { width: viewportWidth, height: viewportHeight }
+      };
+    }).catch(e => ({ error: e.message }));
+    
+    if (overlayAnalysis.error) {
+      return mcpError(overlayAnalysis.error, { error: 'OVERLAY_DETECT_FAILED', toolName: name });
+    }
+    
+    const status = overlayAnalysis.hasBlockingOverlay ? 'warning' : 'success';
+    
+    const resultData = {
+      status,
+      ...overlayAnalysis,
+      nextSteps: overlayAnalysis.hasBlockingOverlay ? [
+        '调用 browser_overlay_dismiss 自动关闭遮挡物',
+        '关闭后调用 browser_screenshot 重新截图',
+        '确认遮挡消失后重新运行测试'
+      ] : [
+        '调用 browser_screenshot 截图留存证据',
+        '继续正常测试流程'
+      ],
+      suggestions: overlayAnalysis.hasBlockingOverlay ? [
+        { type: 'fix', tool: 'browser_overlay_dismiss', reason: '自动关闭遮挡物' },
+        { type: 'next', tool: 'browser_screenshot', reason: '确认遮挡消失后截图' }
+      ] : [
+        { type: 'next', tool: 'browser_screenshot', reason: '截图留存证据' }
+      ],
+      paidUpgradeHint: '需要智能遮挡物识别、自动关闭策略优化、多场景兼容测试？升级到 Pro 版本获取高级遮挡物处理能力。'
+    };
+    
+    // format=html 输出
+    if (args.format === 'html') {
+      const { buildOverlayHtml } = require('../core/report-html');
+      return text(buildOverlayHtml({
+        ...overlayAnalysis,
+        url: target.url(),
+        timestamp: new Date().toISOString()
+      }));
+    }
+    
+    return text(JSON.stringify(resultData, null, 2));
+  }
+
+  // ====== browser_overlay_dismiss ======
+  if (name === 'browser_overlay_dismiss') {
+    const { target } = await ensurePage();
+    
+    const dismissButtonPatterns = [
+      // 常见关闭按钮选择器
+      '[aria-label="Close"]', '[aria-label="close"]', '[aria-label="关闭"]',
+      '[aria-label="Dismiss"]', '[aria-label="dismiss"]',
+      'button.close', '.close', '.btn-close', 
+      '[data-dismiss="modal"]', '[data-bs-dismiss="modal"]',
+      'button[class*="close"]', 'button[class*="Close"]',
+      'button[class*="dismiss"]', 'button[class*="Dismiss"]',
+      // 接受/同意按钮
+      '.accept', '.btn-accept', '#accept', 'button:has-text("Accept")',
+      'button:has-text("Accept All")', 'button:has-text("同意")',
+      'button:has-text("接受")', 'button:has-text("确定")',
+      'button:has-text("OK")', 'button:has-text("Got it")',
+      'button:has-text("我知道了")',
+      // 拒绝/取消
+      'button:has-text("Reject")', 'button:has-text("Decline")',
+      'button:has-text("拒绝")', 'button:has-text("取消")',
+      // modal/overlay 专用
+      '.modal .close', '.modal-footer .btn-secondary',
+      '.popup-close', '.overlay-close',
+      // 通用 x 按钮  
+      'button[aria-hidden="true"]', 'svg[aria-hidden="true"] + button',
+      // Cookie banner
+      '#cookie-banner button', '.cookie-banner button',
+      '.cookie-consent button', '#cookie-consent button',
+      '.CookieConsent button',
+    ];
+    
+    const overlaysBefore = await target.evaluate(() => {
+      let count = 0;
+      document.querySelectorAll('body *').forEach(el => {
+        const style = window.getComputedStyle(el);
+        if (!style || style.display === 'none') return;
+        const rect = el.getBoundingClientRect();
+        if (!rect || rect.width === 0 || rect.height === 0) return;
+        const zIndex = parseInt(style.zIndex) || 0;
+        const position = style.position;
+        const className = typeof el.className === 'string' ? el.className.toLowerCase() : '';
+        if (zIndex >= 1000 || position === 'fixed' || 
+            className.includes('modal') || className.includes('popup') || 
+            className.includes('overlay') || className.includes('cookie') ||
+            className.includes('banner') || className.includes('dialog')) {
+          if (rect.width >= 100 && rect.height >= 50) count++;
+        }
+      });
+      return count;
+    }).catch(() => 0);
+    
+    const dismissed = [];
+    let clickErrors = 0;
+    
+    for (const pattern of dismissButtonPatterns) {
+      try {
+        const buttons = await target.$$(pattern);
+        for (const btn of buttons) {
+          try {
+            await btn.click({ timeout: 2000 });
+            // 等待关闭动画
+            await new Promise(r => setTimeout(r, 300));
+            dismissed.push({ selector: pattern, success: true });
+          } catch (e) {
+            clickErrors++;
+          }
+        }
+      } catch (e) {
+        // 选择器无效，跳过
+      }
+    }
+    
+    // 重新检测剩余遮挡物
+    const remainingAnalysis = await target.evaluate(() => {
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      const viewportArea = viewportWidth * viewportHeight;
+      const remaining = [];
+      
+      document.querySelectorAll('body *').forEach(el => {
+        const style = window.getComputedStyle(el);
+        if (!style || style.display === 'none' || style.visibility === 'hidden') return;
+        const rect = el.getBoundingClientRect();
+        if (!rect || rect.width === 0 || rect.height === 0) return;
+        const zIndex = parseInt(style.zIndex) || 0;
+        const position = style.position;
+        const className = typeof el.className === 'string' ? el.className.toLowerCase() : '';
+        const overlapW = Math.max(0, Math.min(rect.right, viewportWidth) - Math.max(rect.left, 0));
+        const overlapH = Math.max(0, Math.min(rect.bottom, viewportHeight) - Math.max(rect.top, 0));
+        const coverage = Math.round((overlapW * overlapH / viewportArea) * 100);
+        
+        let isOverlay = false;
+        if (zIndex >= 1000 && coverage >= 10) isOverlay = true;
+        if (position === 'fixed' && coverage >= 15) isOverlay = true;
+        if (className.includes('modal') || className.includes('popup')) isOverlay = true;
+        
+        if (isOverlay && coverage >= 5) {
+          remaining.push({ tagName: el.tagName.toLowerCase(), className: className.slice(0, 50), coveragePercent: coverage });
+        }
+      });
+      return { remaining, count: remaining.length, hasBlocking: remaining.some(o => o.coveragePercent >= 50) };
+    }).catch(() => ({ remaining: [], count: 0, hasBlocking: false }));
+    
+    const status = dismissed.length > 0 && !remainingAnalysis.hasBlocking ? 'success' 
+      : dismissed.length > 0 ? 'partial' : 'warning';
+    
+    const resultData = {
+      status,
+      success: dismissed.length > 0,
+      dismissedCount: dismissed.length,
+      totalAttempted: dismissButtonPatterns.length,
+      dismissResults: dismissed.slice(0, 10),
+      remainingOverlays: remainingAnalysis.count,
+      hasBlockingOverlay: remainingAnalysis.hasBlocking,
+      remainingOverlayDetails: remainingAnalysis.remaining.slice(0, 5),
+      nextSteps: dismissed.length > 0 && !remainingAnalysis.hasBlocking ? [
+        '调用 browser_screenshot 重新截图（无遮挡）',
+        '继续测试流程',
+        '调用 browser_smoke_test 重新冒烟测试'
+      ] : dismissed.length > 0 ? [
+        '剩余遮挡物需手动处理',
+        '调用 browser_overlay_detect 查看剩余遮挡物详情',
+        '调用 browser_screenshot 查看当前页面状态'
+      ] : [
+        '调用 browser_overlay_detect 详细分析遮挡物',
+        '考虑手动点击关闭按钮',
+        '调用 browser_screenshot 查看页面状态'
+      ],
+      suggestions: [
+        { type: 'next', tool: 'browser_screenshot', reason: dismissed.length > 0 ? '确认遮挡已关闭后截图' : '查看页面当前状态' },
+        { type: remainingAnalysis.hasBlocking ? 'fix' : 'next', tool: 'browser_overlay_detect', reason: '检查剩余遮挡物' }
+      ],
+      paidUpgradeHint: '需要智能自动关闭、多场景 Cookie banner 处理、验证码自动识别？升级到 Pro 版本获取高级弹窗处理能力。'
+    };
+    
+    // format=html 输出
+    if (args.format === 'html') {
+      const { buildOverlayHtml } = require('../core/report-html');
+      return text(buildOverlayHtml({
+        overlays: remainingAnalysis.remaining || [],
+        totalCoveragePercent: remainingAnalysis.remaining.reduce((s, o) => s + o.coveragePercent, 0),
+        isBlockingOverlay: remainingAnalysis.hasBlocking,
+        url: target.url(),
+        timestamp: new Date().toISOString(),
+        dismissedInfo: { count: dismissed.length, status }
+      }));
+    }
+    
+    return text(JSON.stringify(resultData, null, 2));
+  }
+
+  return mcpError(`未知工具（browser）: ${name}`, { error: 'UNKNOWN_TOOL', toolName: name });
   } finally {
     for (const k of _depsKeys) { deps[k] = globalThis[k]; }
     for (const k of _depsKeys) { if (k in _depsPrev) globalThis[k] = _depsPrev[k]; else delete globalThis[k]; }

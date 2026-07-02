@@ -1,0 +1,42 @@
+{
+  "name": "browser_smoke_test",
+  "description": "一键冒烟测试 - 自动执行页面加载、JS错误、HTTP错误、无障碍、控制台警告等5项快速检查，返回综合评分和详细结果",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "url": {
+        "type": "string",
+        "description": "可选，要测试的目标URL。如果不提供，则测试当前页面"
+      },
+      "format": {
+        "type": "string",
+        "enum": ["json", "html"],
+        "default": "json",
+        "description": "输出格式：json（默认结构化数据）或 html（HTML 报告）"
+      }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "status": { "type": "string", "enum": ["success", "warning", "error"] },
+      "passed": { "type": "boolean" },
+      "totalTime": { "type": "number" },
+      "summary": {
+        "type": "object",
+        "properties": {
+          "pageLoad": { "type": "string" },
+          "jsErrors": { "type": "number" },
+          "httpErrors": { "type": "number" },
+          "accessibilityIssues": { "type": "number" },
+          "consoleWarnings": { "type": "number" },
+          "elementCount": { "type": "number" }
+        }
+      },
+      "details": { "type": "object" },
+      "nextSteps": { "type": "array", "items": { "type": "string" } },
+      "suggestions": { "type": "array", "items": { "type": "object" } },
+      "paidUpgradeHint": { "type": "string" }
+    }
+  }
+}

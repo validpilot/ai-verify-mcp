@@ -1,111 +1,111 @@
 # MCP 协议速查手册
 
-> 适合群聊交流、面试应答、快速上手使用。基�?[Model Context Protocol](https://modelcontextprotocol.io) 2024-11-05 版本�?
+> 适合群聊交流、面试应答、快速上手使用。基?[Model Context Protocol](https://modelcontextprotocol.io) 2024-11-05 版本?
 
 ---
 
 ## 一、MCP 是什么？
 
-**一句话�?* AI 领域�?**USB-C 通用接口**�?
+**一句话?* AI 领域?**USB-C 通用接口**?
 
 | 类比 | 说明 |
 |------|------|
 | USB-C | 一个接口通所有外设（键盘、显示器、充电） |
-| MCP | 一个协议通所�?AI 工具（浏览器、数据库、API�?|
+| MCP | 一个协议通所?AI 工具（浏览器、数据库、API?|
 
-Anthropic �?2024 �?11 月开源，目标是为 AI 模型提供统一的工具调用标准。无需为每个工具单独写对接代码�?
+Anthropic ?2024 ?11 月开源，目标是为 AI 模型提供统一的工具调用标准。无需为每个工具单独写对接代码?
 
 ---
 
 ## 二、架构速记
 
 ```
-AI Client (Host)  �?JSON-RPC 协议 �? MCP Server
-    �?                                   �?
+AI Client (Host)  ?JSON-RPC 协议 ? MCP Server
+    ?                                   ?
  Claude Desktop                    ai-verify-mcp（验证平台）
  Cursor / Windsurf                 Playwright（浏览器自动化）
  Trae / Codex                      各种工具服务
 ```
 
-**两层架构�?*
+**两层架构?*
 
 | 角色 | 职责 | 实例 |
 |------|------|------|
-| **Host** | 运行 AI 模型的客户端，发起工具调用请�?| Claude Desktop, Cursor, Trae |
+| **Host** | 运行 AI 模型的客户端，发起工具调用请?| Claude Desktop, Cursor, Trae |
 | **Server** | 封装具体工具能力的进程，响应调用请求 | ai-verify-mcp, Playwright MCP |
 
-**两种传输方式�?*
+**两种传输方式?*
 
 | 方式 | 场景 | 特点 |
 |------|------|------|
 | stdio | 本地 CLI 启动 | `npx -y ai-verify-mcp`，进程间通过标准输入输出通信 |
-| SSE | 远程�?HTTP | 适合分布式部署，服务端推送事�?|
+| SSE | 远程?HTTP | 适合分布式部署，服务端推送事?|
 
 ---
 
-## 三、ai-verify-mcp 在生态中的定�?
+## 三、ai-verify-mcp 在生态中的定?
 
 | 维度 | 说明 |
 |------|------|
 | 角色 | **MCP Server**（提供服务） |
 | 传输 | **stdio**（`npx -y` 一键启动） |
-| 工具�?| **75 �?*验证工具 |
-| 核心能力 | 浏览器自动化截图 / Console 错误捕获 / axe a11y 扫描 / CSS 变量追溯 / 截图差异比对 / 证据链报�?|
+| 工具?| **75 ?*验证工具 |
+| 核心能力 | 浏览器自动化截图 / Console 错误捕获 / axe a11y 扫描 / CSS 变量追溯 / 截图差异比对 / 证据链报?|
 
-**理念�?* *Don't just generate, verify.* �?不只生成代码，还要验证结果�?
+**理念?* *Don't just generate, verify.* ?不只生成代码，还要验证结果?
 
 ### 🤝 Skill + MCP 协同工作
 
-ai-verify-mcp 提供 75 �?*原子验证工具**�?*Skill 系统**（如 Trae �?`browser-dev-full-validation-skill`）负责编排验证流程：
+ai-verify-mcp 提供 75 ?*原子验证工具**?*Skill 系统**（如 Trae ?`browser-dev-full-validation-skill`）负责编排验证流程：
 
-| 单独�?MCP | 单独�?Skill | **Skill + MCP 组合** |
+| 单独?MCP | 单独?Skill | **Skill + MCP 组合** |
 |-----------|------------|-------------------|
-| 有工具但需手动编排调用 | 有流程但缺执行能�?| �?**自动编排 + 自动执行** |
-| 验证结果零散、需自行聚合 | 流程模板固定 | �?**完整证据�?+ 灵活配置** |
+| 有工具但需手动编排调用 | 有流程但缺执行能?| ?**自动编排 + 自动执行** |
+| 验证结果零散、需自行聚合 | 流程模板固定 | ?**完整证据?+ 灵活配置** |
 
-> 💡 **最佳实�?*：在 Trae 中同时启�?Skill + ai-verify-mcp MCP Server�?
-> Skill 回答"什么时候验、验什�?，MCP 负责"怎么�?�?
+> 💡 **最佳实?*：在 Trae 中同时启?Skill + ai-verify-mcp MCP Server?
+> Skill 回答"什么时候验、验什?，MCP 负责"怎么??
 
 ---
 
-## 四、对话必备问�?
+## 四、对话必备问?
 
 | 问题 | 回答 |
 |------|------|
 | "怎么装？" | `npx @validpilot/ai-verify-mcp`，npm 包即装即用，无需全局安装 |
-| "MCP 配置文件在哪�? | 因客户端而异：[配置速查](../README.md#-mcp-客户端配置速查) |
-| "怎么验证装好了？" | `ai-verify --version` 看到版本号即为成�?|
-| "�?Playwright 有什么区别？" | Playwright 是浏览器自动化库，ai-verify-mcp 把它包装�?MCP 协议暴露�?AI 客户端，并叠加验证报告、证据链能力 |
-| "开源还是收费？" | **MIT 协议**，完全开源免�?|
-| "支持哪些 AI 客户端？" | Cursor / Claude Desktop / Windsurf / Trae / Codex / OpenClaw / Hermes / CodeArts / CodeBuddy �?|
-| "有什么限制？" | 需要本�?Node >= 18；Trae 不超�?40 工具/8000 字符描述上限 |
+| "MCP 配置文件在哪? | 因客户端而异：[配置速查](../README.md#-mcp-客户端配置速查) |
+| "怎么验证装好了？" | `ai-verify --version` 看到版本号即为成?|
+| "?Playwright 有什么区别？" | Playwright 是浏览器自动化库，ai-verify-mcp 把它包装?MCP 协议暴露?AI 客户端，并叠加验证报告、证据链能力 |
+| "开源还是收费？" | **MIT 协议**，完全开源免?|
+| "支持哪些 AI 客户端？" | Cursor / Claude Desktop / Windsurf / Trae / Codex / OpenClaw / Hermes / CodeArts / CodeBuddy ?|
+| "有什么限制？" | 需要本?Node >= 18；Trae 不超?40 工具/8000 字符描述上限 |
 
 ---
 
-## 五、常用命令与自启�?
+## 五、常用命令与自启?
 
-### CLI 子命�?
+### CLI 子命?
 
-| 命令 | 用�?| 示例 |
+| 命令 | 用?| 示例 |
 |------|------|------|
-| `--version` / `-v` | 输出版本�?| `@validpilot/@validpilot/@validpilot/ai-verify-mcp --version` |
+| `--version` / `-v` | 输出版本?| `@validpilot/ai-verify-mcp --version` |
 | `--help` / `-h` | 显示帮助信息 | `ai-verify-mcp --help` |
-| `health` | 检�?Playwright 浏览器可用�?| `@validpilot/@validpilot/@validpilot/ai-verify-mcp health` |
-| `validate --url <url>` | 快速验证一�?URL，输�?pass/fail + 错误摘要 | `@validpilot/@validpilot/@validpilot/ai-verify-mcp validate --url http://localhost:5173` |
-| `run --flow <file>` | �?flow JSON 文件执行多步验证流程 | `ai-verify-mcp run --flow flow.json` |
+| `health` | 检?Playwright 浏览器可用?| `@validpilot/ai-verify-mcp health` |
+| `validate --url <url>` | 快速验证一?URL，输?pass/fail + 错误摘要 | `@validpilot/ai-verify-mcp validate --url http://localhost:5173` |
+| `run --flow <file>` | ?flow JSON 文件执行多步验证流程 | `ai-verify-mcp run --flow flow.json` |
 
 ```bash
 # 查看版本
-npx -y @validpilot/@validpilot/@validpilot/ai-verify-mcp --version
+npx -y @validpilot/ai-verify-mcp --version
 
-# Playwright 健康检查（exit 0 = 可用�?
-npx -y @validpilot/@validpilot/@validpilot/ai-verify-mcp health
+# Playwright 健康检查（exit 0 = 可用?
+npx -y @validpilot/ai-verify-mcp health
 
-# 快速验证一�?URL
-npx -y @validpilot/@validpilot/@validpilot/ai-verify-mcp validate --url http://localhost:5173
+# 快速验证一?URL
+npx -y @validpilot/ai-verify-mcp validate --url http://localhost:5173
 ```
 
-> `health` �?`validate` 无需启动 MCP Server，独立运行，适合 CI/CD 流水线�?
+> `health` ?`validate` 无需启动 MCP Server，独立运行，适合 CI/CD 流水线?
 
 ### 启动 MCP Server（供 AI 客户端连接）
 
@@ -113,25 +113,25 @@ npx -y @validpilot/@validpilot/@validpilot/ai-verify-mcp validate --url http://l
 # stdio 模式（默认，适合 Cursor / Claude Desktop / Trae 等）
 npx -y ai-verify-mcp
 
-# HTTP 模式（端�?3456�?
+# HTTP 模式（端?3456?
 npx -y ai-verify-mcp --http --port 3456
 ```
 
-### 自启动配�?
+### 自启动配?
 
-为方便开发，可在项目 `package.json` �?`scripts` 中添加自启动命令�?
+为方便开发，可在项目 `package.json` ?`scripts` 中添加自启动命令?
 
 ```json
 {
   "scripts": {
     "verify": "ai-verify-mcp",
     "verify:http": "ai-verify-mcp --http --port 3456",
-    "verify:check": "@validpilot/@validpilot/@validpilot/ai-verify-mcp health"
+    "verify:check": "@validpilot/ai-verify-mcp health"
   }
 }
 ```
 
-然后�?AI 客户端的 MCP 配置中将 `command` 指向 npm script�?
+然后?AI 客户端的 MCP 配置中将 `command` 指向 npm script?
 
 ```json
 {
@@ -152,8 +152,8 @@ npx -y ai-verify-mcp --http --port 3456
 
 ```
 1. 打开 taskschd.msc
-2. 创建任务 �?触发器：用户登录�?
-3. 操作：启动程�?�?node %APPDATA%\npm\node_modules\ai-verify-mcp\server.js
+2. 创建任务 ?触发器：用户登录?
+3. 操作：启动程??node %APPDATA%\npm\node_modules\ai-verify-mcp\server.js
 ```
 
 </details>
@@ -178,7 +178,7 @@ WantedBy=default.target
 
 ---
 
-## 六、推荐阅�?
+## 六、推荐阅?
 
 - [MCP 官方文档](https://modelcontextprotocol.io)
 - [Anthropic MCP 公告](https://www.anthropic.com/news/model-context-protocol)
@@ -211,8 +211,8 @@ Open-sourced by Anthropic in November 2024, the goal is to provide a unified too
 ## 2. Architecture Quick Reference
 
 ```
-AI Client (Host)  �?JSON-RPC Protocol �? MCP Server
-    �?                                   �?
+AI Client (Host)  ?JSON-RPC Protocol ? MCP Server
+    ?                                   ?
  Claude Desktop                    ai-verify-mcp (Verification Platform)
  Cursor / Windsurf                 Playwright (Browser Automation)
  Trae / Codex                      Various Tool Services
@@ -243,7 +243,7 @@ AI Client (Host)  �?JSON-RPC Protocol �? MCP Server
 | Tool Count | **75** verification tools |
 | Core Capabilities | Browser automation screenshots / Console error capture / axe a11y scanning / CSS variable tracing / screenshot diff comparison / evidence chain report |
 
-**Philosophy:** *Don't just generate, verify.* �?Don't just generate code, verify the results.
+**Philosophy:** *Don't just generate, verify.* ?Don't just generate code, verify the results.
 
 ### 🤝 Skill + MCP Working Together
 
@@ -251,8 +251,8 @@ ai-verify-mcp provides 75 **atomic verification tools**, and the **Skill system*
 
 | Using MCP Alone | Using Skill Alone | **Skill + MCP Combination** |
 |-----------------|-------------------|-----------------------------|
-| Has tools but requires manual orchestration | Has workflow but lacks execution capability | �?**Auto-orchestration + Auto-execution** |
-| Scattered verification results, needs manual aggregation | Fixed workflow templates | �?**Complete evidence chain + Flexible configuration** |
+| Has tools but requires manual orchestration | Has workflow but lacks execution capability | ?**Auto-orchestration + Auto-execution** |
+| Scattered verification results, needs manual aggregation | Fixed workflow templates | ?**Complete evidence chain + Flexible configuration** |
 
 > 💡 **Best Practice**: Enable both Skill + ai-verify-mcp MCP Server in Trae.
 > Skill answers "when to verify and what to verify", MCP handles "how to verify".
@@ -279,21 +279,21 @@ ai-verify-mcp provides 75 **atomic verification tools**, and the **Skill system*
 
 | Command | Purpose | Example |
 |---------|---------|---------|
-| `--version` / `-v` | Output version number | `@validpilot/@validpilot/@validpilot/ai-verify-mcp --version` |
+| `--version` / `-v` | Output version number | `@validpilot/ai-verify-mcp --version` |
 | `--help` / `-h` | Display help information | `ai-verify-mcp --help` |
-| `health` | Check Playwright browser availability | `@validpilot/@validpilot/@validpilot/ai-verify-mcp health` |
-| `validate --url <url>` | Quickly validate a URL, output pass/fail + error summary | `@validpilot/@validpilot/@validpilot/ai-verify-mcp validate --url http://localhost:5173` |
+| `health` | Check Playwright browser availability | `@validpilot/ai-verify-mcp health` |
+| `validate --url <url>` | Quickly validate a URL, output pass/fail + error summary | `@validpilot/ai-verify-mcp validate --url http://localhost:5173` |
 | `run --flow <file>` | Execute multi-step verification flow from a flow JSON file | `ai-verify-mcp run --flow flow.json` |
 
 ```bash
 # Check version
-npx -y @validpilot/@validpilot/@validpilot/ai-verify-mcp --version
+npx -y @validpilot/ai-verify-mcp --version
 
 # Playwright health check (exit 0 = available)
-npx -y @validpilot/@validpilot/@validpilot/ai-verify-mcp health
+npx -y @validpilot/ai-verify-mcp health
 
 # Quickly validate a URL
-npx -y @validpilot/@validpilot/@validpilot/ai-verify-mcp validate --url http://localhost:5173
+npx -y @validpilot/ai-verify-mcp validate --url http://localhost:5173
 ```
 
 > `health` and `validate` run independently without starting an MCP Server, suitable for CI/CD pipelines.
@@ -317,7 +317,7 @@ For development convenience, you can add auto-start commands to the `scripts` se
   "scripts": {
     "verify": "ai-verify-mcp",
     "verify:http": "ai-verify-mcp --http --port 3456",
-    "verify:check": "@validpilot/@validpilot/@validpilot/ai-verify-mcp health"
+    "verify:check": "@validpilot/ai-verify-mcp health"
   }
 }
 ```
@@ -343,8 +343,8 @@ Or register in system auto-start scripts (Windows Task Scheduler / systemd):
 
 ```
 1. Open taskschd.msc
-2. Create Task �?Trigger: At user log on
-3. Action: Start a program �?node %APPDATA%\npm\node_modules\ai-verify-mcp\server.js
+2. Create Task ?Trigger: At user log on
+3. Action: Start a program ?node %APPDATA%\npm\node_modules\ai-verify-mcp\server.js
 ```
 
 </details>

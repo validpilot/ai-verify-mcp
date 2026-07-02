@@ -32,9 +32,9 @@ class StateManager {
   }
 
   resetRuntimeLogs(logFn) {
-    this.consoleLogs = [];
-    this.networkLogs = [];
-    this.pageErrors = [];
+    this.consoleLogs.length = 0;
+    this.networkLogs.length = 0;
+    this.pageErrors.length = 0;
     this.currentCheckpoint = new Date().toISOString();
     if (logFn) logFn('INFO', 'runtime logs cleared', { checkpoint: this.currentCheckpoint });
   }
@@ -70,13 +70,13 @@ class StateManager {
 
   trimLogs() {
     if (this.consoleLogs.length > this.MAX_LOG_ENTRIES) {
-      this.consoleLogs = this.consoleLogs.slice(-this.MAX_LOG_ENTRIES);
+      this.consoleLogs.splice(0, this.consoleLogs.length - this.MAX_LOG_ENTRIES);
     }
     if (this.networkLogs.length > this.MAX_LOG_ENTRIES) {
-      this.networkLogs = this.networkLogs.slice(-this.MAX_LOG_ENTRIES);
+      this.networkLogs.splice(0, this.networkLogs.length - this.MAX_LOG_ENTRIES);
     }
     if (this.pageErrors.length > this.MAX_LOG_ENTRIES / 2) {
-      this.pageErrors = this.pageErrors.slice(-Math.floor(this.MAX_LOG_ENTRIES / 2));
+      this.pageErrors.splice(0, this.pageErrors.length - Math.floor(this.MAX_LOG_ENTRIES / 2));
     }
     const now = Date.now();
     const MAX_REQUEST_AGE = 5 * 60 * 1000;

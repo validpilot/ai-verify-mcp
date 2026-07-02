@@ -1,11 +1,11 @@
-# 安装与配�?
+# 安装与配?
 ## 环境要求
 
-| �?| 要求 |
+| ?| 要求 |
 |----|------|
-| Node.js | >= 18（推�?20 LTS�?|
+| Node.js | >= 18（推?20 LTS?|
 | 操作系统 | Windows / macOS / Linux |
-| 浏览�?| Playwright 自动管理 Chromium |
+| 浏览?| Playwright 自动管理 Chromium |
 
 ## 安装方式
 
@@ -15,15 +15,15 @@
 npm install -g @validpilot/ai-verify-mcp
 ```
 
-安装后可直接使用 `ai-verify-mcp` 命令�?
+安装后可直接使用 `ai-verify-mcp` 命令?
 ### 方式二：npx 临时使用
 
 ```bash
-npx @validpilot/@validpilot/@validpilot/@validpilot/ai-verify-mcp --version
-npx @validpilot/@validpilot/@validpilot/@validpilot/ai-verify-mcp validate --url https://example.com
+npx @validpilot/ai-verify-mcp --version
+npx @validpilot/ai-verify-mcp validate --url https://example.com
 ```
 
-每次使用自动下载最新版，用完即删�?
+每次使用自动下载最新版，用完即删?
 ### 方式三：项目本地安装
 
 ```bash
@@ -31,12 +31,12 @@ cd your-project
 npm install --save-dev @validpilot/ai-verify-mcp
 ```
 
-适合在项�?CI 流程中使用：
+适合在项?CI 流程中使用：
 
 ```json
 {
   "scripts": {
-    "verify": "@validpilot/@validpilot/@validpilot/ai-verify-mcp validate --url http://localhost:5173"
+    "verify": "@validpilot/ai-verify-mcp validate --url http://localhost:5173"
   }
 }
 ```
@@ -44,8 +44,8 @@ npm install --save-dev @validpilot/ai-verify-mcp
 ## 验证安装
 
 ```bash
-@validpilot/@validpilot/@validpilot/ai-verify-mcp --version
-@validpilot/@validpilot/@validpilot/ai-verify-mcp health
+@validpilot/ai-verify-mcp --version
+@validpilot/ai-verify-mcp health
 ```
 
 ## 卸载
@@ -56,24 +56,24 @@ npm uninstall -g ai-verify-mcp
 
 ## 环境变量
 
-| 变量 | 默认�?| 说明 |
+| 变量 | 默认?| 说明 |
 |------|--------|------|
 | `PORT` | 3456 | HTTP 模式端口 |
 | `VALIDPILOT_ARTIFACTS_DIR` | `./artifacts` | 产物目录路径 |
 | `VALIDPILOT_REDACTION` | `false` | 启用敏感信息脱敏 |
-| `VALIDPILOT_ALLOWLIST` | `*` | 域名白名单（逗号分隔�?|
-| `VALIDPILOT_BLOCKED_HOSTS` | �?| 域名黑名单（逗号分隔�?|
-| `MCP_API_KEY` | �?| HTTP 模式 API Key 认证 |
-| `SSH_PASS` | �?| SSH 密码（远程隧道） |
-| `SSH_KEY_PATH` | �?| SSH 私钥路径 |
+| `VALIDPILOT_ALLOWLIST` | `*` | 域名白名单（逗号分隔?|
+| `VALIDPILOT_BLOCKED_HOSTS` | ?| 域名黑名单（逗号分隔?|
+| `MCP_API_KEY` | ?| HTTP 模式 API Key 认证 |
+| `SSH_PASS` | ?| SSH 密码（远程隧道） |
+| `SSH_KEY_PATH` | ?| SSH 私钥路径 |
 | `NODE_ENV` | `production` | 环境模式 |
 
-详细配置说明�?[配置项说明](../reference/config)�?
-## 客户端配�?
+详细配置说明?[配置项说明](../reference/config)?
+## 客户端配?
 ### Cursor
 
-1. 打开 Cursor 设置 �?Settings �?MCP
-2. 添加以下配置�?
+1. 打开 Cursor 设置 ?Settings ?MCP
+2. 添加以下配置?
 ```json
 {
   "mcpServers": {
@@ -90,9 +90,9 @@ npm uninstall -g ai-verify-mcp
 ### Claude Desktop
 
 1. 打开 Claude Desktop 设置
-2. 找到 MCP 配置文件位置�?   - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
+2. 找到 MCP 配置文件位置?   - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
    - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
-3. 添加�?
+3. 添加?
 ```json
 {
   "mcpServers": {
@@ -115,8 +115,8 @@ npm uninstall -g ai-verify-mcp
 
 ### Trae
 
-1. 打开 Trae 设置 �?MCP
+1. 打开 Trae 设置 ?MCP
 2. 点击"添加 MCP 服务"
-3. 选择"命令行模�?
-4. 命令�?`npx`，参数填 `-y @validpilot/@validpilot/@validpilot/ai-verify-mcp stdio`
-5. 保存并启�?
+3. 选择"命令行模?
+4. 命令?`npx`，参数填 `-y @validpilot/ai-verify-mcp stdio`
+5. 保存并启?

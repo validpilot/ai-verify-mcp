@@ -1,0 +1,14 @@
+{
+  "name": "browser_visual_component",
+  "description": "组件级视觉对比：一次调用完成截取指定 CSS 选择器的组件截图 → 与同名基线对比 → 返回 diffPixels、diffRatio、passed。如果基线不存在则自动创建基线，返回 baseline_created 标记。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "name": { "type": "string", "description": "组件基线名称，不含扩展名" },
+      "selector": { "type": "string", "description": "CSS 选择器，精确选择要对比的组件" },
+      "maxDiffPixelRatio": { "type": "number", "description": "允许的最大差异像素比例，默认 0.01" },
+      "sessionName": { "type": "string", "description": "浏览器会话名称，默认当前活跃会话" }
+    },
+    "required": ["name", "selector"]
+  }
+}

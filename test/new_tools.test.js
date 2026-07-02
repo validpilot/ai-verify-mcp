@@ -140,36 +140,15 @@ describe('新增工具 schema 验证', () => {
     });
   });
 
-  // browser_deep_interact
+  // browser_deep_interact（OSS 不包含，属于 Pro 版付费能力）
   describe('browser_deep_interact', () => {
-    test('schema 文件存在且 JSON 合法', () => {
+    test('schema 文件不存在（OSS 不包含付费功能）', () => {
       const schemaPath = path.join(TOOLS_DIR, 'browser_deep_interact.json');
-      assert.ok(fs.existsSync(schemaPath));
-      const schema = JSON.parse(fs.readFileSync(schemaPath, 'utf8'));
-      assert.equal(schema.name, 'browser_deep_interact');
+      assert.ok(!fs.existsSync(schemaPath), 'browser_deep_interact.json 不应存在于 OSS 版本中');
     });
 
-    test('schema 包含 mode/url/workflow/fillFields 参数', () => {
-      const schema = JSON.parse(fs.readFileSync(path.join(TOOLS_DIR, 'browser_deep_interact.json'), 'utf8'));
-      const props = schema.inputSchema.properties;
-      assert.ok(props.mode);
-      assert.ok(props.url);
-      assert.ok(props.workflow);
-      assert.ok(props.fillFields);
-    });
-
-    test('mode 参数枚举包含 detect/form/workflow/explore', () => {
-      const schema = JSON.parse(fs.readFileSync(path.join(TOOLS_DIR, 'browser_deep_interact.json'), 'utf8'));
-      const mode = schema.inputSchema.properties.mode;
-      assert.ok(mode.enum);
-      assert.ok(mode.enum.includes('detect'));
-      assert.ok(mode.enum.includes('form'));
-      assert.ok(mode.enum.includes('workflow'));
-      assert.ok(mode.enum.includes('explore'));
-    });
-
-    test('toolNames 中包含 browser_deep_interact', () => {
-      assert.ok(toolNames.has('browser_deep_interact'));
+    test('toolNames 中不包含 browser_deep_interact（OSS 不包含付费功能）', () => {
+      assert.ok(!toolNames.has('browser_deep_interact'), '工具 browser_deep_interact 不应在 OSS 版本中（属于 Pro 版付费能力）');
     });
   });
 

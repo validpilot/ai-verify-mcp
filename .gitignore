@@ -21,6 +21,9 @@ visual/actual/
 visual/diff/
 artifacts/
 
+# Runtime generated contracts (contains environment-specific URLs)
+contracts/
+
 # Runtime data
 .browser-profiles/
 

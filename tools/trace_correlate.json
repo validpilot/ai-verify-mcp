@@ -1,0 +1,32 @@
+{
+  "name": "trace_correlate",
+  "description": "traceId 深度关联：根据 traceIds 反查前端证据包和后端日志，实现前后端联调闭环。前端扫描 evidence.json 中匹配的 traceId，后端可从本地日志文件或 SSH 远程日志检索，输出完整调用链。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "traceIds": {
+        "type": "array",
+        "description": "要关联的 traceId 列表",
+        "items": { "type": "string" }
+      },
+      "traceId": {
+        "type": "string",
+        "description": "单个 traceId（与 traceIds 二选一）"
+      },
+      "backendLogPath": {
+        "type": "string",
+        "description": "后端日志文件本地路径，将在文件中搜索 traceId"
+      },
+      "useSshBackend": {
+        "type": "boolean",
+        "description": "是否通过 SSH 远程查询后端日志（需配置 backend_logs 工具）",
+        "default": false
+      },
+      "backendLogLines": {
+        "type": "number",
+        "description": "每个 traceId 返回的后端日志行数上限，默认 10",
+        "default": 10
+      }
+    }
+  }
+}

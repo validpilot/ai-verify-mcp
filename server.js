@@ -1,4 +1,6 @@
 try { require('dotenv').config(); } catch(e) { console.warn('[ValidPilot] dotenv not loaded:', e.message); }
+// 修复 Windows 终端中文编码
+require('./core/win-encoding');
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
@@ -19,8 +21,59 @@ const errorAggregator = require('./brain/error_aggregator');
 const { StateManager } = require('./core/state');
 const Logger = require('./core/logger');
 const logger = new Logger();
+function log(level, message, data) {
+  logger.log(level, message, data);
+}
+function resetRuntimeLogs() {
+  stateManager.resetRuntimeLogs(log);
+  currentCheckpoint = stateManager.currentCheckpoint;
+}
 const TraceManager = require('./core/trace');
 const traceManager = new TraceManager();
+
+const FEATURE_GATE = {
+  ossFeatures: [
+    'mcp_health_check', 'mcp_self_test', 'browser_open', 'browser_click', 'browser_type',
+    'browser_navigate', 'browser_snapshot', 'browser_screenshot', 'browser_evaluate',
+    'browser_network', 'browser_errors', 'evidence_pack', 'evidence_index',
+    'error_summary_md', 'contract_guard', 'contract_baseline', 'validation_run',
+    'browser_memory_check', 'browser_performance_check', 'browser_visual_component',
+    'browser_full_regression', 'browser_dom', 'browser_locator', 'browser_wait',
+    'browser_chain', 'validation_chain', 'validation_flow', 'browser_assert'
+  ],
+  proFeatures: [
+    'trace_correlate', 'backend_logs', 'auto_fix_pipeline', 'fix_verify',
+    'deep_interact', 'browser_deep_interact', 'browser_flow',
+    'ai_debug_investigate', 'benchmark_run'
+  ],
+  teamFeatures: [
+    'validation_suite_run', 'skill_mcp_sync'
+  ],
+  enterpriseFeatures: []
+};
+
+function checkFeatureGate(toolName) {
+  if (FEATURE_GATE.ossFeatures.includes(toolName)) {
+    return { allowed: true };
+  }
+  if (FEATURE_GATE.proFeatures.includes(toolName)) {
+    return {
+      allowed: false,
+      tier: 'Pro',
+      message: `${toolName} 属于 ValidPilot Pro 付费能力。OSS 版本提供基础验证能力，升级后可获得深度分析、自动修复等高级功能。`,
+      upgradeUrl: 'https://validpilot.com/pricing'
+    };
+  }
+  if (FEATURE_GATE.teamFeatures.includes(toolName)) {
+    return {
+      allowed: false,
+      tier: 'Team',
+      message: `${toolName} 属于 ValidPilot Team 付费能力。OSS 版本提供单次验证能力，升级后可获得团队协作、长期趋势分析等功能。`,
+      upgradeUrl: 'https://validpilot.com/pricing'
+    };
+  }
+  return { allowed: true };
+}
 
 // Handler modules (callTool dispatch routing)
 const handlerBrowser = require('./handlers/browser');
@@ -48,6 +101,7 @@ for (const h of allHandlers) {
 const TOOLS_DIR = path.join(__dirname, 'tools');
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
 const VALIDATIONS_DIR = path.join(PROJECT_ROOT, '.trae', 'validations');
+const VALIDATION_RUNS_DIR = path.join(VALIDATIONS_DIR, 'runs');
 const LOG_FILE = Logger.LOG_FILE;
 const SCREENSHOT_DIR = path.join(__dirname, 'screenshots');
 const TRACE_DIR = path.join(__dirname, 'traces');
@@ -58,6 +112,71 @@ const VISUAL_BASELINE_DIR = path.join(VISUAL_DIR, 'baselines');
 const VISUAL_ACTUAL_DIR = path.join(VISUAL_DIR, 'actual');
 const VISUAL_DIFF_DIR = path.join(VISUAL_DIR, 'diff');
 
+// ===== 统一落盘 run 管理 =====
+let currentRunId = null;
+let currentRunDir = null;
+let currentRunScreenshotDir = null;
+let currentRunTraceDir = null;
+let currentRunHarDir = null;
+let currentRunReportDir = null;
+let currentRunVisualBaselineDir = null;
+let currentRunVisualActualDir = null;
+let currentRunVisualDiffDir = null;
+
+function generateRunId() {
+  const now = new Date();
+  const ts = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  const rand = Math.random().toString(36).slice(2, 8);
+  return 'run-' + ts + '-' + rand;
+}
+
+function ensureRunDir(runId) {
+  if (!runId) runId = generateRunId();
+  const runDir = path.join(VALIDATION_RUNS_DIR, runId);
+  const screenshotDir = path.join(runDir, 'screenshots');
+  const traceDir = path.join(runDir, 'traces');
+  const harDir = path.join(runDir, 'har');
+  const reportDir = path.join(runDir, 'reports');
+  const visualDir = path.join(runDir, 'visual');
+  const visualBaselineDir = path.join(visualDir, 'baselines');
+  const visualActualDir = path.join(visualDir, 'actual');
+  const visualDiffDir = path.join(visualDir, 'diff');
+  [runDir, screenshotDir, traceDir, harDir, reportDir, visualDir,
+   visualBaselineDir, visualActualDir, visualDiffDir].forEach(dir => {
+    fs.mkdirSync(dir, { recursive: true });
+  });
+  currentRunId = runId;
+  currentRunDir = runDir;
+  currentRunScreenshotDir = screenshotDir;
+  currentRunTraceDir = traceDir;
+  currentRunHarDir = harDir;
+  currentRunReportDir = reportDir;
+  currentRunVisualBaselineDir = visualBaselineDir;
+  currentRunVisualActualDir = visualActualDir;
+  currentRunVisualDiffDir = visualDiffDir;
+  return { runId, runDir };
+}
+
+function getActiveScreenshotDir() { return currentRunScreenshotDir || SCREENSHOT_DIR; }
+function getActiveTraceDir() { return currentRunTraceDir || TRACE_DIR; }
+function getActiveHarDir() { return currentRunHarDir || HAR_DIR; }
+function getActiveReportDir() { return currentRunReportDir || REPORT_DIR; }
+function getActiveVisualBaselineDir() { return currentRunVisualBaselineDir || VISUAL_BASELINE_DIR; }
+function getActiveVisualActualDir() { return currentRunVisualActualDir || VISUAL_ACTUAL_DIR; }
+function getActiveVisualDiffDir() { return currentRunVisualDiffDir || VISUAL_DIFF_DIR; }
+
+function resetRunDir() {
+  currentRunId = null;
+  currentRunDir = null;
+  currentRunScreenshotDir = null;
+  currentRunTraceDir = null;
+  currentRunHarDir = null;
+  currentRunReportDir = null;
+  currentRunVisualBaselineDir = null;
+  currentRunVisualActualDir = null;
+  currentRunVisualDiffDir = null;
+}
+
 let validationResults = [];
 let lastQualityChecks = {
   visual: [],
@@ -67,6 +186,11 @@ let lastQualityChecks = {
 let lastValidationRun = null;
 
 const stateManager = new StateManager();
+const consoleLogs = stateManager.consoleLogs;
+const networkLogs = stateManager.networkLogs;
+const pageErrors = stateManager.pageErrors;
+const requestStartTimes = stateManager.requestStartTimes;
+let currentCheckpoint = stateManager.currentCheckpoint;
 
 // 会话管理
 const MAX_SESSIONS = 2;
@@ -153,7 +277,9 @@ const SENSITIVE_TEXT_PATTERNS = [
   /Bearer\s+[A-Za-z0-9._~+\/-]+=*/gi,
   /ark-[A-Za-z0-9-]{20,}/gi,
   /(api[_-]?key\s*[:=]\s*)[A-Za-z0-9._~+\/-]{8,}/gi,
-  /(token\s*[:=]\s*)[A-Za-z0-9._~+\/-]{8,}/gi
+  /(token\s*[:=]\s*)[A-Za-z0-9._~+\/-]{8,}/gi,
+  /sk_live_[\w-]{10,}/gi,
+  /sk_test_[\w-]{10,}/gi
 ];
 
 function redactString(value) {
@@ -210,7 +336,7 @@ function trimLogs() {
 
 // 给页面挂载监听器
 function setupPageListeners(targetPage) {
-  stateManager.resetRuntimeLogs(log);
+  resetRuntimeLogs();
 
   targetPage.on('console', msg => {
     stateManager.consoleLogs.push(redact({ source: 'console', type: msg.type(), text: msg.text(), location: msg.location(), timestamp: new Date().toISOString() }));
@@ -659,7 +785,7 @@ async function closeBrowserSession(name) {
  */
 // ===== 后端主动探测 =====
 // 对已知 API 端点执行 GET 探测，发现隐藏的 5xx/4xx 错误
-const BACKEND_API_ENDPOINTS = [
+const DEFAULT_BACKEND_API_ENDPOINTS = [
   '/api/v1/health',
   '/api/v1/identity/me',
   '/api/v1/settlements',
@@ -671,12 +797,42 @@ const BACKEND_API_ENDPOINTS = [
   '/api/v1/provider/commission-configs',
   '/api/v1/provider/settlements'
 ];
+
+const CLOUD_API_BACKEND_API_ENDPOINTS = [
+  '/health',
+  '/v1/auth/me',
+  '/v1/quota',
+  '/v1/subscriptions/current'
+];
+
+function isCloudApiProbeTarget(targetUrl = '', options = {}) {
+  const hint = String(options.profile || options.preset || options.project || options.service || '').toLowerCase();
+  if (hint.includes('cloud-api') || hint.includes('cloud_api')) return true;
+
+  try {
+    const parsed = new URL(String(targetUrl));
+    return parsed.port === '3001' || parsed.hostname.includes('cloud-api');
+  } catch (_) {
+    return String(targetUrl).includes(':3001') || String(targetUrl).includes('cloud-api');
+  }
+}
+
+function getBackendProbeEndpoints(targetUrl = '', options = {}) {
+  if (Array.isArray(options.endpoints) && options.endpoints.length > 0) {
+    return options.endpoints;
+  }
+  if (isCloudApiProbeTarget(targetUrl, options)) {
+    return CLOUD_API_BACKEND_API_ENDPOINTS;
+  }
+  return DEFAULT_BACKEND_API_ENDPOINTS;
+}
+const BACKEND_API_ENDPOINTS = DEFAULT_BACKEND_API_ENDPOINTS;
 const BACKEND_RESPONSE_ERROR_KEYWORDS = /error|exception|undefinedtable|column.*not exist|traceback|internal_server/i;
 async function probeKnownEndpoints(target, options = {}) {
   const results = [];
-  const endpoints = options.endpoints || BACKEND_API_ENDPOINTS;
+  const targetUrl = typeof target.url === 'function' ? target.url() : '';
+  const endpoints = getBackendProbeEndpoints(targetUrl, options);
   try {
-    const baseUrl = target.url().replace(/\/$/, '');
     for (const ep of endpoints) {
       try {
         const r = await target.evaluate(async (url) => {
@@ -787,13 +943,8 @@ async function runFullAudit(args = {}) {
   let backendProbeCount = 0;
   if (includeProbe && page && !page.isClosed()) {
     try {
-      const baseUrl = page.url().replace(/\/$/, '');
-      const knownEndpoints = [
-        '/api/v1/health', '/api/v1/identity/me', '/api/v1/settlements',
-        '/api/v1/channels', '/api/v1/orders', '/api/v1/leads',
-        '/api/v1/campaigns', '/api/v1/merchant/payout-disputes',
-        '/api/v1/provider/commission-configs', '/api/v1/provider/settlements'
-      ];
+      const targetUrl = page.url();
+      const knownEndpoints = getBackendProbeEndpoints(targetUrl, args);
       for (const ep of knownEndpoints) {
         try {
           const r = await page.evaluate(async (url) => {
@@ -928,32 +1079,19 @@ function buildTraceChain(args = {}) {
 
 /**
  * 通过 SSH 从远程服务器获取后端 docker 日志
+ * 
+ * OSS 版本：返回升级提示，后端日志关联属于 ValidPilot Pro/Team 付费能力
  */
 async function fetchBackendLogs(args = {}) {
-  const { traceId, service, since, lines = 50 } = args;
-  if (!traceId) return { error: '缺少 traceId 参数', logs: [] };
-  
-  const sshHost = '192.168.8.4';
-  const containers = service ? [service] : ['huokesys-gateway-1', 'huokesys-postgres-1', 'huokesys-redis-1'];
-  
-  const results = [];
-  for (const container of containers) {
-    try {
-      // docker logs --tail=500 然后用 grep 过滤 traceId
-      const cmd = `ssh ${sshHost} "docker logs ${container} --tail 2000 2>&1 | grep -i '${traceId}' | tail -${lines}"`;
-      const output = execSync(cmd, { timeout: 10000, encoding: 'utf8', shell: 'powershell' }).trim();
-      if (output) {
-        results.push({ service: container, lines: output.split('\n').filter(Boolean) });
-      }
-    } catch (e) {
-      // grep 无匹配时 execSync 会抛非0退出码，忽略
-      if (e.status !== 1) {
-        results.push({ service: container, error: e.message });
-      }
-    }
-  }
-  
-  return { traceId, totalServices: results.length, logs: results };
+  const { traceId } = args;
+  return {
+    traceId,
+    logs: [],
+    totalServices: 0,
+    upgradeRequired: true,
+    message: '后端日志关联属于 ValidPilot Pro/Team 付费能力。OSS 版本支持前端 evidence 和 traceId 采集，升级后可自动关联后端 Docker 日志、数据库查询和跨服务 trace。',
+    upgradeUrl: 'https://validpilot.com/pricing'
+  };
 }
 
 // ===== 操作后快速错误捕获 =====
@@ -1056,7 +1194,13 @@ function detectSilentFailures(args = {}) {
       if (item.failed) return false;
       // Skip non-API assets (images, fonts, etc.)
       const url = item.url || '';
-      if (url.match(/\.(png|jpg|jpeg|gif|svg|ico|woff2?|ttf|eot|css|js)($|\?)/i)) return false;
+      if (url.match(/\.(png|jpg|jpeg|gif|svg|ico|woff2?|ttf|eot|css|js|ts|tsx|jsx)($|\?)/i)) return false;
+      // Skip Vite dev mode / frontend source module requests (HMR, source maps, etc.)
+      if (url.includes('/@vite/') || url.includes('/@react-refresh') || url.includes('/node_modules/.vite/') || url.includes('vite/modulepreload')) return false;
+      // Skip source map requests
+      if (url.endsWith('.map') || url.includes('sourcemap')) return false;
+      // Skip frontend source files in dev mode (Vite serves src files directly)
+      if (url.includes('/src/')) return false;
       // Check body for error patterns
       return RESPONSE_BODY_ERROR_PATTERNS.some(p => p.test(item.responseBody));
     })
@@ -1081,6 +1225,11 @@ function extractErrorSnippet(body) {
   const errMatch = body.match(/"error"\s*:\s*"([^"]+)"/);
   if (errMatch) return errMatch[1].slice(0, 200);
   return body.slice(0, 120);
+}
+
+function readRecentMcpErrors(args = {}) {
+  if (args.includeMcpErrors !== true) return [];
+  return logger.readRecentMcpErrors(args);
 }
 
 function getUnifiedErrors(args = {}) {
@@ -1260,12 +1409,21 @@ function ensureArtifactsDir() {
   fs.mkdirSync(VISUAL_BASELINE_DIR, { recursive: true });
   fs.mkdirSync(VISUAL_ACTUAL_DIR, { recursive: true });
   fs.mkdirSync(VISUAL_DIFF_DIR, { recursive: true });
+  if (currentRunId) {
+    fs.mkdirSync(getActiveScreenshotDir(), { recursive: true });
+    fs.mkdirSync(getActiveTraceDir(), { recursive: true });
+    fs.mkdirSync(getActiveHarDir(), { recursive: true });
+    fs.mkdirSync(getActiveReportDir(), { recursive: true });
+    fs.mkdirSync(getActiveVisualBaselineDir(), { recursive: true });
+    fs.mkdirSync(getActiveVisualActualDir(), { recursive: true });
+    fs.mkdirSync(getActiveVisualDiffDir(), { recursive: true });
+  }
 }
 
 async function captureStepEvidence(target, label = 'step', args = {}) {
   ensureArtifactsDir();
   const safeName = `${Date.now()}-${label}`.replace(/[^a-zA-Z0-9_-]/g, '_');
-  const screenshotPath = path.join(SCREENSHOT_DIR, `${safeName}.png`);
+  const screenshotPath = path.join(getActiveScreenshotDir(), `${safeName}.png`);
   if (args.screenshot !== false) await screenshotWithRedaction(target, screenshotPath, args);
 
   // 截图后自动分析错误
@@ -1368,7 +1526,7 @@ async function assertPage(target, args = {}) {
     try {
       ensureArtifactsDir();
       const safeName = `assert-fail-${Date.now()}`.replace(/[^a-zA-Z0-9_-]/g, '_');
-      const screenshotPath = path.join(SCREENSHOT_DIR, `${safeName}.png`);
+      const screenshotPath = path.join(getActiveScreenshotDir(), `${safeName}.png`);
       await screenshotWithRedaction(target, screenshotPath, {});
       result.evidenceScreenshot = screenshotPath;
       // 自动分析截图中的可见错误
@@ -1390,7 +1548,7 @@ async function assertPage(target, args = {}) {
 }
 
 async function runFlow(target, args = {}) {
-  if (args.clearErrors !== false) stateManager.resetRuntimeLogs(log);
+  if (args.clearErrors !== false) resetRuntimeLogs();
   const steps = Array.isArray(args.steps) ? args.steps : [];
   const results = [];
   for (let index = 0; index < steps.length; index += 1) {
@@ -1403,7 +1561,7 @@ async function runFlow(target, args = {}) {
       else if (step.type === 'wait') await waitForCondition(target, step);
       else if (step.type === 'assert') results.push({ label, assertion: await assertPage(target, step) });
       else if (step.type === 'eval') await callTool('browser_eval', step);
-      else if (step.type === 'clearErrors') stateManager.resetRuntimeLogs(log);
+      else if (step.type === 'clearErrors') resetRuntimeLogs();
       else if (step.type === 'step') await callTool('browser_step', step);
       else if (step.type === 'screenshot') await callTool('browser_screenshot', step);
       else if (step.type === 'snapshot') await callTool('browser_snapshot', step);
@@ -1448,10 +1606,12 @@ function getArtifacts() {
     checkpoint: stateManager.currentCheckpoint,
     traceActive,
     currentTraceName,
-    screenshots: listFilesRecursive(SCREENSHOT_DIR).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
-    traces: listFilesRecursive(TRACE_DIR).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
-    har: listFilesRecursive(HAR_DIR).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
-    reports: listFilesRecursive(REPORT_DIR).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
+    currentRunId,
+    currentRunDir,
+    screenshots: listFilesRecursive(getActiveScreenshotDir()).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
+    traces: listFilesRecursive(getActiveTraceDir()).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
+    har: listFilesRecursive(getActiveHarDir()).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
+    reports: listFilesRecursive(getActiveReportDir()).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
     visual: getVisualArtifacts(),
     logFile: fs.existsSync(LOG_FILE) ? LOG_FILE : null
   });
@@ -1460,22 +1620,22 @@ function getArtifacts() {
 function clearArtifacts(args = {}) {
   const includeLogs = args.includeLogs === true;
   const includeVisual = args.includeVisual !== false;
-  const dirs = [SCREENSHOT_DIR, TRACE_DIR, HAR_DIR, REPORT_DIR];
-  if (includeVisual) dirs.push(VISUAL_BASELINE_DIR, VISUAL_ACTUAL_DIR, VISUAL_DIFF_DIR);
+  const dirs = [getActiveScreenshotDir(), getActiveTraceDir(), getActiveHarDir(), getActiveReportDir()];
+  if (includeVisual) dirs.push(getActiveVisualBaselineDir(), getActiveVisualActualDir(), getActiveVisualDiffDir());
   for (const dir of dirs) {
     if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: true });
     fs.mkdirSync(dir, { recursive: true });
   }
   if (includeLogs && fs.existsSync(LOG_FILE)) fs.writeFileSync(LOG_FILE, '');
-  return { cleared: true, includeLogs, includeVisual, checkpoint: currentCheckpoint };
+  return { cleared: true, includeLogs, includeVisual, checkpoint: currentCheckpoint, currentRunId };
 }
 
 function getVisualArtifacts() {
   ensureArtifactsDir();
   return {
-    baselines: listFilesRecursive(VISUAL_BASELINE_DIR).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
-    actual: listFilesRecursive(VISUAL_ACTUAL_DIR).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
-    diff: listFilesRecursive(VISUAL_DIFF_DIR).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
+    baselines: listFilesRecursive(getActiveVisualBaselineDir()).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
+    actual: listFilesRecursive(getActiveVisualActualDir()).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
+    diff: listFilesRecursive(getActiveVisualDiffDir()).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
     recentComparisons: lastQualityChecks.visual.slice(-20).reverse()
   };
 }
@@ -1487,7 +1647,7 @@ function safeArtifactName(name, fallback) {
 async function visualBaseline(target, args = {}) {
   ensureArtifactsDir();
   const safeName = safeArtifactName(args.name, `baseline-${Date.now()}`);
-  const filePath = path.join(VISUAL_BASELINE_DIR, `${safeName}.png`);
+  const filePath = path.join(getActiveVisualBaselineDir(), `${safeName}.png`);
   await screenshotWithRedaction(target, filePath, { selector: args.selector, fullPage: args.fullPage !== false, redactSelectors: args.maskSelectors });
   const result = redact({ saved: true, name: safeName, path: filePath, selector: args.selector || null, fullPage: args.fullPage !== false, timestamp: new Date().toISOString() });
   lastQualityChecks.visual.push({ type: 'baseline', ...result });
@@ -1521,11 +1681,11 @@ function comparePngFiles(baselinePath, actualPath, diffPath) {
 async function visualCompare(target, args = {}) {
   ensureArtifactsDir();
   const safeName = safeArtifactName(args.name, `compare-${Date.now()}`);
-  const baselinePath = path.join(VISUAL_BASELINE_DIR, `${safeName}.png`);
+  const baselinePath = path.join(getActiveVisualBaselineDir(), `${safeName}.png`);
   if (!fs.existsSync(baselinePath)) throw new Error(`未找到视觉基线：${baselinePath}`);
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const actualPath = path.join(VISUAL_ACTUAL_DIR, `${safeName}-${stamp}.png`);
-  const diffPath = path.join(VISUAL_DIFF_DIR, `${safeName}-${stamp}.png`);
+  const actualPath = path.join(getActiveVisualActualDir(), `${safeName}-${stamp}.png`);
+  const diffPath = path.join(getActiveVisualDiffDir(), `${safeName}-${stamp}.png`);
   await screenshotWithRedaction(target, actualPath, { selector: args.selector, fullPage: args.fullPage !== false, redactSelectors: args.maskSelectors });
   const comparison = comparePngFiles(baselinePath, actualPath, diffPath);
   const maxDiffPixelRatio = typeof args.maxDiffPixelRatio === 'number' ? args.maxDiffPixelRatio : 0.01;
@@ -1879,6 +2039,10 @@ function qualityGateHtml() {
   return parts.join('');
 }
 
+function filterNetwork(items, args = {}) {
+  return stateManager.filterNetwork(items, args);
+}
+
 function filterNetworkDetails(args = {}) {
   return redact(filterNetwork(networkLogs, args).slice(-(args.limit || 50)));
 }
@@ -1911,7 +2075,7 @@ function exportHar(args = {}) {
     }
   });
   const safeName = (args.name || `network-${Date.now()}`).replace(/[^a-zA-Z0-9_-]/g, '_');
-  const filePath = path.join(HAR_DIR, `${safeName}.har.json`);
+  const filePath = path.join(getActiveHarDir(), `${safeName}.har.json`);
   fs.writeFileSync(filePath, JSON.stringify(har, null, 2));
   return { exported: true, filePath, count: entries.length, checkpoint: currentCheckpoint };
 }
@@ -1997,11 +2161,13 @@ function instrumentationScript() {
     };
     const genTraceId = () => genHex(16);  // 32 hex chars
     const genSpanId = () => genHex(8);    // 16 hex chars
+    const safeSessionGet = key => { try { return sessionStorage.getItem(key); } catch (_) { return null; } };
+    const safeSessionSet = (key, value) => { try { sessionStorage.setItem(key, value); } catch (_) {} };
     // 当前 navigation span (整页生命周期内复用同一 traceId)
-    const navTraceId = sessionStorage.getItem('__mcp_nav_trace_id') || genTraceId();
-    const navSpanId = sessionStorage.getItem('__mcp_nav_span_id') || genSpanId();
-    sessionStorage.setItem('__mcp_nav_trace_id', navTraceId);
-    sessionStorage.setItem('__mcp_nav_span_id', navSpanId);
+    const navTraceId = safeSessionGet('__mcp_nav_trace_id') || genTraceId();
+    const navSpanId = safeSessionGet('__mcp_nav_span_id') || genSpanId();
+    safeSessionSet('__mcp_nav_trace_id', navTraceId);
+    safeSessionSet('__mcp_nav_span_id', navSpanId);
     const buildTp = (spanId, sampled = true) => '00-' + navTraceId + '-' + spanId + '-' + (sampled ? '01' : '00');
     // 把 traceparent 写入请求 headers，让后端能从 traceparent 解析出 span 上下文
     const injectTrace = (headers, spanId) => {
@@ -2116,8 +2282,8 @@ function instrumentationScript() {
     const replaceState = history.replaceState;
     const newNavSpan = () => {
       const sid = genSpanId();
-      sessionStorage.setItem('__mcp_nav_span_id', sid);
-      sessionStorage.setItem('__mcp_nav_trace_id', navTraceId);
+      safeSessionSet('__mcp_nav_span_id', sid);
+      safeSessionSet('__mcp_nav_trace_id', navTraceId);
       return sid;
     };
     history.pushState = function() {
@@ -2189,7 +2355,7 @@ async function stopTrace(target, args = {}) {
   ensureArtifactsDir();
   if (!traceActive) return { stopped: false, active: false };
   const safeName = (args.name || currentTraceName || `trace-${Date.now()}`).replace(/[^a-zA-Z0-9_-]/g, '_');
-  const tracePath = path.join(TRACE_DIR, `${safeName}.zip`);
+  const tracePath = path.join(getActiveTraceDir(), `${safeName}.zip`);
   await target.context().tracing.stop({ path: tracePath });
   traceActive = false;
   currentTraceName = null;
@@ -2333,7 +2499,7 @@ async function runValidationQuickRun(target, args = {}) {
       checks.push({ name: 'load_time', passed: false, detail: `页面加载失败: ${error.message}` });
     }
     const safeName = `quick-run-${Date.now()}`.replace(/[^a-zA-Z0-9_-]/g, '_');
-    const screenshotPath = path.join(SCREENSHOT_DIR, `${safeName}.png`);
+    const screenshotPath = path.join(getActiveScreenshotDir(), `${safeName}.png`);
     await screenshotWithRedaction(target, screenshotPath, {}).catch(() => {});
     const duration = Date.now() - startTime;
     const result = redact({
@@ -3170,7 +3336,7 @@ async function runValidationFlow(target, args = {}) {
             const screenshotName = step.name || `step-${index}`;
             ensureArtifactsDir();
             const safeName = `${Date.now()}-${screenshotName}`.replace(/[^a-zA-Z0-9_-]/g, '_');
-            const screenshotPath = path.join(SCREENSHOT_DIR, `${safeName}.png`);
+            const screenshotPath = path.join(getActiveScreenshotDir(), `${safeName}.png`);
             await screenshotWithRedaction(target, screenshotPath, {});
             stepResult.screenshot = screenshotPath;
             break;
@@ -3424,103 +3590,138 @@ function getRunRows(run) {
   return (run.cases || []).map(item => ({ name: item.name, type: run.type || 'case', passed: item.passed, error: item.error || '', details: item.errors?.summary ? `errors=${item.errors.summary.total}` : '' }));
 }
 
+function classifySeverity(row) {
+  const error = String(row.error || '').toLowerCase();
+  if (error.includes('阻塞') || error.includes('blocking') || error.includes('无法访问') || error.includes('崩溃')) return 'blocking';
+  if (error.includes('严重') || error.includes('critical') || error.includes('500') || error.includes('功能不可用')) return 'critical';
+  if (error.includes('优化') || error.includes('建议') || error.includes('minor') || error.includes('警告') || error.includes('optimization') || error.includes('suggestion')) return 'optimization';
+  return 'general';
+}
+
+function collectNetworkEvidence() {
+  const errors = [];
+  const requests = [];
+  try {
+    (networkLogs || []).forEach(log => {
+      const status = Number(log.status || 0);
+      if (status >= 400) errors.push({ url: log.url, status, method: log.method, type: status >= 500 ? 'server_error' : 'client_error', timestamp: log.timestamp });
+      if (requests.length < 50) requests.push({ url: log.url, status, method: log.method, duration: log.duration, timestamp: log.timestamp });
+    });
+  } catch (e) {}
+  return { totalRequests: requests.length, errorRequests: errors.length, errors, sampleRequests: requests };
+}
+
+function collectUnknowns(run) {
+  const items = [];
+  const cases = run.cases || run.results || [];
+  cases.forEach(item => {
+    if (item.error && (item.error.includes('未知') || item.error.includes('未分类'))) items.push({ name: item.name, description: item.error, suggestedCategory: '待分类' });
+  });
+  return { count: items.length, items };
+}
+
+function buildValidationReportContract(run, rows, failedRows, artifacts, generatedAt) {
+  const visualArtifacts = artifacts.visual || {};
+  const findings = failedRows.map(row => ({
+    id: 'F-' + Math.random().toString(36).slice(2, 8).toUpperCase(),
+    name: row.name,
+    type: row.type || 'unknown',
+    severity: classifySeverity(row),
+    description: row.error || row.details || '验证失败'
+  }));
+  return {
+    summary: {
+      name: run.name, type: run.type, passed: run.passed,
+      startedAt: run.startedAt || '', endedAt: run.endedAt || '', generatedAt,
+      total: run.total || rows.length,
+      passedCount: run.passedCount || rows.filter(r => r.passed).length,
+      failedCount: run.failedCount || failedRows.length,
+      conclusion: run.passed ? 'PASS' : (failedRows.some(r => classifySeverity(r) === 'blocking') ? 'BLOCKING' : 'FAIL'),
+      runId: currentRunId, runDir: currentRunDir
+    },
+    toolchain: { browser: run.browser || 'chromium', tools: run.toolsUsed || [], version: '1.0.0' },
+    findings,
+    networkEvidence: collectNetworkEvidence(),
+    artifacts: {
+      screenshots: artifacts.screenshots || [], traces: artifacts.traces || [],
+      har: artifacts.har || [], reports: artifacts.reports || [],
+      visual: visualArtifacts, logFile: artifacts.logFile
+    },
+    unknowns: collectUnknowns(run)
+  };
+}
+
+function buildReportHtml(contract) {
+  const { buildValidationReportHtml } = require('./core/report-html');
+  return buildValidationReportHtml(contract);
+}
+
 function exportValidationReport(args = {}) {
   ensureArtifactsDir();
   const run = redact(lastValidationRun || { name: '未执行验证', type: 'none', passed: false, cases: [], artifacts: getArtifacts() });
   const rows = getRunRows(run);
   const failedRows = rows.filter(row => !row.passed);
   const artifacts = run.artifacts || getArtifacts();
-  const visualArtifacts = artifacts.visual || getVisualArtifacts();
-  const links = [...(artifacts.screenshots || []), ...(artifacts.traces || []), ...(artifacts.har || []), ...(artifacts.reports || []), ...(visualArtifacts.baselines || []), ...(visualArtifacts.actual || []), ...(visualArtifacts.diff || [])];
   const generatedAt = new Date().toISOString();
-  const html = `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>${htmlEscape(run.name)} - Validation Report</title><style>body{font-family:Arial,"Microsoft YaHei",sans-serif;margin:24px;color:#222}table{border-collapse:collapse;width:100%;margin:12px 0}th,td{border:1px solid #ddd;padding:8px;text-align:left}th{background:#f6f8fa}.pass{color:#067d17}.fail{color:#b00020}code{background:#f6f8fa;padding:2px 4px}</style></head><body><h1>浏览器验证 HTML 报告</h1><section><h2>摘要</h2><p>名称：${htmlEscape(run.name)}</p><p>类型：${htmlEscape(run.type)}</p><p>结果：<strong class="${run.passed ? 'pass' : 'fail'}">${run.passed ? '通过' : '待修复'}</strong></p><p>开始：${htmlEscape(run.startedAt || '')}；结束：${htmlEscape(run.endedAt || '')}；导出：${htmlEscape(generatedAt)}</p><p>总数：${run.total || rows.length}；通过：${run.passedCount || rows.filter(row => row.passed).length}；失败：${run.failedCount || failedRows.length}</p></section>${qualityGateHtml()}<section><h2>结果表</h2><table><thead><tr><th>名称</th><th>类型</th><th>结果</th><th>详情</th><th>错误</th></tr></thead><tbody>${rows.map(row => `<tr><td>${htmlEscape(row.name)}</td><td>${htmlEscape(row.type)}</td><td class="${row.passed ? 'pass' : 'fail'}">${row.passed ? '通过' : '失败'}</td><td>${htmlEscape(row.details)}</td><td>${htmlEscape(row.error)}</td></tr>`).join('')}</tbody></table></section><section><h2>失败分析</h2>${failedRows.length ? `<ul>${failedRows.map(row => `<li><strong>${htmlEscape(row.name)}</strong>：${htmlEscape(row.error || row.details || '未提供失败详情')}</li>`).join('')}</ul>` : '<p>无失败项。</p>'}</section><section><h2>Artifacts 链接</h2>${links.length ? `<ul>${links.map(item => `<li><a href="file:///${String(item.path).replace(/\\/g, '/')}">${htmlEscape(item.relativePath || item.name || item.path)}</a></li>`).join('')}</ul>` : '<p>无产物。</p>'}</section><section><h2>原始摘要 JSON</h2><pre>${htmlEscape(JSON.stringify(run, null, 2).slice(0, 20000))}</pre></section></body></html>`;
+  const contract = buildValidationReportContract(run, rows, failedRows, artifacts, generatedAt);
+  const html = buildReportHtml(contract);
   const safeTimestamp = generatedAt.replace(/[:.]/g, '-');
-  const filePath = path.join(REPORT_DIR, `validation-${safeTimestamp}.html`);
+  const filePath = path.join(getActiveReportDir(), 'validation-' + safeTimestamp + '.html');
   fs.writeFileSync(filePath, html, 'utf8');
-  return { exported: true, filePath, generatedAt, type: run.type, passed: run.passed, rows: rows.length };
+  if (currentRunDir) fs.writeFileSync(path.join(currentRunDir, 'report.json'), JSON.stringify(contract, null, 2), 'utf8');
+  return { exported: true, filePath, generatedAt, type: run.type, passed: run.passed, rows: rows.length, runId: currentRunId };
 }
 
 function buildValidationReport(args = {}) {
   const run = lastValidationRun || { name: '未执行验证', passed: false, cases: [], artifacts: getArtifacts() };
   if (args.format === 'json') return run;
-  
-  if (run.type === 'suite') {
-    const results = run.results || [];
-    const failed = results.filter(item => !item.passed);
-    const lines = [
-      '# 验证套件执行报告',
-      '',
-      `套件名称：${run.name}`,
-      `验证结果：${run.passed ? '✅ 通过' : '❌ 待修复'}`,
-      `开始时间：${run.startedAt || ''}`,
-      `结束时间：${run.endedAt || ''}`,
-      `执行项总数：${run.total || results.length}`,
-      `通过：${run.passedCount || results.filter(item => item.passed).length}`,
-      `失败：${run.failedCount || failed.length}`,
-      `失败后继续：${run.continueOnFailure ? '是' : '否'}`,
-      '',
-      '## 执行项结果',
-      ...results.map((item, index) => `- ${item.passed ? '✅' : '❌'} ${index + 1}. [${item.type}] ${item.name}${item.error ? `：${item.error}` : ''}`),
-      '',
-      '## 失败分析',
-      ...(failed.length ? failed.flatMap(item => [
-        `### ${item.name}`,
-        `- 类型：${item.type}`,
-        `- 错误：${item.error || '无异常抛出'}`,
-        `- 子结果失败数：${item.result?.failedCount ?? '未知'}`,
-        ''
-      ]) : ['无失败执行项。']),
-      '',
-      '## 证据产物',
-      `- screenshots：${run.artifacts?.screenshots?.length || 0}`,
-      `- traces：${run.artifacts?.traces?.length || 0}`,
-      `- har：${run.artifacts?.har?.length || 0}`,
-      `- reports：${run.artifacts?.reports?.length || 0}`,
-      `- log：${run.artifacts?.logFile || '无'}`
-    ];
-    return lines.join('\n');
-  }
-  const cases = run.cases || [];
-  const failed = cases.filter(item => !item.passed);
+  const rows = getRunRows(run);
+  const failedRows = rows.filter(row => !row.passed);
+  const artifacts = run.artifacts || getArtifacts();
+  const generatedAt = new Date().toISOString();
+  const contract = buildValidationReportContract(run, rows, failedRows, artifacts, generatedAt);
+  const { summary, findings, networkEvidence, unknowns } = contract;
+  const sevLabels = { blocking: '🔴 阻塞', critical: '🟠 严重', general: '🟡 一般', optimization: '🟢 优化' };
   const lines = [
-    '# 浏览器验证执行报告',
-    '',
-    `验证名称：${run.name}`,
-    `验证结果：${run.passed ? '✅ 通过' : '❌ 待修复'}`,
-    `开始时间：${run.startedAt || ''}`,
-    `结束时间：${run.endedAt || ''}`,
-    `用例总数：${run.total || cases.length}`,
-    `通过：${run.passedCount || cases.filter(item => item.passed).length}`,
-    `失败：${run.failedCount || failed.length}`,
-    '',
-    '## 用例结果',
-    ...cases.map((item, index) => `- ${item.passed ? '✅' : '❌'} ${index + 1}. ${item.name}${item.error ? `：${item.error}` : ''}`),
-    '',
-    '## 失败分析',
-    ...(failed.length ? failed.flatMap(item => [
-      `### ${item.name}`,
-      `- 断言通过：${item.assertion ? item.assertion.passed : '无断言'}`,
-      `- 错误数：${item.errors?.summary?.total ?? '未知'}`,
-      `- 假设：${(item.investigation?.hypotheses || []).join('；') || '无'}`,
-      ''
-    ]) : ['无失败用例。']),
-    '',
-    '## 证据产物',
-    `- screenshots：${run.artifacts?.screenshots?.length || 0}`,
-    `- traces：${run.artifacts?.traces?.length || 0}`,
-    `- har：${run.artifacts?.har?.length || 0}`,
-    `- log：${run.artifacts?.logFile || '无'}`
-  ];
+    '# 浏览器验证执行报告', '',
+    '## 一、摘要 (Summary)',
+    '- 名称：' + summary.name,
+    '- 类型：' + summary.type,
+    '- 结论：' + (summary.conclusion === 'PASS' ? '✅ 通过' : summary.conclusion === 'BLOCKING' ? '🚫 阻塞问题' : '❌ 待修复') + ' (' + summary.conclusion + ')',
+    '- 开始：' + summary.startedAt,
+    '- 结束：' + summary.endedAt,
+    '- 总数：' + summary.total + '；通过：' + summary.passedCount + '；失败：' + summary.failedCount,
+    summary.runId ? '- 运行ID：' + summary.runId : '', '',
+    '## 二、工具链 (Toolchain)',
+    '- 浏览器：' + contract.toolchain.browser,
+    '- 版本：' + contract.toolchain.version,
+    '- 使用工具：' + (contract.toolchain.tools.length ? contract.toolchain.tools.join('、') : '无记录'), '',
+    '## 三、发现问题 (Findings)',
+    ...(findings.length ? findings.flatMap(f => ['- ' + (sevLabels[f.severity] || f.severity) + ' **' + f.id + '** [' + f.type + '] ' + f.name, '  - 描述：' + f.description, '']) : ['无问题。']), '',
+    '## 四、网络证据 (Network Evidence)',
+    '- 总请求数：' + networkEvidence.totalRequests,
+    '- 错误请求：' + networkEvidence.errorRequests,
+    ...(networkEvidence.errors.length ? networkEvidence.errors.slice(0, 10).map(e => '  - [' + e.status + '] ' + e.method + ' ' + e.url) : []), '',
+    '## 五、证据产物 (Artifacts)',
+    '- 截图：' + (artifacts.screenshots?.length || 0),
+    '- Trace：' + (artifacts.traces?.length || 0),
+    '- HAR：' + (artifacts.har?.length || 0),
+    '- 报告：' + (artifacts.reports?.length || 0),
+    '- 日志：' + (artifacts.logFile || '无'), '',
+    '## 六、待分类项 (Unknowns)',
+    '- 待分类数量：' + unknowns.count,
+    ...(unknowns.items.length ? unknowns.items.map(u => '  - ' + u.name + '：' + u.description) : ['无待分类项。'])
+  ].filter(Boolean);
   return lines.join('\n');
 }
 
 function validateToolSchemas() {
   const requiredTools = [
     'browser_open', 'browser_click', 'browser_type', 'browser_snapshot', 'browser_console', 'browser_network',
-    'browser_errors', 'browser_errors_clear', 'browser_wait', 'browser_assert', 'browser_flow', 'browser_step',
+    'browser_errors', 'browser_errors_clear', 'browser_wait', 'browser_assert', 'browser_step',
     'browser_trace_start', 'browser_trace_stop', 'browser_artifacts', 'browser_artifacts_clear',
     'browser_instrument', 'browser_events', 'browser_events_clear', 'browser_network_detail', 'browser_har_export',
-    'debug_investigate', 'validation_check', 'validation_flow', 'validation_run', 'validation_report', 'validation_suite_run',
+    'debug_investigate', 'validation_check', 'validation_flow', 'validation_run', 'validation_report',
     'validation_report_export', 'browser_visual_baseline', 'browser_visual_compare', 'browser_visual_report',
     'browser_a11y_check', 'browser_performance_check', 'browser_locator_validate', 'browser_locator_suggest',
     'browser_hover', 'browser_scroll', 'browser_press_key',
@@ -4898,16 +5099,11 @@ async function traverseMenu(args = {}) {
 }
 
 async function runBrowserFullRegression(args = {}) {
-  console.error('[runBrowserFullRegression] CALLED, args:', JSON.stringify(args));
-  // 共享全局浏览器实例（ensurePage 创建并维护），与 browser_open/browser_navigate 相同
-  // 默认 headless:false（可见浏览器窗口），让测试人员能实时查看点击过程
-  // 设置 args.visible=false 时后台运行，使用截图作为执行证据
   const useHeadless = args.visible === false;
   let target = null;
   try {
     const ensured = await ensurePage({ headless: useHeadless });
     target = ensured.target;
-    console.error('[runBrowserFullRegression] using ensured page (reused=' + ensured.reused + ', headless=' + useHeadless + ')');
   } catch (e) {
     return {
       passed: false, executed: true,
@@ -4918,7 +5114,7 @@ async function runBrowserFullRegression(args = {}) {
     };
   }
 
-  const targetUrl = args.url || 'http://192.168.8.4:5173/app.html';
+  const targetUrl = args.url || 'http://localhost:5173';
   if (!args.url) {
     console.warn('[runBrowserFullRegression] 未传 url，使用默认:', targetUrl);
   }
@@ -5108,9 +5304,8 @@ async function runBrowserFullRegression(args = {}) {
         } catch (_) {}
       });
 
-      console.error('[runBrowserFullRegression] CDP session established');
     } catch (e) {
-      console.error('[runBrowserFullRegression] CDP setup failed (non-fatal):', e.message);
+      // CDP setup failed (non-fatal)
     }
 
     // ===== 运行时 JS 拦截器（第三层，最可靠） =====
@@ -5193,10 +5388,9 @@ async function runBrowserFullRegression(args = {}) {
         await target.context().addInitScript(interceptorCode);
         // 对当前已存在的页面也直接注入（addInitScript 只对新页面生效）
         await target.evaluate(interceptorCode).catch(() => {});
-        console.error('[runBrowserFullRegression] Runtime JS interceptor installed via addInitScript + evaluate');
       }
     } catch (e) {
-      console.error('[runBrowserFullRegression] JS interceptor setup failed (non-fatal):', e.message);
+      // JS interceptor setup failed (non-fatal)
     }
   }
   function snapshotLocalLogs() {
@@ -5432,7 +5626,6 @@ async function runBrowserFullRegression(args = {}) {
 
       try {
         if (isTimeout()) break;
-        console.error('[runBrowserFullRegression] 📄 导航到页面:', nav.text || nav.resolvedUrl);
         // 📸 页面导航截图
         try { const buf = await target.screenshot({ type: 'png', fullPage: false }); result.captureEvidence.screenshots.push({ stage: 'nav', label: nav.text || nav.resolvedUrl, data: buf.toString('base64').slice(0, 500) }); } catch (_) {}
         await target.goto(nav.resolvedUrl, { waitUntil: 'networkidle', timeout: 15000 });
@@ -5501,7 +5694,6 @@ async function runBrowserFullRegression(args = {}) {
 
           try {
             await resetLogs();
-            console.error('[runBrowserFullRegression] 🖱️ 点击:', fn.selector || fn.text || `功能${fi+1}`);
             let clicked = await tryClick(fn.selector, true);
             if (!clicked) clicked = await tryClick(fn.text, false);
             if (!clicked && fn.selector) clicked = await tryClick(fn.selector, true);
@@ -5716,14 +5908,12 @@ async function runBrowserFullRegression(args = {}) {
           } catch (_) {}
           // 使用 selectOption 而非点击
           try {
-            console.error('[runBrowserFullRegression] 🔽 select选项:', fn.text, `(value=${fn.value})`);
             await target.selectOption(fn.selector, fn.value, { timeout: 5000 });
             clicked = true;
           } catch (_) {
             try { await target.selectOption(fn.selector, { value: fn.value }, { timeout: 3000 }); clicked = true; } catch (_) {}
           }
         } else {
-          console.error('[runBrowserFullRegression] 🖱️ 首页点击:', fn.text || fn.selector);
           clicked = await tryClick(fn.selector, true);
           if (!clicked) clicked = await tryClick(fn.text, false);
           if (!clicked && fn.selector) clicked = await tryClick(fn.selector, true);
@@ -5788,7 +5978,6 @@ async function runBrowserFullRegression(args = {}) {
         if (spaNavigated) {
           detail._spa = true;
           result.summary.pagesVisited = (result.summary.pagesVisited || 0) + 1;
-          console.error('[runBrowserFullRegression] 🔄 SPA页面变化:', fn.text || fn.selector, `(元素差: ${fpDelta})`);
         }
 
         const homeClickSinceTs = Date.now() - 2000;
@@ -5811,7 +6000,6 @@ async function runBrowserFullRegression(args = {}) {
         if (spaNavigated && spaNewContent && spaNewContent.length > 0) {
           try {
             const targetEl = spaNewContent[0];
-            console.error('[runBrowserFullRegression] 🔍 SPA深度探索:', targetEl.text);
             try { await target.evaluate((sel) => { const el = document.querySelector(sel); if (el) el.click(); }, targetEl.selector); } catch (_) {}
             try { await target.waitForLoadState('networkidle', { timeout: 5000 }); } catch (_) { await new Promise(r => setTimeout(r, 1500)); }
             await new Promise(r => setTimeout(r, 500));
@@ -5862,9 +6050,7 @@ async function runBrowserFullRegression(args = {}) {
       if (hasRecent429) {
         // 检测到限流，等待 30 秒让服务端恢复
         // 指数退避策略：检测到限流后至少等 30 秒
-        console.error('[runBrowserFullRegression] ⏳ 检测到限流429，等待30秒冷却...');
         await new Promise(r => setTimeout(r, 30000));
-        console.error('[runBrowserFullRegression] ✅ 冷却完成，开始 select 状态测试');
       }
     } catch (_) {}
 
@@ -5921,7 +6107,6 @@ async function runBrowserFullRegression(args = {}) {
 
           // Act: 选中选项
           let selected = false;
-          console.error('[runBrowserFullRegression] 🔽 阶段3.5 select选项:', selInfo.selector, '→', opt.text || opt.value);
           try {
             await target.selectOption(selInfo.selector, opt.value, { timeout: 5000 });
             selected = true;
@@ -5970,7 +6155,6 @@ async function runBrowserFullRegression(args = {}) {
                 return null;
               }).catch(() => null);
               if (pageNavItem) {
-                console.error('[runBrowserFullRegression] 🔍 角色切换后深度探索:', pageNavItem.text);
                 try {
                   await target.evaluate((sel) => { const el = document.querySelector(sel); if (el) el.click(); }, pageNavItem.selector);
                   try { await target.waitForLoadState('networkidle', { timeout: 6000 }); } catch (_) { await new Promise(r => setTimeout(r, 2000)); }
@@ -6306,6 +6490,7 @@ const deps = {
   installInstrumentation, getBrowserEvents, clearBrowserEvents,
   startTrace, stopTrace,
   getArtifacts, clearArtifacts, ensureArtifactsDir,
+  getBackendProbeEndpoints, isCloudApiProbeTarget,
   screenshotWithRedaction, safeArtifactName,
   analyzeScreenshotForErrors, exportHar,
   runFullAudit, visualBaseline, visualCompare, visualReport,
@@ -6318,7 +6503,7 @@ const deps = {
   runValidationQuickRun, runDeployVerify,
   investigateDebug, runBrowserFullRegression, traverseMenu,
   fetchBackendLogs, buildTraceChain,
-  detectSilentFailures, redact,
+  detectSilentFailures, redact, redactString, isSensitiveKey,
   trimTraceLogs, genSpanId, genTraceId,
 
   // === Modules ===
@@ -6330,6 +6515,17 @@ const deps = {
 
 async function callTool(name, args = {}) {
   logger.log('INFO', '调用工具', { name, args });
+
+  const featureCheck = checkFeatureGate(name);
+  if (!featureCheck.allowed) {
+    return {
+      isError: true,
+      content: [{ type: 'text', text: featureCheck.message }],
+      upgradeRequired: true,
+      tier: featureCheck.tier,
+      upgradeUrl: featureCheck.upgradeUrl
+    };
+  }
 
   // Update deps state before each call (handlers may have mutated shared arrays)
   deps.page = page;
@@ -6672,14 +6868,42 @@ if (!exists2) {
 }
 
 const MODE = process.env.MCP_MODE || 'stdio';
-if (MODE === 'http') {
-  startHttpMode().catch(error => {
-    logger.log('ERROR', 'MCP HTTP Server 启动失败', { error: error.message, stack: error.stack });
-    process.exit(1);
-  });
-} else {
-  main().catch(error => {
-    logger.log('ERROR', 'MCP Server 启动失败', { error: error.message, stack: error.stack });
-    process.exit(1);
-  });
+if (require.main === module) {
+  if (MODE === 'http') {
+    startHttpMode().catch(error => {
+      logger.log('ERROR', 'MCP HTTP Server 启动失败', { error: error.message, stack: error.stack });
+      process.exit(1);
+    });
+  } else {
+    main().catch(error => {
+      logger.log('ERROR', 'MCP Server 启动失败', { error: error.message, stack: error.stack });
+      process.exit(1);
+    });
+  }
 }
+
+module.exports = {
+  // === Constants ===
+  MAX_SESSIONS, SCREENSHOT_DIR, HAR_DIR, VISUAL_DIR,
+  VISUAL_BASELINE_DIR, VISUAL_ACTUAL_DIR, VISUAL_DIFF_DIR,
+  VALIDATIONS_DIR, VALIDATION_RUNS_DIR, REPORT_DIR, LOG_FILE, PROJECT_ROOT,
+
+  // === Run management ===
+  ensureRunDir, resetRunDir, generateRunId,
+  getActiveScreenshotDir, getActiveTraceDir, getActiveHarDir,
+  getActiveReportDir, getActiveVisualBaselineDir,
+  getActiveVisualActualDir, getActiveVisualDiffDir,
+  getCurrentRunId: () => currentRunId,
+  getCurrentRunDir: () => currentRunDir,
+
+  // === Artifacts ===
+  getArtifacts, clearArtifacts, ensureArtifactsDir,
+
+  // === Backend probe presets ===
+  getBackendProbeEndpoints, isCloudApiProbeTarget,
+
+  // === Report ===
+  buildValidationReport, exportValidationReport,
+  buildValidationReportContract, buildReportHtml,
+  classifySeverity, collectNetworkEvidence, collectUnknowns
+};

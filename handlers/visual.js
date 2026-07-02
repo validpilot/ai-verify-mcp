@@ -3,6 +3,8 @@
 // Handler: visual
 // Extracted from server.js callTool switch statements
 
+const { mcpError } = require('../core/mcp-error');
+
 const tools = [
   "browser_visual_baseline",
   "browser_visual_compare",
@@ -11,6 +13,8 @@ const tools = [
   "screenshot_diff",
   "browser_full_audit",
   "browser_performance_check",
+  "browser_memory_check",
+  "browser_visual_component",
   "browser_performance_trace",
   "browser_lighthouse_audit",
   "browser_responsive_test"
@@ -26,34 +30,40 @@ async function handle(name, args, deps) {
   // ====== browser_visual_baseline ======
   if (name === 'browser_visual_baseline') {
 const { target } = await ensurePage(args);
-    return text(JSON.stringify(await visualBaseline(target, args), null, 2));
+    const _result = await visualBaseline(target, args);
+    return text(JSON.stringify({ ..._result, nextSteps: ['运行 browser_screenshot 确认页面截图', '使用 browser_visual_compare 对比差异', '生成 browser_visual_report 视觉报告'], suggestions: [{ type: 'next', tool: 'browser_screenshot', reason: '确认页面截图' }, { type: 'next', tool: 'browser_visual_compare', reason: '对比视觉差异' }, { type: 'next', tool: 'browser_visual_report', reason: '生成视觉报告' }], paidUpgradeHint: '需要高级视觉分析能力？升级到 Pro 版本获取完整功能。' }, null, 2));
   }
 
   // ====== browser_visual_compare ======
   if (name === 'browser_visual_compare') {
 const { target } = await ensurePage(args);
-    return text(JSON.stringify(await visualCompare(target, args), null, 2));
+    const _result = await visualCompare(target, args);
+    return text(JSON.stringify({ ..._result, nextSteps: ['运行 browser_screenshot 确认页面截图', '使用 browser_visual_compare 对比差异', '生成 browser_visual_report 视觉报告'], suggestions: [{ type: 'next', tool: 'browser_screenshot', reason: '确认页面截图' }, { type: 'next', tool: 'browser_visual_compare', reason: '对比视觉差异' }, { type: 'next', tool: 'browser_visual_report', reason: '生成视觉报告' }], paidUpgradeHint: '需要高级视觉分析能力？升级到 Pro 版本获取完整功能。' }, null, 2));
   }
 
   // ====== browser_visual_report ======
   if (name === 'browser_visual_report') {
-  return text(JSON.stringify(visualReport(), null, 2));
+  const _result = visualReport();
+  return text(JSON.stringify({ ..._result, nextSteps: ['运行 browser_screenshot 确认页面截图', '使用 browser_visual_compare 对比差异', '生成 browser_visual_report 视觉报告'], suggestions: [{ type: 'next', tool: 'browser_screenshot', reason: '确认页面截图' }, { type: 'next', tool: 'browser_visual_compare', reason: '对比视觉差异' }, { type: 'next', tool: 'browser_visual_report', reason: '生成视觉报告' }], paidUpgradeHint: '需要高级视觉分析能力？升级到 Pro 版本获取完整功能。' }, null, 2));
   }
 
   // ====== browser_a11y_check ======
   if (name === 'browser_a11y_check') {
 const { target } = await ensurePage(args);
-    return text(JSON.stringify(await runA11yCheck(target, args), null, 2));
+    const _result = await runA11yCheck(target, args);
+    return text(JSON.stringify({ ..._result, nextSteps: ['运行 browser_screenshot 确认页面截图', '生成 browser_visual_report 视觉报告'], suggestions: [{ type: 'next', tool: 'browser_screenshot', reason: '确认页面截图' }, { type: 'next', tool: 'browser_visual_report', reason: '生成视觉报告' }], paidUpgradeHint: '需要高级视觉分析能力？升级到 Pro 版本获取完整功能。' }, null, 2));
   }
 
   // ====== screenshot_diff ======
   if (name === 'screenshot_diff') {
-  return text(JSON.stringify(await evidenceCollector.screenshotDiff(args), null, 2));
+  const _result = await evidenceCollector.screenshotDiff(args);
+  return text(JSON.stringify({ ..._result, nextSteps: ['运行 browser_screenshot 确认页面截图', '使用 browser_visual_compare 对比差异', '生成 browser_visual_report 视觉报告'], suggestions: [{ type: 'next', tool: 'browser_screenshot', reason: '确认页面截图' }, { type: 'next', tool: 'browser_visual_compare', reason: '对比视觉差异' }, { type: 'next', tool: 'browser_visual_report', reason: '生成视觉报告' }], paidUpgradeHint: '需要高级视觉分析能力？升级到 Pro 版本获取完整功能。' }, null, 2));
   }
 
   // ====== browser_full_audit ======
   if (name === 'browser_full_audit') {
-return text(JSON.stringify(await runFullAudit(args), null, 2));
+  const _result = await runFullAudit(args);
+  return text(JSON.stringify({ ..._result, nextSteps: ['运行 browser_screenshot 确认页面截图', '使用 browser_visual_compare 对比差异', '生成 browser_visual_report 视觉报告'], suggestions: [{ type: 'next', tool: 'browser_screenshot', reason: '确认页面截图' }, { type: 'next', tool: 'browser_visual_compare', reason: '对比视觉差异' }, { type: 'next', tool: 'browser_visual_report', reason: '生成视觉报告' }], paidUpgradeHint: '需要高级视觉分析能力？升级到 Pro 版本获取完整功能。' }, null, 2));
   }
 
   // ====== browser_performance_check ======
@@ -61,7 +71,41 @@ return text(JSON.stringify(await runFullAudit(args), null, 2));
     const { target } = await ensurePage(args);
     const perfAnalyzer = require('../hands/perf_analyzer');
     const result = await perfAnalyzer.analyzePerformance(target);
-    return text(JSON.stringify(result, null, 2));
+    return text(JSON.stringify({ ...result, nextSteps: ['运行 browser_lighthouse_audit 进行 Lighthouse 审计', '使用 browser_performance_check 再次检查性能'], suggestions: [{ type: 'next', tool: 'browser_lighthouse_audit', reason: '进行 Lighthouse 审计' }, { type: 'next', tool: 'browser_performance_check', reason: '再次检查性能' }], paidUpgradeHint: '需要高级性能分析能力？升级到 Pro 版本获取完整功能。' }, null, 2));
+  }
+
+  // ====== browser_memory_check ======
+  if (name === 'browser_memory_check') {
+    const { target } = await ensurePage(args);
+    const memoryAnalyzer = require('../hands/memory_analyzer');
+    const result = await memoryAnalyzer.detectMemoryLeaks(target);
+    return text(JSON.stringify({ ...result, nextSteps: ['运行 browser_performance_check 检查性能', '使用 browser_lighthouse_audit 进行 Lighthouse 审计'], suggestions: [{ type: 'next', tool: 'browser_performance_check', reason: '检查页面性能' }, { type: 'next', tool: 'browser_lighthouse_audit', reason: '进行 Lighthouse 审计' }], paidUpgradeHint: '需要高级性能分析能力？升级到 Pro 版本获取完整功能。' }, null, 2));
+  }
+
+  // ====== browser_visual_component ======
+  if (name === 'browser_visual_component') {
+    const { target } = await ensurePage(args);
+    if (!args.name || !args.selector) {
+      return text(JSON.stringify({ error: '缺少 name 或 selector 参数' }, null, 2));
+    }
+    const fs = require('fs');
+    const path = require('path');
+    const baselineDir = VISUAL_BASELINE_DIR || path.join(process.cwd(), 'artifacts', 'visual', 'baselines');
+    const actualDir = VISUAL_ACTUAL_DIR || path.join(process.cwd(), 'artifacts', 'visual', 'actual');
+    fs.mkdirSync(baselineDir, { recursive: true });
+    fs.mkdirSync(actualDir, { recursive: true });
+    const safeName = String(args.name).replace(/[^a-z0-9_.-]/gi, '_');
+    const baselinePath = path.join(baselineDir, `${safeName}.png`);
+    const actualPath = path.join(actualDir, `${safeName}-${Date.now()}.png`);
+    const locator = target.locator(args.selector).first();
+    await locator.screenshot({ path: actualPath });
+    if (!fs.existsSync(baselinePath)) {
+      fs.copyFileSync(actualPath, baselinePath);
+      return text(JSON.stringify({ name: args.name, selector: args.selector, baseline_created: true, baselinePath, actualPath, passed: true, nextSteps: ['运行 browser_screenshot 确认页面截图', '使用 browser_visual_compare 对比差异', '生成 browser_visual_report 视觉报告'], suggestions: [{ type: 'next', tool: 'browser_screenshot', reason: '确认页面截图' }, { type: 'next', tool: 'browser_visual_compare', reason: '对比视觉差异' }, { type: 'next', tool: 'browser_visual_report', reason: '生成视觉报告' }], paidUpgradeHint: '需要高级视觉分析能力？升级到 Pro 版本获取完整功能。' }, null, 2));
+    }
+    const diff = await evidenceCollector.screenshotDiff({ before: baselinePath, after: actualPath, threshold: args.maxDiffPixelRatio ?? 0.01 });
+    const diffRatio = diff.diffRatio ?? diff.diffPercentage ?? 0;
+    return text(JSON.stringify({ name: args.name, selector: args.selector, baselinePath, actualPath, diffRatio, passed: diffRatio <= (args.maxDiffPixelRatio ?? 0.01), diff, nextSteps: ['运行 browser_screenshot 确认页面截图', '使用 browser_visual_compare 对比差异', '生成 browser_visual_report 视觉报告'], suggestions: [{ type: 'next', tool: 'browser_screenshot', reason: '确认页面截图' }, { type: 'next', tool: 'browser_visual_compare', reason: '对比视觉差异' }, { type: 'next', tool: 'browser_visual_report', reason: '生成视觉报告' }], paidUpgradeHint: '需要高级视觉分析能力？升级到 Pro 版本获取完整功能。' }, null, 2));
   }
 
   // ====== browser_performance_trace ======
@@ -246,12 +290,13 @@ return text(JSON.stringify(await runFullAudit(args), null, 2));
       });
     }
 
-    return text(JSON.stringify({ success: true, ...perfData, har }, null, 2));
+    return text(JSON.stringify({ success: true, ...perfData, har, nextSteps: ['运行 browser_performance_check 检查性能', '使用 browser_lighthouse_audit 进行 Lighthouse 审计'], suggestions: [{ type: 'next', tool: 'browser_performance_check', reason: '检查页面性能' }, { type: 'next', tool: 'browser_lighthouse_audit', reason: '进行 Lighthouse 审计' }], paidUpgradeHint: '需要高级性能分析能力？升级到 Pro 版本获取完整功能。' }, null, 2));
   }
 
   // ====== browser_lighthouse_audit ======
   if (name === 'browser_lighthouse_audit') {
-return text(JSON.stringify(await runLighthouseAudit(args), null, 2));
+  const _result = await runLighthouseAudit(args);
+  return text(JSON.stringify({ ..._result, nextSteps: ['运行 browser_performance_check 检查性能'], suggestions: [{ type: 'next', tool: 'browser_performance_check', reason: '检查页面性能' }], paidUpgradeHint: '需要高级性能分析能力？升级到 Pro 版本获取完整功能。' }, null, 2));
   }
 
   // ====== browser_responsive_test ======
@@ -283,10 +328,10 @@ return text(JSON.stringify(await runLighthouseAudit(args), null, 2));
       });
     }
 
-    return text(JSON.stringify({ url, viewportCount: screenshots.length, screenshots }, null, 2));
+    return text(JSON.stringify({ url, viewportCount: screenshots.length, screenshots, nextSteps: ['运行 browser_screenshot 确认页面截图', '使用 browser_visual_compare 对比差异', '生成 browser_visual_report 视觉报告'], suggestions: [{ type: 'next', tool: 'browser_screenshot', reason: '确认页面截图' }, { type: 'next', tool: 'browser_visual_compare', reason: '对比视觉差异' }, { type: 'next', tool: 'browser_visual_report', reason: '生成视觉报告' }], paidUpgradeHint: '需要高级视觉分析能力？升级到 Pro 版本获取完整功能。' }, null, 2));
   }
 
-  return { isError: true, content: [{ type: 'text', text: `未知工具（visual）: ${name}` }] };
+  return mcpError(`未知工具（visual）: ${name}`, { error: 'UNKNOWN_TOOL', toolName: name });
   } finally {
     for (const k of _depsKeys) { deps[k] = globalThis[k]; }
     for (const k of _depsKeys) { if (k in _depsPrev) globalThis[k] = _depsPrev[k]; else delete globalThis[k]; }

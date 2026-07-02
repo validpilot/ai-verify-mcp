@@ -61,6 +61,8 @@ const DEVICE_PRESETS = {
   }
 };
 
+const { mcpError } = require('../core/mcp-error');
+
 const tools = [
   "browser_sessions",
   "browser_session_create",
@@ -78,7 +80,8 @@ async function handle(name, args, deps) {
   try {
   // ====== browser_sessions ======
   if (name === 'browser_sessions') {
-  return text(JSON.stringify(listBrowserSessions(), null, 2));
+  const _result = listBrowserSessions();
+  return text(JSON.stringify({ ..._result, nextSteps: ['使用 browser_session_create 创建新会话', '使用 browser_session_switch 切换会话'], suggestions: [{ type: 'next', tool: 'browser_session_create', reason: '创建新会话' }, { type: 'next', tool: 'browser_session_switch', reason: '切换会话' }], paidUpgradeHint: '需要多会话管理、团队协作、云端同步？升级到 Team 版本获取完整会话管理能力。' }, null, 2));
   }
 
   // ====== browser_session_create ======
@@ -91,7 +94,7 @@ const name = args.name || args.sessionName || `session-${++sessionCounter}`;
     if (args.url) await target.goto(args.url, { waitUntil: 'domcontentloaded', timeout: args.timeout || 30000 });
     sessions.set(name, { name, url: target.url(), created: new Date().toISOString(), browser, page });
     activeSessionName = name;
-    return text(JSON.stringify({ created: true, activeSession: activeSessionName, sessionName: name, url: target.url() }, null, 2));
+    return text(JSON.stringify({ created: true, activeSession: activeSessionName, sessionName: name, url: target.url(), nextSteps: ['使用 browser_session_switch 切换到其他会话', '使用 browser_sessions 查看所有会话'], suggestions: [{ type: 'next', tool: 'browser_session_switch', reason: '切换到其他会话' }, { type: 'next', tool: 'browser_sessions', reason: '查看所有会话' }], paidUpgradeHint: '需要多会话管理、团队协作、云端同步？升级到 Team 版本获取完整会话管理能力。' }, null, 2));
   }
 
   // ====== browser_session_switch ======
@@ -108,7 +111,7 @@ const name = args.name || args.sessionName;
       page = session.page;
       browser = session.browser;
       activeSessionName = name;
-      return text(JSON.stringify({ switched: true, activeSession: activeSessionName, url: page.url() }, null, 2));
+      return text(JSON.stringify({ switched: true, activeSession: activeSessionName, url: page.url(), nextSteps: ['使用 browser_session_close 关闭当前会话', '使用 browser_sessions 查看所有会话'], suggestions: [{ type: 'next', tool: 'browser_session_close', reason: '关闭当前会话' }, { type: 'next', tool: 'browser_sessions', reason: '查看所有会话' }], paidUpgradeHint: '需要多会话管理、团队协作、云端同步？升级到 Team 版本获取完整会话管理能力。' }, null, 2));
     } else {
       // 会话已关闭，重新打开
       sessions.delete(name);
@@ -118,7 +121,8 @@ const name = args.name || args.sessionName;
 
   // ====== browser_session_close ======
   if (name === 'browser_session_close') {
-  return text(JSON.stringify(await closeBrowserSession(args.name || args.sessionName), null, 2));
+  const _result = await closeBrowserSession(args.name || args.sessionName);
+  return text(JSON.stringify({ ..._result, nextSteps: ['使用 browser_session_create 创建新会话', '使用 browser_sessions 查看剩余会话'], suggestions: [{ type: 'next', tool: 'browser_session_create', reason: '创建新会话' }, { type: 'next', tool: 'browser_sessions', reason: '查看剩余会话' }], paidUpgradeHint: '需要多会话管理、团队协作、云端同步？升级到 Team 版本获取完整会话管理能力。' }, null, 2));
   }
 
   // ====== browser_emulate_device ======
@@ -202,11 +206,14 @@ const name = args.name || args.sessionName;
         orientation
       },
       pageInfo,
-      verification
+      verification,
+      nextSteps: ['使用 browser_session_create 为新设备创建会话', '使用 browser_sessions 查看当前会话'],
+      suggestions: [{ type: 'next', tool: 'browser_session_create', reason: '为新设备创建会话' }, { type: 'next', tool: 'browser_sessions', reason: '查看当前会话' }],
+      paidUpgradeHint: '需要多会话管理、团队协作、云端同步？升级到 Team 版本获取完整会话管理能力。'
     }, null, 2));
   }
 
-  return { isError: true, content: [{ type: 'text', text: `未知工具（session）: ${name}` }] };
+  return mcpError(`未知工具（session）: ${name}`, { error: 'UNKNOWN_TOOL', toolName: name });
   } finally {
     for (const k of _depsKeys) { deps[k] = globalThis[k]; }
     for (const k of _depsKeys) { if (k in _depsPrev) globalThis[k] = _depsPrev[k]; else delete globalThis[k]; }

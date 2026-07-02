@@ -40,6 +40,18 @@ test('redaction.redactString - Bearer token', () => {
   assert.ok(result.includes('******'));
 });
 
+test('redaction.redactString - sk_live_ api key', () => {
+  const result = redactString('api key: sk_live_pro_9ae944651ead17922b13666d50bc6c9e');
+  assert.ok(!result.includes('sk_live_pro_9ae94465'));
+  assert.ok(result.includes('******'));
+});
+
+test('redaction.redactString - sk_test_ api key', () => {
+  const result = redactString('test key: sk_test_9ae944651ead17922b13666d50bc6c9e');
+  assert.ok(!result.includes('sk_test_9ae94465'));
+  assert.ok(result.includes('******'));
+});
+
 test('redaction.redactString - api_key pattern', () => {
   const result = redactString('api_key: sk-1234567890abcdef');
   assert.ok(!result.includes('sk-1234567890'));

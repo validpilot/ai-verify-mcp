@@ -439,37 +439,17 @@ describe('browser_assert', () => {
 });
 
 // ============================================================
-// browser_flow
+// browser_flow（OSS 不包含，属于 Pro 版付费能力）
 // ============================================================
 
 describe('browser_flow', () => {
-  test('schema 文件存在且 JSON 合法', () => {
+  test('schema 文件不存在（OSS 不包含付费功能）', () => {
     const filePath = path.join(TOOLS_DIR, 'browser_flow.json');
-    assert.ok(fs.existsSync(filePath));
-    const schema = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    assert.equal(schema.name, 'browser_flow');
-    assert.ok(schema.description);
-    assert.ok(schema.inputSchema);
+    assert.ok(!fs.existsSync(filePath), 'browser_flow.json 不应存在于 OSS 版本中');
   });
 
-  test('schema 包含 steps 为必填，clearErrors/continueOnError/headless 为可选参数', () => {
-    const schema = JSON.parse(fs.readFileSync(path.join(TOOLS_DIR, 'browser_flow.json'), 'utf8'));
-    const props = schema.inputSchema.properties;
-    assert.ok(props.steps);
-    assert.equal(props.steps.type, 'array');
-    assert.ok(props.steps.items);
-    assert.equal(props.steps.items.type, 'object');
-    assert.ok(schema.inputSchema.required.includes('steps'), 'steps 应为必填');
-    assert.ok(props.clearErrors);
-    assert.equal(props.clearErrors.type, 'boolean');
-    assert.ok(props.continueOnError);
-    assert.equal(props.continueOnError.type, 'boolean');
-    assert.ok(props.headless);
-    assert.equal(props.headless.type, 'boolean');
-  });
-
-  test('toolNames 中包含 browser_flow（已注册到 MCP）', () => {
-    assert.ok(toolNames.has('browser_flow'), '工具 browser_flow 应在 toolNames 中');
+  test('toolNames 中不包含 browser_flow（OSS 不包含付费功能）', () => {
+    assert.ok(!toolNames.has('browser_flow'), '工具 browser_flow 不应在 OSS 版本中（属于 Pro 版付费能力）');
   });
 });
 

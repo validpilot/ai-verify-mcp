@@ -13,6 +13,9 @@
  *   node test-http2.js
  */
 
+// 修复 Windows 终端中文编码
+require('./core/win-encoding');
+
 const { spawn } = require('child_process');
 const path = require('path');
 

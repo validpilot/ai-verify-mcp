@@ -111,30 +111,13 @@ describe('validation_run', () => {
 // ============================================================
 
 describe('validation_suite_run', () => {
-  test('schema 文件存在且 JSON 合法', () => {
+  test('schema 文件不存在（OSS 不包含付费功能）', () => {
     const filePath = path.join(TOOLS_DIR, 'validation_suite_run.json');
-    assert.ok(fs.existsSync(filePath));
-    const schema = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    assert.equal(schema.name, 'validation_suite_run');
-    assert.ok(schema.description);
-    assert.ok(schema.inputSchema);
+    assert.ok(!fs.existsSync(filePath), 'validation_suite_run.json 不应存在于 OSS 版本中（属于 Team 版付费能力）');
   });
 
-  test('schema 包含 suite/file/continueOnFailure/sessionName 参数', () => {
-    const schema = JSON.parse(fs.readFileSync(path.join(TOOLS_DIR, 'validation_suite_run.json'), 'utf8'));
-    const props = schema.inputSchema.properties;
-    assert.ok(props.suite);
-    assert.equal(props.suite.type, 'string');
-    assert.ok(props.file);
-    assert.equal(props.file.type, 'string');
-    assert.ok(props.continueOnFailure);
-    assert.equal(props.continueOnFailure.type, 'boolean');
-    assert.ok(props.sessionName);
-    assert.equal(props.sessionName.type, 'string');
-  });
-
-  test('toolNames 中包含 validation_suite_run（已注册到 MCP）', () => {
-    assert.ok(toolNames.has('validation_suite_run'), '工具 validation_suite_run 应在 toolNames 中');
+  test('validation_suite_run 为付费版功能（OSS 不包含）', () => {
+    assert.ok(!toolNames.has('validation_suite_run'), '工具 validation_suite_run 不应在 OSS 版本中（属于 Team 版付费能力）');
   });
 });
 

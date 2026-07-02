@@ -17,18 +17,29 @@ const THRESHOLDS = {
   TTFB: { good: 800,  poor: 1800, unit: 'ms' }
 };
 
+function parseMetricValue(value) {
+  if (value == null) return null;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (typeof value === 'string') {
+    const match = value.trim().match(/^-?\d+(?:\.\d+)?/);
+    return match ? Number(match[0]) : null;
+  }
+  return null;
+}
+
 /** 对单个指标评级 */
 function rateMetric(value, threshold) {
-  if (value == null || isNaN(value)) return 'poor';
-  if (value < threshold.good) return 'good';
-  if (value < threshold.poor) return 'needs-improvement';
+  const numeric = parseMetricValue(value);
+  if (numeric == null) return 'unknown';
+  if (numeric <= threshold.good) return 'good';
+  if (numeric <= threshold.poor) return 'needs-improvement';
   return 'poor';
 }
 
 /** LCP 评分 */
 function rateLCP(value) { return rateMetric(value, THRESHOLDS.LCP); }
 /** FCP 评分 */
-function rateFCP(value) { if (value == null || isNaN(value)) return 'unknown'; if (value <= 1800) return 'good'; if (value <= 3000) return 'needs-improvement'; return 'poor'; }
+function rateFCP(value) { return rateMetric(value, { good: 1800, poor: 3000 }); }
 /** TTFB 评分 */
 function rateTTFB(value) { return rateMetric(value, THRESHOLDS.TTFB); }
 /** CLS 评分 */
@@ -131,7 +142,6 @@ async function analyzePerformance(page) {
   const opportunities = [];
   const cwv = {};
   const addCWV = (key, value, threshold) => {
-    if (value == null) return;
     const rating = rateMetric(value, threshold);
     cwv[key] = { value, rating };
     const sug = generateSuggestion(key, value, rating);

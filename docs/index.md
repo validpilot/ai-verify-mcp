@@ -2,66 +2,74 @@
 layout: home
 
 hero:
-  name: AI-Verify MCP
+  name: ValidPilot Verify
   text: 拒绝 AI 幻觉
-  tagline: 让每一�?AI 生成的代码，都有证据、可追溯、敢上线�?  image:
+  tagline: 让每一行 AI 生成的代码，都有证据、可追溯、敢上线
+  image:
     src: /logo.svg
-    alt: AI-Verify MCP
+    alt: ValidPilot Verify
   actions:
     - theme: brand
       text: 立即安装 (npm)
       link: /guide/getting-started
     - theme: alt
-      text: 查看 83+ 工具
+      text: 查看 84+ 工具
       link: /tools/overview
     - theme: alt
-      text: �?GitHub
+      text: GitHub
       link: https://github.com/validpilot/ai-verify-mcp
 
 features:
   - icon: 🔍
-    title: 多维证据�?    details: AI �?页面正常"但用户说点不了？一键导出截�?DOM+网络日志，Bug定位从小时级变分钟级
+    title: 多维证据链
+    details: AI 说"页面正常"但用户说点不了？一键导出截图+DOM+网络日志，Bug 定位从小时级变分钟级
   - icon: 🔌
     title: 无缝接入主流 AI
     details: Cursor、Claude、Windsurf、Trae 开箱即用，复制一行配置到 mcp.json 即可
   - icon: 🧰
-    title: 83+ 原子工具
-    details: 浏览器操作·视觉对比·数据校验·错误修复·会话管理·像搭积木一样组合验证流�?  - icon: ♻️
+    title: 84+ 原子工具
+    details: 浏览器操作·视觉对比·数据校验·错误修复·会话管理·像搭积木一样组合验证流程
+  - icon: ♻️
     title: 自动修复闭环
-    details: 验证失败不只是报错，还会自动分析原因、尝试修复、重新验证，人工只需最后确�?  - icon: 📊
-    title: 像素级视觉回�?    details: 设计稿还原度肉眼难辨？pixelmatch 精准比对每一个像素，差异点自动高�?  - icon: 🛡�?    title: 安全脱敏
-    details: 密码、Token、手机号自动遮蔽，截图和日志全程安全可控，不怕泄露敏感信�?---
+    details: 验证失败不只是报错，还会自动分析原因、尝试修复、重新验证，人工只需最后确认
+  - icon: 📊
+    title: 像素级视觉回归
+    details: 设计稿还原度肉眼难辨？pixelmatch 精准比对每一个像素，差异点自动高亮
+  - icon: 🛡️
+    title: 安全脱敏
+    details: 密码、Token、手机号自动遮蔽，截图和日志全程安全可控，不怕泄露敏感信息
+---
 
 <div class="hero-bg"></div>
 
-<p class="value-quote">"告别 AI 幻觉，让代码审查�?猜谜游戏'变成'证据确凿'的精准打击�?</p>
+<p class="value-quote">"告别 AI 幻觉，让代码审查从'猜谜游戏'变成'证据确凿'的精准打击"</p>
 
-## 你是否也遇到过这些问�?
+## 你是否也遇到过这些问题？
 <div class="pain-grid">
   <div class="pain-card">
     <div class="pain-icon">😤</div>
     <div class="pain-title">AI 写的页面，敢直接上线吗？</div>
-    <div class="pain-desc">看着像那么回事，但总怕哪里有隐藏 Bug，上线了出问题背�?/div>
+    <div class="pain-desc">看着像那么回事，但总怕哪里有隐藏 Bug，上线了出问题背锅</div>
   </div>
   <div class="pain-card">
     <div class="pain-icon">🤷</div>
-    <div class="pain-title">Bug 到底是谁的锅�?/div>
-    <div class="pain-desc">AI 说代码没问题，你说页面不正常，空口无凭，争论半天没结�?/div>
+    <div class="pain-title">Bug 到底是谁的锅？</div>
+    <div class="pain-desc">AI 说代码没问题，你说页面不正常，空口无凭，争论半天没结果</div>
   </div>
   <div class="pain-card">
     <div class="pain-icon">⏱️</div>
-    <div class="pain-title">人工验证太慢�?/div>
-    <div class="pain-desc">每个功能点点点，测完半天过去了，还容易漏，越测越没信�?/div>
+    <div class="pain-title">人工验证太慢？</div>
+    <div class="pain-desc">每个功能点点点，测完半天过去了，还容易漏，越测越没信心</div>
   </div>
   <div class="pain-card">
     <div class="pain-icon">🔐</div>
     <div class="pain-title">敏感数据怎么办？</div>
-    <div class="pain-desc">测试用的真实数据、密码、Token，截图和日志里到处都是安全隐�?/div>
+    <div class="pain-desc">测试用的真实数据、密码、Token，截图和日志里到处都是安全隐患</div>
   </div>
 </div>
 
 <div class="solution-banner">
-  <div class="solution-text">💡 <strong>AI-Verify MCP</strong> 就是为解决这些问题而生�?/div>
+  <div class="solution-text">💡 <strong>AI-Verify MCP</strong> 就是为解决这些问题而生的</div>
 </div>
 
 ## 适用场景
@@ -69,31 +77,31 @@ features:
 <div class="scene-grid">
   <div class="scene-card">
     <div class="scene-icon">🎨</div>
-    <div class="scene-title">前端工程�?/div>
+    <div class="scene-title">前端工程师</div>
     <div class="ba-row">
       <span class="ba-label before">Before</span>
       <span class="ba-text">人工肉眼比对设计稿，耗时耗力还漏</span>
     </div>
     <div class="ba-row">
       <span class="ba-label after">After</span>
-      <span class="ba-text">提交代码自动像素级对比，5 分钟全页面走�?/span>
+      <span class="ba-text">提交代码自动像素级对比，5 分钟全页面走完</span>
     </div>
   </div>
   <div class="scene-card">
     <div class="scene-icon">🧪</div>
-    <div class="scene-title">测试工程�?/div>
+    <div class="scene-title">测试工程师</div>
     <div class="ba-row">
       <span class="ba-label before">Before</span>
-      <span class="ba-text">写测试脚本比功能开发还�?/span>
+      <span class="ba-text">写测试脚本比功能开发还累</span>
     </div>
     <div class="ba-row">
       <span class="ba-label after">After</span>
-      <span class="ba-text">一句话�?AI 跑完回归，结果带截图带证�?/span>
+      <span class="ba-text">一句话让 AI 跑完回归，结果带截图带证据</span>
     </div>
   </div>
   <div class="scene-card">
     <div class="scene-icon">🚀</div>
-    <div class="scene-title">全栈开发�?/div>
+    <div class="scene-title">全栈开发者</div>
     <div class="ba-row">
       <span class="ba-label before">Before</span>
       <span class="ba-text">接口对不对，数据库有没脏数据，全靠猜</span>
@@ -105,14 +113,14 @@ features:
   </div>
   <div class="scene-card">
     <div class="scene-icon">🤖</div>
-    <div class="scene-title">AI 应用开发�?/div>
+    <div class="scene-title">AI 应用开发者</div>
     <div class="ba-row">
       <span class="ba-label before">Before</span>
       <span class="ba-text">Agent 输出靠感觉，出了问题不知道哪错了</span>
     </div>
     <div class="ba-row">
       <span class="ba-label after">After</span>
-      <span class="ba-text">验证引擎全链路留痕，输出可信可追�?/span>
+      <span class="ba-text">验证引擎全链路留痕，输出可信可追溯</span>
     </div>
   </div>
 </div>
@@ -121,84 +129,86 @@ features:
 
 <div class="star-tools">
   <div class="star-tool">
-    <div class="star-tool-icon">🖼�?/div>
-    <div class="star-tool-name">visual_compare</div>
+    <div class="star-tool-icon">🖼️</div>
+    <div class="star-tool-name">browser_visual_compare</div>
     <div class="star-tool-desc">像素级视觉对比，差异自动高亮</div>
   </div>
   <div class="star-tool">
-    <div class="star-tool-icon">📡</div>
-    <div class="star-tool-name">assert_api</div>
-    <div class="star-tool-desc">API 响应结构化断言</div>
+    <div class="star-tool-icon">📊</div>
+    <div class="star-tool-name">validation_check</div>
+    <div class="star-tool-desc">检查点验证（负载、JS、HTTP）</div>
   </div>
   <div class="star-tool">
     <div class="star-tool-icon">📝</div>
-    <div class="star-tool-name">fill_form</div>
-    <div class="star-tool-desc">智能表单自动填充</div>
+    <div class="star-tool-name">browser_form_fill</div>
+    <div class="star-tool-desc">批量表单自动填充 + 提交检测</div>
   </div>
   <div class="star-tool">
     <div class="star-tool-icon">🔧</div>
-    <div class="star-tool-name">fix_error</div>
-    <div class="star-tool-desc">23 种错误自动修�?/div>
+    <div class="star-tool-name">browser_quick_fix</div>
+    <div class="star-tool-desc">8 种策略自动修复尝试</div>
   </div>
   <div class="star-tool">
-    <div class="star-tool-icon">🕸�?/div>
-    <div class="star-tool-name">capture_network</div>
-    <div class="star-tool-desc">网络请求全链路捕�?/div>
+    <div class="star-tool-icon">🌐</div>
+    <div class="star-tool-name">browser_network</div>
+    <div class="star-tool-desc">网络请求全链路捕获</div>
   </div>
   <div class="star-tool">
     <div class="star-tool-icon">🔐</div>
-    <div class="star-tool-name">redact_sensitive</div>
+    <div class="star-tool-name">redact</div>
     <div class="star-tool-desc">敏感信息自动脱敏</div>
   </div>
 </div>
 
-<p class="more-tools">还有 70+ 工具 <a href="/ai-verify-mcp/tools/overview">查看全部 �?/a></p>
+<p class="more-tools">还有 70+ 工具 <a href="/ai-verify-mcp/tools/overview">查看全部 →</a></p>
 
-## 30 秒启动验证服�?
-> 💡 复制下面的命令，体验一下验证有多简�?
+## 30 秒启动验证服务
+> 💡 复制下面的命令，体验一下验证有多简单
 ```bash
 # 全局安装
 npm install -g @validpilot/ai-verify-mcp
 
-# 健康检查（验证环境是否就绪�?@validpilot/@validpilot/@validpilot/ai-verify-mcp health
+# 健康检查（验证环境是否就绪）
+ai-verify-mcp health
 
-# HTTP 模式启动（默认端�?3000�?ai-verify-mcp http --port 3000
+# HTTP 模式启动（默认端口 3000）
+ai-verify-mcp http --port 3000
 ```
 
-## 已支持的 AI 客户�?
+## 已支持的 AI 客户端
 <div class="client-grid">
   <div class="client-item">
-    <div class="client-logo">�?/div>
+    <div class="client-logo">⚡</div>
     <div class="client-name">Cursor</div>
-    <a href="/ai-verify-mcp/guide/installation#cursor" class="client-link">配置指南 �?/a>
+    <a href="/ai-verify-mcp/guide/installation#cursor" class="client-link">配置指南 →</a>
   </div>
   <div class="client-item">
     <div class="client-logo">🧠</div>
     <div class="client-name">Claude Desktop</div>
-    <a href="/ai-verify-mcp/guide/installation#claude-desktop" class="client-link">配置指南 �?/a>
+    <a href="/ai-verify-mcp/guide/installation#claude-desktop" class="client-link">配置指南 →</a>
   </div>
   <div class="client-item">
     <div class="client-logo">🏄</div>
     <div class="client-name">Windsurf</div>
-    <a href="/ai-verify-mcp/guide/installation#windsurf" class="client-link">配置指南 �?/a>
+    <a href="/ai-verify-mcp/guide/installation#windsurf" class="client-link">配置指南 →</a>
   </div>
   <div class="client-item">
     <div class="client-logo">🦊</div>
     <div class="client-name">Trae</div>
-    <a href="/ai-verify-mcp/guide/installation#trae" class="client-link">配置指南 �?/a>
+    <a href="/ai-verify-mcp/guide/installation#trae" class="client-link">配置指南 →</a>
   </div>
 </div>
 
-## 为什么选择 AI-Verify MCP
+## 为什么选择 ValidPilot Verify
 
 <div class="stats-grid">
   <div class="stat-item">
-    <div class="stat-num">83+</div>
+    <div class="stat-num">78+</div>
     <div class="stat-label">验证工具</div>
   </div>
   <div class="stat-item">
-    <div class="stat-num">23+</div>
-    <div class="stat-label">修复模式</div>
+    <div class="stat-num">8</div>
+    <div class="stat-label">修复策略</div>
   </div>
   <div class="stat-item">
     <div class="stat-num">7</div>
@@ -210,25 +220,25 @@ npm install -g @validpilot/ai-verify-mcp
   </div>
 </div>
 
-## 用户怎么�?
+## 用户怎么说
 <div class="testimonial-grid">
   <div class="testimonial-card">
-    <div class="testimonial-text">"用了之后再也不�?AI 写的页面上线出问题了，视觉对比一下就放心了�?</div>
+    <div class="testimonial-text">"用了之后再也不怕 AI 写的页面上线出问题了，视觉对比一下就放心了"</div>
     <div class="testimonial-author">
-      <div class="author-avatar">👨‍�?/div>
+      <div class="author-avatar">👨‍💻</div>
       <div class="author-info">
-        <div class="author-name">张同�?/div>
-        <div class="author-role">前端工程�?/div>
+        <div class="author-name">张同学</div>
+        <div class="author-role">前端工程师</div>
       </div>
     </div>
   </div>
   <div class="testimonial-card">
-    <div class="testimonial-text">"以前回归测试要一天，现在 AI 半小时跑完，还带截图证据，太香了�?</div>
+    <div class="testimonial-text">"以前回归测试要一天，现在 AI 半小时跑完，还带截图证据，太香了"</div>
     <div class="testimonial-author">
-      <div class="author-avatar">👩‍�?/div>
+      <div class="author-avatar">👩‍💻</div>
       <div class="author-info">
         <div class="author-name">李工</div>
-        <div class="author-role">测试负责�?/div>
+        <div class="author-role">测试负责人</div>
       </div>
     </div>
   </div>
@@ -237,32 +247,32 @@ npm install -g @validpilot/ai-verify-mcp
 ## 常见问题
 
 <details class="faq-item">
-  <summary class="faq-question">支持哪些 AI 编程工具�?/summary>
-  <div class="faq-answer">已适配 Cursor、Claude Desktop、Windsurf、Trae、Cline、Copilot、Continue.dev 等主�?AI 客户端，通过 MCP 协议提供标准化的验证能力。复制一行配置到 mcp.json 即可使用�?/div>
+  <summary class="faq-question">支持哪些 AI 编程工具？</summary>
+  <div class="faq-answer">已适配 Cursor、Claude Desktop、Windsurf、Trae、Cline、Copilot、Continue.dev 等主流 AI 客户端，通过 MCP 协议提供标准化的验证能力。复制一行配置到 mcp.json 即可使用。</div>
 </details>
 <details class="faq-item">
-  <summary class="faq-question">需要付费吗�?/summary>
-  <div class="faq-answer">基础功能完全免费开源（MIT License）。AI 深度分析（根因分析、修复建议）通过云端 API 实现（�?9/月起）。详�?a href="https://validpilot.com/pricing">定价说明</a>�?/div>
+  <summary class="faq-question">需要付费吗？</summary>
+  <div class="faq-answer">基础功能完全免费开源（MIT License）。AI 深度分析（根因分析、修复建议）通过云端 API 实现（¥9/月起）。详见 <a href="https://validpilot.com/pricing">定价说明</a>。</div>
 </details>
 <details class="faq-item">
   <summary class="faq-question">支持哪些浏览器？</summary>
-  <div class="faq-answer">底层基于 Playwright，支�?Chromium、Firefox、WebKit 三大浏览器引擎。默认使�?Chromium，你可以在配置中指定其他浏览器�?/div>
+  <div class="faq-answer">底层基于 Playwright，支持 Chromium、Firefox、WebKit 三大浏览器引擎。默认使用 Chromium，你可以在配置中指定其他浏览器。</div>
 </details>
 <details class="faq-item">
   <summary class="faq-question">如何更新工具库？</summary>
-  <div class="faq-answer">全局安装用户运行 <code>npm update -g ai-verify-mcp</code> 即可更新到最新版本。项目活跃开发中，建议关�?GitHub Releases 了解更新动态�?/div>
+  <div class="faq-answer">全局安装用户运行 <code>npm update -g ai-verify-mcp</code> 即可更新到最新版本。项目活跃开发中，建议关注 GitHub Releases 了解更新动态。</div>
 </details>
 <details class="faq-item">
   <summary class="faq-question">遇到问题怎么办？</summary>
-  <div class="faq-answer">先查�?<a href="/ai-verify-mcp/faq/troubleshooting">日志排查手册</a>，常见问题都有解决方案。如果还未解决，欢迎�?<a href="https://github.com/validpilot/ai-verify-mcp/issues" target="_blank">GitHub Issues</a> 提交反馈�?/div>
+  <div class="faq-answer">先查阅 <a href="/ai-verify-mcp/faq/troubleshooting">日志排查手册</a>，常见问题都有解决方案。如果还未解决，欢迎到 <a href="https://github.com/validpilot/ai-verify-mcp/issues" target="_blank">GitHub Issues</a> 提交反馈。</div>
 </details>
 
 <div class="community-section">
   <div class="community-title">加入社区</div>
-  <div class="community-desc">项目活跃开发中，欢迎贡献代码、反馈问题、参与讨�?/div>
+  <div class="community-desc">项目活跃开发中，欢迎贡献代码、反馈问题、参与讨论</div>
   <div class="community-links">
     <a href="https://github.com/validpilot/ai-verify-mcp" class="community-link" target="_blank">
-      <span class="community-link-icon">�?/span>
+      <span class="community-link-icon">⭐</span>
       <span>GitHub</span>
     </a>
     <a href="https://github.com/validpilot/ai-verify-mcp/issues" class="community-link" target="_blank">
@@ -270,7 +280,7 @@ npm install -g @validpilot/ai-verify-mcp
       <span>Issues</span>
     </a>
     <a href="https://github.com/validpilot/ai-verify-mcp/discussions" class="community-link" target="_blank">
-      <span class="community-link-icon">🗣�?/span>
+      <span class="community-link-icon">🗣️</span>
       <span>Discussions</span>
     </a>
     <a href="mailto:validpilot@outlook.com" class="community-link">
@@ -281,9 +291,9 @@ npm install -g @validpilot/ai-verify-mcp
 </div>
 
 <div class="cta-section">
-  <div class="cta-title">别再靠感觉验�?AI 输出�?/div>
-  <div class="cta-desc">安装只需 30 秒，从此每一行代码都有证�?/div>
-  <a href="/ai-verify-mcp/guide/getting-started" class="cta-btn">立即开�?�?/a>
+  <div class="cta-title">别再靠感觉验证 AI 输出！</div>
+  <div class="cta-desc">安装只需 30 秒，从此每一行代码都有证据</div>
+  <a href="/ai-verify-mcp/guide/getting-started" class="cta-btn">立即开始 →</a>
 </div>
 
 <style>
@@ -294,9 +304,9 @@ npm install -g @validpilot/ai-verify-mcp
   right: 0;
   height: 600px;
   background:
-    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(99, 102, 241, 0.15), transparent),
-    radial-gradient(ellipse 60% 40% at 80% 10%, rgba(139, 92, 246, 0.1), transparent),
-    radial-gradient(ellipse 50% 30% at 10% 30%, rgba(59, 130, 246, 0.08), transparent);
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(99, 102, 241, 0.18), transparent),
+    radial-gradient(ellipse 60% 40% at 80% 10%, rgba(139, 92, 246, 0.12), transparent),
+    radial-gradient(ellipse 50% 30% at 10% 30%, rgba(59, 130, 246, 0.10), transparent);
   pointer-events: none;
   z-index: 0;
 }
@@ -329,6 +339,13 @@ npm install -g @validpilot/ai-verify-mcp
   border-radius: 12px;
   background: var(--vp-c-bg-soft);
   border: 1px solid var(--vp-c-divider);
+  transition: all 0.25s ease;
+}
+
+.pain-card:hover {
+  border-color: var(--vp-c-brand);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(239, 68, 68, 0.08);
 }
 
 .pain-icon {
@@ -441,12 +458,31 @@ npm install -g @validpilot/ai-verify-mcp
   background: var(--vp-c-bg-soft);
   border: 1px solid var(--vp-c-divider);
   text-align: center;
-  transition: all 0.2s;
+  transition: all 0.25s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.star-tool::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--vp-c-brand), #8b5cf6);
+  opacity: 0;
+  transition: opacity 0.25s ease;
 }
 
 .star-tool:hover {
   border-color: var(--vp-c-brand);
-  transform: translateY(-2px);
+  transform: translateY(-3px);
+  box-shadow: 0 12px 28px rgba(99, 102, 241, 0.15);
+}
+
+.star-tool:hover::before {
+  opacity: 1;
 }
 
 .star-tool-icon {
@@ -495,12 +531,13 @@ npm install -g @validpilot/ai-verify-mcp
   background: var(--vp-c-bg-soft);
   border: 1px solid var(--vp-c-divider);
   text-align: center;
-  transition: all 0.2s;
+  transition: all 0.25s ease;
 }
 
 .client-item:hover {
   border-color: var(--vp-c-brand);
-  transform: translateY(-2px);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(99, 102, 241, 0.12);
 }
 
 .client-logo {
@@ -537,12 +574,28 @@ npm install -g @validpilot/ai-verify-mcp
   border-radius: 12px;
   background: var(--vp-c-bg-soft);
   border: 1px solid var(--vp-c-divider);
-  transition: all 0.2s;
+  transition: all 0.25s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.stat-item::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.05), rgba(139, 92, 246, 0.05));
+  opacity: 0;
+  transition: opacity 0.25s ease;
 }
 
 .stat-item:hover {
   border-color: var(--vp-c-brand);
-  transform: translateY(-2px);
+  transform: translateY(-3px);
+  box-shadow: 0 12px 28px rgba(99, 102, 241, 0.12);
+}
+
+.stat-item:hover::before {
+  opacity: 1;
 }
 
 .stat-num {
@@ -606,21 +659,43 @@ npm install -g @validpilot/ai-verify-mcp
   margin: 48px 0 24px;
   padding: 40px 32px;
   border-radius: 16px;
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.1));
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(139, 92, 246, 0.12));
   border: 1px solid var(--vp-c-divider);
   text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.cta-section::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle at center, rgba(99, 102, 241, 0.08), transparent 70%);
+  animation: ctaPulse 6s ease-in-out infinite;
+}
+
+@keyframes ctaPulse {
+  0%, 100% { transform: scale(1); opacity: 0.5; }
+  50% { transform: scale(1.1); opacity: 0.8; }
 }
 
 .cta-title {
   font-size: 24px;
   font-weight: 700;
   margin-bottom: 8px;
+  position: relative;
+  z-index: 1;
 }
 
 .cta-desc {
   font-size: 15px;
   color: var(--vp-c-text-2);
   margin-bottom: 20px;
+  position: relative;
+  z-index: 1;
 }
 
 .cta-btn {
@@ -631,7 +706,9 @@ npm install -g @validpilot/ai-verify-mcp
   color: white !important;
   text-decoration: none;
   font-weight: 600;
-  transition: all 0.2s;
+  transition: all 0.25s ease;
+  position: relative;
+  z-index: 1;
 }
 
 .cta-btn:hover {
@@ -639,22 +716,24 @@ npm install -g @validpilot/ai-verify-mcp
   box-shadow: 0 8px 24px rgba(99, 102, 241, 0.4);
 }
 
-/* FAQ 折叠�?*/
+/* FAQ 折叠卡片 */
 .faq-item {
   margin-bottom: 12px;
   border-radius: 10px;
   border: 1px solid var(--vp-c-divider);
   background: var(--vp-c-bg-soft);
   overflow: hidden;
-  transition: all 0.2s;
+  transition: all 0.25s ease;
 }
 
 .faq-item:hover {
   border-color: var(--vp-c-brand);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.08);
 }
 
 .faq-item[open] {
   border-color: var(--vp-c-brand);
+  background: var(--vp-c-bg);
 }
 
 .faq-question {
@@ -665,7 +744,8 @@ npm install -g @validpilot/ai-verify-mcp
   user-select: none;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+  list-style: none;
 }
 
 .faq-question::-webkit-details-marker {
@@ -673,10 +753,11 @@ npm install -g @validpilot/ai-verify-mcp
 }
 
 .faq-question::before {
-  content: '�?;
-  font-size: 10px;
-  color: var(--vp-c-text-2);
-  transition: transform 0.2s;
+  content: '▶';
+  font-size: 11px;
+  color: var(--vp-c-brand);
+  transition: transform 0.25s ease;
+  flex-shrink: 0;
 }
 
 .faq-item[open] .faq-question::before {

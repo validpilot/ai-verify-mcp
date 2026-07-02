@@ -1,6 +1,6 @@
 # 浏览器操作工具
 
-25 个浏览器操作工具，覆盖页面导航、元素交互、截图快照等。
+29 个浏览器操作工具，覆盖页面导航、元素交互、截图快照、遮挡检测等。
 
 ## 页面导航
 
@@ -42,6 +42,13 @@
 | `browser_screenshot_element` | 元素截图 |
 | `browser_snapshot` | 页面快照 |
 | `browser_links` | 获取页面所有链接 |
+
+## 遮挡检测
+
+| 工具 | 说明 |
+|------|------|
+| `browser_overlay_detect` | DOM 层面检测页面遮挡物（弹窗、Cookie banner、遮罩等） |
+| `browser_overlay_dismiss` | 自动关闭检测到的遮挡物 |
 
 ## 高级操作
 

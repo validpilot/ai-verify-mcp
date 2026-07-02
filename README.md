@@ -2,65 +2,63 @@
 
 > **Don't just generate, verify.**
 >
-> �?AI 代码生成结果可验证、可信赖。证据驱动的 MCP 验证平台�?
+> 让 AI 代码生成结果可验证、可信赖。证据驱动的 MCP 验证平台。
 
 [![npm version](https://img.shields.io/npm/v/ai-verify-mcp.svg?style=flat-square)](https://www.npmjs.com/package/ai-verify-mcp)
 [![npm downloads](https://img.shields.io/npm/dm/ai-verify-mcp.svg?style=flat-square)](https://www.npmjs.com/package/ai-verify-mcp)
 [![CI](https://img.shields.io/github/actions/workflow/status/validpilot/ai-verify-mcp/ci.yml?style=flat-square&label=CI)](https://github.com/validpilot/ai-verify-mcp/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](LICENSE)
-[![MCP Protocol](https://img.shields.io/badge/MCP-83%20tools-brightgreen.svg?style=flat-square)](https://modelcontextprotocol.io/)
+[![MCP Protocol](https://img.shields.io/badge/MCP-84%20tools-brightgreen.svg?style=flat-square)](https://modelcontextprotocol.io/)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D18-green.svg?style=flat-square)](https://nodejs.org/)
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg?style=flat-square)](CODE_OF_CONDUCT.md)
 [![English](https://img.shields.io/badge/English-blue?style=flat-square)](README.en.md)
 
-> 📘 **MCP 新手�?* 先看 [MCP 协议速查手册](docs/reference/mcp-cheatsheet.md) �?5 分钟搞懂 MCP�?
-> 📖 **详细操作指南�?* �?[用户操作手册](docs/public/legacy/USER-MANUAL.md) �?从安装到精通�?
-> 🔧 **遇到问题�?* �?[日志排查手册](docs/public/legacy/LOG-TROUBLESHOOTING.md) �?常见错误与解决方案�?
+> 📘 **MCP 新手入门**：先看 [MCP 协议速查手册](docs/reference/mcp-cheatsheet.md)，5 分钟搞懂 MCP。
+> 📖 **详细操作指南**：见 [用户操作手册](docs/public/legacy/USER-MANUAL.md)，从安装到精通。
+> 🔧 **遇到问题**：见 [日志排查手册](docs/public/legacy/LOG-TROUBLESHOOTING.md)，常见错误与解决方案。
 
 ---
 
 ## 📑 目录
 
 - [🎯 一句话介绍](#-一句话介绍)
-- [🔄 Skill + MCP = 最佳体验](#-skill--mcp--最佳体�?
-- [�?快速开始](#-快速开�?
+- [🔄 Skill + MCP = 最佳体验](#-skill--mcp--最佳体验)
+- [🚀 快速开始](#-快速开始)
 - [🔧 配置 MCP Server](#-配置-mcp-server)
 - [🎬 实际使用示例](#-实际使用示例)
 - [🏆 为什么选择 ValidPilot Verify？](#-为什么选择-validpilot-verify)
 - [📦 完整工具列表](#-完整工具列表)
-- [🔬 证据链概念](#-证据链概�?
-- [⚙️ 环境变量](#�?环境变量)
-- [�?常见问题](#-常见问题)
+- [🔬 证据链概念](#-证据链概念)
+- [⚙️ 环境变量](#-环境变量)
+- [❓ 常见问题](#-常见问题)
 - [🔌 MCP Client 配置速查](#-mcp-client-配置速查)
-- [🎬 演示：✅ vs �?对比](#-演示-vs--对比)
-- [📦 发布自动化](#-发布自动�?
+- [🎬 演示：✅ vs ❌ 对比](#-演示-vs--对比)
+- [📦 发布自动化](#-发布自动化)
 - [🙏 致谢](#-致谢)
-- [💬 社区与联系](#-社区与联�?
-- [❤️ 支持捐赠](#�?支持捐赠)
+- [💬 社区与联系](#-社区与联系)
+- [❤️ 支持捐赠](#-支持捐赠)
 
 ---
 
 ## 🎯 一句话介绍
 
-**ValidPilot Verify** 是一个面�?AI 编程的验证平台。通过 MCP 协议，AI 可以自动验证代码生成结果—�?*生成截图证据、诊断错误根因、留存完整证据链**�?
-
-> **💡 最佳使用方�?*：配�?AI IDE（如 Trae）的 **Skill 系统** 使用，形成「生�?�?验证 �?修复 �?复验」的完整内循环。Skill 负责协调验证流程，ai-verify-mcp 提供 77 个底层验证工具，两者组合效果远优于单独使用�?
+**ValidPilot Verify** 是一个面向 AI 编程的全息验证平台。通过 MCP 协议，AI 可以自动验证代码生成结果——生成截图证据、诊断错误根因、留存完整证据链。
 
 ### 它能做什么？
 
-- 🔍 **验证 AI 生成的代�?* �?打开页面、点击按钮、填写表单、验证结�?
-- 📸 **留存证据�?* �?每步操作自动截图，形成可追溯的证据链
-- 🐛 **智能诊断错误** �?自动分析错误根因，给出置信度评分和修复建�?
-- �?**断言验证** �?验证元素存在、文本内容、URL 匹配�?
-- 📊 **生成验证报告** �?Markdown 报告，包含截图证据和诊断结果
+- 🔍 **验证 AI 生成的代码**：打开页面、点击按钮、填写表单、验证结果
+- 📸 **留存证据**：每步操作自动截图，形成可追溯的证据链
+- 🐛 **智能诊断错误**：自动分析错误根因，给出置信度评分和修复建议
+- ✅ **断言验证**：验证元素存在、文本内容、URL 匹配等
+- 📊 **生成验证报告**：Markdown 报告，包含截图证据和诊断结果
 
 ---
 
-## 🔄 Skill + MCP = 最佳体�?
+## 🔄 Skill + MCP = 最佳体验
 
-ai-verify-mcp 提供 77 �?*底层验证工具**（浏览器操作、截图、a11y 扫描、断言验证等），但这些工具需要被**编排调用**才能完成完整的验证任务�?
+ai-verify-mcp 提供 78 个底层验证工具（浏览器操作、截图、a11y 扫描、断言验证等），但这些工具需要被**编排调用**才能完成完整的验证任务。
 
-**Skill 系统**（如 Trae �?`browser-dev-full-validation-skill`）正是这个编排层——它定义了一套标准验证流程：
+**Skill 系统**（如 Trae 的 `browser-dev-full-validation-skill`）正是这个编排层——它定义了一套标准验证流程：
 
 ```mermaid
 flowchart LR
@@ -76,48 +74,48 @@ flowchart LR
 
 | 职责 | 说明 |
 |------|------|
-| **流程编排** | 定义验证步骤顺序：打开页面 �?截图 �?检�?a11y �?断言结果 |
+| **流程编排** | 定义验证步骤顺序：打开页面 → 截图 → 检查 a11y → 断言结果 |
 | **证据管理** | 统一存放截图、日志、HAR 文件到各阶段产物目录 |
 | **生成验证报告** | 将多轮验证结果汇总为一份完整报告（成功率、故障清单、修复建议） |
-| **对比基准** | 对比当前验证结果与上一轮（或原始版本），计算回归情�?|
+| **对比基准** | 对比当前验证结果与上一轮（或原始版本），计算回归情况 |
 
 ### ai-verify-mcp 负责
 
 | 职责 | 说明 |
 |------|------|
-| **77 个原子验证工�?* | `browser_open` / `browser_screenshot` / `browser_a11y_check` / `browser_assert` / `console_error_check` / `network_check` �?|
-| **证据链采�?* | 每步操作自动截图，记�?Console 日志和网络请�?|
-| **对比�?CSS 变量扫描** | axe-core 集成、CSS 变量追踪 |
-| **报告输出** | 结构�?JSON + Markdown 报告 |
+| **84 个原子验证工具** | `browser_open` / `browser_overlay_detect` / `browser_smoke_test` / `browser_counterfactual_analyze` / `browser_assert` / `browser_a11y_check` 等 |
+| **证据链采集** | 每步操作自动截图，记录 Console 日志和网络请求 |
+| **对比与 CSS 变量扫描** | axe-core 集成、CSS 变量追踪 |
+| **报告输出** | 结构化 JSON + Markdown 报告 |
 
-> 💡 **最佳实�?*：在 Trae 中同时启�?`browser-dev-full-validation-skill` + `ai-verify-mcp` MCP Server。Skill 自动编排 7 阶段验证流程，ai-verify-mcp 提供底层执行能力�?*两者缺一不可**——只�?MCP 缺乏编排，只�?Skill 缺乏执行能力�?
+> 💡 **最佳实践**：在 Trae 中同时启用 `browser-dev-full-validation-skill` + `ai-verify-mcp` MCP Server。Skill 自动编排 7 阶段验证流程，ai-verify-mcp 提供底层执行能力。**两者缺一不可**——只有 MCP 缺乏编排，只有 Skill 缺乏执行能力。
 
 ---
 
-## �?快速开�?
+## 🚀 快速开始
 
-### 方式一�? 分钟快速体�?
+### 方式一：1 分钟快速体验
 
 ```bash
 # 1. 安装
 npm install @validpilot/ai-verify-mcp
 
 # 2. 启动服务
-npx @validpilot/@validpilot/@validpilot/@validpilot/ai-verify-mcp start
+npx @validpilot/ai-verify-mcp start
 
-# 3. �?AI 助手中配�?MCP（以 Cursor 为例�?
+# 3. 在 AI 助手中配置 MCP（以 Cursor 为例）
 ```
 
-### 方式二：直接验证（无需 MCP�?
+### 方式二：直接验证（无需 MCP）
 
 ```bash
-# 快速验证一个网�?
-npx @validpilot/@validpilot/@validpilot/@validpilot/ai-verify-mcp validate --url https://example.com
+# 快速验证一个网站
+npx @validpilot/ai-verify-mcp validate --url https://example.com
 
 # 截图留证
 npx @validpilot/ai-verify-mcp screenshot --url https://example.com --name evidence-001
 
-# 一键检�?
+# 一键检查
 npx @validpilot/ai-verify-mcp quick-check --url https://example.com
 ```
 
@@ -125,12 +123,12 @@ npx @validpilot/ai-verify-mcp quick-check --url https://example.com
 
 ## 🔧 配置 MCP Server
 
-### �?Cursor 中使�?
+### 在 Cursor 中使用
 
-1. 打开 Cursor �?设置 �?MCP Servers �?Add
-2. 填写配置�?
+1. 打开 Cursor → 设置 → MCP Servers → Add
+2. 填写配置
 
-�?IDE �?MCP 配置文件中添加（项目�?`.cursor/mcp.json` 或用户级配置）：
+或在 IDE 的 MCP 配置文件中添加（项目级 `.cursor/mcp.json` 或用户级配置）：
 
 ```json
 {
@@ -145,9 +143,9 @@ npx @validpilot/ai-verify-mcp quick-check --url https://example.com
 }
 ```
 
-### �?Claude Code 中使�?
+### 在 Claude Code 中使用
 
-在项目根目录创建 `.mcp.json`�?
+在项目根目录创建 `.mcp.json`：
 
 ```json
 {
@@ -164,9 +162,9 @@ npx @validpilot/ai-verify-mcp quick-check --url https://example.com
 }
 ```
 
-### �?Windsurf 中使�?
+### 在 Windsurf 中使用
 
-Settings �?MCP Servers �?Add�?
+Settings → MCP Servers → Add：
 
 ```json
 {
@@ -181,64 +179,84 @@ Settings �?MCP Servers �?Add�?
 
 ## 🎬 实际使用示例
 
-### 场景：验�?AI 生成的登录页�?
+### 场景：验证 AI 生成的登录页面
 
-**你告�?AI�?*
-> "帮我验证这个登录页面：打开 https://example.com/login，输入用户名 test 和密�?123，点击登录按钮，验证是否跳转到首页�?
+**你告诉 AI：**
+> "帮我验证这个登录页面：打开 https://example.com/login，输入用户名 test 和密码 123，点击登录按钮，验证是否跳转到首页。"
 
-**AI 调用的工具链�?*
+**AI 调用的工具链：**
 
 ```
-1. browser_open �?打开登录页面（截图：login-page.png�?
-2. browser_type �?输入用户名（截图：username-filled.png�?
-3. browser_type �?输入密码（截图：password-filled.png�?
-4. browser_click �?点击登录按钮（截图：login-clicked.png�?
-5. validation_check �?验证跳转到首页（截图：homepage.png�?
-6. browser_assert �?断言 URL 包含 /home（生成证据报告）
+1. browser_open → 打开登录页面（截图：login-page.png）
+2. browser_type → 输入用户名（截图：username-filled.png）
+3. browser_type → 输入密码（截图：password-filled.png）
+4. browser_click → 点击登录按钮（截图：login-clicked.png）
+5. validation_check → 验证跳转到首页（截图：homepage.png）
+6. browser_assert → 断言 URL 包含 /home（生成证据报告）
 ```
 
 **结果：完整证据链**
 
 ```
 artifacts/
-├── login-page.png          # 页面初始状�?
+├── login-page.png          # 页面初始状态
 ├── username-filled.png     # 输入用户名后
-├── password-filled.png     # 输入密码�?
-├── login-clicked.png       # 点击登录�?
-├── homepage.png            # 登录成功�?
-└── validation-report.md    # 验证报告（含诊断结果�?
+├── password-filled.png     # 输入密码后
+├── login-clicked.png       # 点击登录后
+├── homepage.png            # 登录成功后
+└── validation-report.md    # 验证报告（含诊断结果）
 ```
 
 ---
 
-## 🏆 为什么选择 ValidPilot Verify�?
+## 🏆 为什么选择 ValidPilot Verify？
 
-| 特�?| ValidPilot Verify | Playwright | Puppeteer |
+| 特性 | ValidPilot Verify | Playwright | Puppeteer |
 |------|-------------------|------------|-----------|
-| **MCP 协议原生** | �?开箱即�?| �?需自己封装 | �?需自己封装 |
-| **AI Agent 友好** | �?77个专用工�?| �?通用API | �?通用API |
-| **证据链留�?* | �?自动截图 + 时间�?| �?手动实现 | �?手动实现 |
-| **智能诊断** | �?错误根因 + 置信�?| �?仅日�?| �?仅日�?|
-| **验证报告** | �?Markdown + 截图 | �?需自己�?| �?需自己�?|
-| **快速验�?* | �?一键检�?�?| �?需编写测试 | �?需编写测试 |
+| **MCP 协议原生** | ✅ 开箱即用 | ❌ 需自己封装 | ❌ 需自己封装 |
+| **AI Agent 友好** | ✅ 78 个专用工具 | ❌ 通用 API | ❌ 通用 API |
+| **证据链留存** | ✅ 自动截图 + 时间戳 | ❌ 手动实现 | ❌ 手动实现 |
+| **智能诊断** | ✅ 错误根因 + 置信度 | ❌ 仅日志 | ❌ 仅日志 |
+| **验证报告** | ✅ Markdown + 截图 | ❌ 需自己写 | ❌ 需自己写 |
+| **快速验证** | ✅ 一键检查 | ❌ 需编写测试 | ❌ 需编写测试 |
 
-**核心差异**：Playwright/Puppeteer �?�?（负责操作），ValidPilot Verify �?�?�?（负责检查和验证）�?
+**核心差异**：Playwright/Puppeteer 是"手"（负责操作），ValidPilot Verify 是"眼+脑"（负责检查和验证）。
 
 ### Skill + MCP 协同优势
 
-| 单独�?MCP | 单独�?Skill | **Skill + MCP 组合** |
+| 单独用 MCP | 单独用 Skill | **Skill + MCP 组合** |
 |-----------|------------|-------------------|
-| �?77 个工具但需手动编排 | 有流程但缺执行能�?| �?自动编排 + 自动执行 |
-| 验证结果零散 | 流程模板固定 | �?完整证据�?+ 灵活配置 |
-| 需手动对比差异 | 无法直接操控浏览�?| �?全自动闭�?|
+| ✅ 78 个工具但需手动编排 | ✅ 有流程但缺执行能力 | ✅ 自动编排 + 自动执行 |
+| ❌ 验证结果零散 | ❌ 流程模板固定 | ✅ 完整证据链 + 灵活配置 |
+| ❌ 需手动对比差异 | ❌ 无法直接操控浏览器 | ✅ 全自动闭环 |
 
-> �?**推荐配置**：在 Trae 中启�?`browser-dev-full-validation-skill`，同时配�?`ai-verify-mcp` �?MCP Server。Skill 负责"什么时候验、验什�?，MCP 负责"怎么�?�?
+> ✅ **推荐配置**：在 Trae 中启用 `browser-dev-full-validation-skill`，同时配置 `ai-verify-mcp` 作为 MCP Server。Skill 负责"什么时候验、验什么"，MCP 负责"怎么验"。
+
+### 🎨 验证流程可视化
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    AI 生成代码 → 验证流程                      │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌────────┐ │
+│  │ 1. 打开   │ -> │ 2. 操作   │ -> │ 3. 断言   │ -> │ 4. 报告 │ │
+│  │ browser_  │    │ browser_  │    │ browser_  │    │ evidence│ │
+│  │ open      │    │ type/click│    │ assert    │    │ _pack  │ │
+│  └──────────┘    └──────────┘    └──────────┘    └────────┘ │
+│       │               │               │               │      │
+│       ▼               ▼               ▼               ▼      │
+│  📸 screenshot    📸 screenshot    📸 screenshot    📄 .md   │
+│  login.png        input.png       result.png       report   │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
 
 ---
 
 ## 📦 完整工具列表
 
-### �?验证框架�?4个）
+### ✅ 验证框架（8个）
 
 | 工具 | 说明 |
 |------|------|
@@ -251,11 +269,11 @@ artifacts/
 | `browser_assert` | 断言验证（URL、标题、元素等）|
 | `screenshot_diff` | 视觉回归对比 |
 
-### 🔍 智能诊断�?2个）
+### 🔍 智能诊断（9个）
 
 | 工具 | 说明 |
 |------|------|
-| `browser_diagnose` | 错误自动诊断（根因分�?+ 置信度）|
+| `browser_diagnose` | 错误自动诊断（根因分析 + 置信度）|
 | `browser_element_status` | 元素状态检查（可见性、可交互性、遮挡）|
 | `browser_quick_fix` | 快速修复（8种策略自动尝试）|
 | `browser_verify_fix` | 修复验证闭环 |
@@ -265,7 +283,7 @@ artifacts/
 | `error_summary_md` | 错误摘要（Markdown）|
 | `debug_investigate` | 深度调查 |
 
-### 📸 证据收集�?个）
+### 📸 证据收集（6个）
 
 | 工具 | 说明 |
 |------|------|
@@ -278,57 +296,57 @@ artifacts/
 
 ### 🌐 浏览器操作（21个）
 
-完整浏览器操作能力：打开、点击、输入、滚动、等待、Cookie、存储、网络、控制台等�?
+完整浏览器操作能力：打开、点击、输入、滚动、等待、Cookie、存储、网络、控制台等。
 
-### 🎯 智能定位�?个）
+### 🎯 智能定位（4个）
 
 | 工具 | 说明 |
 |------|------|
-| `browser_find_element` | 按文本智能查找元�?|
-| `browser_locator_suggest` | 选择器建�?|
-| `browser_locator_validate` | 选择器验�?|
+| `browser_find_element` | 按文本智能查找元素 |
+| `browser_locator_suggest` | 选择器建议 |
+| `browser_locator_validate` | 选择器验证 |
 | `browser_find_page` | 页面类型识别 |
 
 ---
 
-## 🔬 证据链概�?
+## 🔬 证据链概念
 
-**证据�?*�?ValidPilot Verify 的核心概念：
+**证据链**是 ValidPilot Verify 的核心概念：
 
-1. **每步操作自动截图** �?时间�?+ 操作类型 + 结果状�?
-2. **错误自动诊断** �?错误类型 + 根因分析 + 置信度评�?
-3. **修复建议生成** �?基于规则的修复建�?+ 验证闭环
-4. **报告自动生成** �?Markdown 报告 + 截图引用 + 诊断结果
+1. **每步操作自动截图**：时间戳 + 操作类型 + 结果状态
+2. **错误自动诊断**：错误类型 + 根因分析 + 置信度评分
+3. **修复建议生成**：基于规则的修复建议 + 验证闭环
+4. **报告自动生成**：Markdown 报告 + 截图引用 + 诊断结果
 
 **示例证据链报告：**
 
 ```markdown
 # 验证报告 - 登录流程
 
-## �?通过的步�?
+## ✅ 通过的步骤
 
-| 步骤 | 操作 | 截图 | 时间�?|
+| 步骤 | 操作 | 截图 | 时间戳 |
 |------|------|------|--------|
-| 1 | 打开登录�?| login-page.png | 2026-06-28T10:00:00Z |
-| 2 | 输入用户�?| username-filled.png | 2026-06-28T10:00:05Z |
+| 1 | 打开登录页 | login-page.png | 2026-06-28T10:00:00Z |
+| 2 | 输入用户名 | username-filled.png | 2026-06-28T10:00:05Z |
 | 3 | 点击登录 | login-clicked.png | 2026-06-28T10:00:10Z |
 
-## �?失败的步�?
+## ❌ 失败的步骤
 
 | 步骤 | 操作 | 错误 | 截图 | 诊断 |
 |------|------|------|------|------|
-| 4 | 验证首页 | URL不匹�?| homepage.png | 置信�? 85% - 登录可能失败 |
+| 4 | 验证首页 | URL不匹配 | homepage.png | 置信度 85% - 登录可能失败 |
 
 **错误类型**: 验证失败
-**置信�?*: 85%
-**建议**: 检查登录是否成功，查看是否有错误提�?
+**置信度**: 85%
+**建议**: 检查登录是否成功，查看是否有错误提示。
 ```
 
 ---
 
 ## ⚙️ 环境变量
 
-| 变量 | 说明 | 默认�?|
+| 变量 | 说明 | 默认值 |
 |------|------|--------|
 | `MCP_MODE` | MCP 运行模式（stdio/http）| stdio |
 | `MCP_HTTP_PORT` | HTTP 端口 | 3456 |
@@ -337,52 +355,52 @@ artifacts/
 
 ---
 
-## �?常见问题
+## ❓ 常见问题
 
-### Q: �?browser-mcp 有什么区别？
+### Q: 和 browser-mcp 有什么区别？
 
-**browser-mcp** �?�?——负责操作浏览器（打开、点击、输入）�?
-**ai-verify-mcp** �?�?�?——负责验证和诊断（检查结果、留存证据、诊断错误）�?
+**browser-mcp** 是"手"——负责操作浏览器（打开、点击、输入）。
+**ai-verify-mcp** 是"眼+脑"——负责验证和诊断（检查结果、留存证据、诊断错误）。
 
-两者可以配合使用：browser-mcp 操作，ai-verify-mcp 验证�?
+两者可以配合使用：browser-mcp 操作，ai-verify-mcp 验证。
 
-### Q: 支持哪些 AI 助手�?
+### Q: 支持哪些 AI 助手？
 
-支持所�?MCP 协议兼容�?AI 助手：Cursor、Claude Code、Windsurf、Cline 等�?
+支持所有 MCP 协议兼容的 AI 助手：Cursor、Claude Code、Windsurf、Cline 等。
 
 ### Q: 证据存放在哪里？
 
-默认存放�?`./artifacts` 目录，包含截图、HAR 文件、验证报告等�?
+默认存放在 `./artifacts` 目录，包含截图、HAR 文件、验证报告等。
 
-### Q: 启动失败 �?`Error: Playwright browser failed to launch`
+### Q: 启动失败，`Error: Playwright browser failed to launch`
 
-- **原因 A**: Playwright 浏览器二进制未安�?
+- **原因 A**: Playwright 浏览器二进制未安装
 - **解决**: 运行 `npx playwright install chromium`
-- **原因 B**: Linux 系统缺少系统�?
-- **解决**: Debian/Ubuntu �?`apt-get install libnspr4 libnss3 libatk1.0-0 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libasound2`
+- **原因 B**: Linux 系统缺少系统依赖
+- **解决**: Debian/Ubuntu 执行 `apt-get install libnspr4 libnss3 libatk1.0-0 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libasound2`
 
-### Q: MCP 连接失败 �?`MCP error -32000: Connection closed`
+### Q: MCP 连接失败，`MCP error -32000: Connection closed`
 
 - **原因**: `node` 可执行文件路径在 MCP Host 里找不到
-- **解决**: �?MCP config 中使�?`command: "npx" args: ["-y", "ai-verify-mcp"]` 而非 `node .../start-http.js`
+- **解决**: 在 MCP config 中使用 `command: "npx" args: ["-y", "ai-verify-mcp"]` 而非 `node .../start-http.js`
 
 ### Q: 端口 3456 已被占用
 
-- **解决**: �?MCP config 中指定自定义端口: `"env": { "MCP_HTTP_PORT": "3557" }`
+- **解决**: 在 MCP config 中指定自定义端口: `"env": { "MCP_HTTP_PORT": "3557" }`
 
 ### Q: 截图没生成到 ./artifacts
 
-- **检�?1**: 进程对当前目录有写权�?
-- **检�?2**: 通过环境变量覆盖: `"env": { "VALIDPILOT_ARTIFACTS_DIR": "C:/temp/evidence" }`
-- **检�?3**: AI 是否真的调用�?`browser_screenshot` 工具（在 MCP 调试模式下看 ListTools 调用日志�?
+- **检查1**: 进程对当前目录有写权限
+- **检查2**: 通过环境变量覆盖: `"env": { "VALIDPILOT_ARTIFACTS_DIR": "C:/temp/evidence" }`
+- **检查3**: AI 是否真的调用了 `browser_screenshot` 工具（在 MCP 调试模式下看 ListTools 调用日志）
 
 ---
 
 ## 🔌 MCP Client 配置速查
 
-> 所有客户端�?stdio/HTTP shape 一致，下面列出**可直接复制粘�?*的配置块�?
+> 所有客户端的 stdio/HTTP shape 一致，下面列出**可直接复制粘贴**的配置块。
 
-### �?Cursor（项目级推荐�?
+### 在 Cursor（项目级推荐）
 
 `.cursor/mcp.json`（项目根目录）：
 
@@ -400,7 +418,7 @@ artifacts/
 }
 ```
 
-### �?Claude Desktop
+### 在 Claude Desktop
 
 编辑 `%APPDATA%/Claude/claude_desktop_config.json`（Windows）或 `~/Library/Application Support/Claude/claude_desktop_config.json`（macOS）：
 
@@ -418,11 +436,11 @@ artifacts/
 }
 ```
 
-> ⚠️ Claude Desktop 只会加载用户�?config 文件，重�?Claude Desktop 才能看到新工具�?
+> ⚠️ Claude Desktop 只会加载用户级 config 文件，重启 Claude Desktop 才能看到新工具。
 
-### �?Windsurf
+### 在 Windsurf
 
-`~/.codeium/windsurf/mcp_config.json`�?
+`~/.codeium/windsurf/mcp_config.json`：
 
 ```json
 {
@@ -438,9 +456,9 @@ artifacts/
 }
 ```
 
-### �?Claude Code（本地安装）
+### 在 Claude Code（本地安装）
 
-项目根目录的 `.mcp.json`�?
+项目根目录的 `.mcp.json`：
 
 ```json
 {
@@ -453,7 +471,7 @@ artifacts/
 }
 ```
 
-### �?Cline / Continue / 其他 stdio MCP 客户�?
+### 在 Cline / Continue / 其他 stdio MCP 客户端
 
 ```json
 {
@@ -463,13 +481,13 @@ artifacts/
 }
 ```
 
-### �?Trae IDE
+### 在 Trae IDE
 
-**两种入口二选一，推荐项目级�?*
+**两种入口二选一，推荐项目级。**
 
-#### 方式 A �?项目级（推荐，多人共享）
+#### 方式 A：项目级（推荐，多人共享）
 
-在项目根目录创建 `.trae/mcp.json`�?
+在项目根目录创建 `.trae/mcp.json`：
 
 ```json
 {
@@ -485,7 +503,7 @@ artifacts/
 }
 ```
 
-#### 方式 B �?用户级（全局生效�?
+#### 方式 B：用户级（全局生效）
 
 `%APPDATA%\Trae\User\mcp.json`（Windows）或 `~/.config/Trae/User/mcp.json`（macOS/Linux）：
 
@@ -503,24 +521,24 @@ artifacts/
 }
 ```
 
-> 💡 Trae �?settings �?MCP �?"+ Add" �?"Raw Config (JSON)" 按钮可直接弹出对应路径；保存后重�?Trae 会话加载新工具�?
+> 💡 Trae 在 settings → MCP → "+ Add" → "Raw Config (JSON)" 按钮可直接弹出对应路径；保存后重启 Trae 会话加载新工具。
 
 #### ⚠️ Trae MCP 限制提醒
 
-Trae 因模型上下文窗口有限，对 MCP 引入�?*两道硬性上�?*�?
+Trae 因模型上下文窗口有限，对 MCP 引入的**两道硬性上限**：
 
-| 限制�?| 上限�?| 触达后果 |
+| 限制项 | 上限值 | 触达后果 |
 |--------|--------|---------|
-| 所�?MCP Server **工具描述总字符数** | �?8000 字符 | 超出�?*按工具粒度丢�?*多余的工具描�?|
-| 所�?MCP Server **工具总数** | �?40 个工�?| 超出�?*按工具粒度丢�?*装不下的工具 |
+| 所有 MCP Server **工具描述总字符数** | ≈ 8000 字符 | 超出后按工具粒度丢弃多余的工具描述 |
+| 所有 MCP Server **工具总数** | ≈ 40 个工具 | 超出后按工具粒度丢弃装不下的工具 |
 
 > 📌 数据来源：[Trae 官方 FAQ｜MCP 工具 · 2026-02](https://forum.trae.cn/t/topic/65)
 
-大量堆叠 MCP 后，可能出现"`list tools failed`"或工具显示不全的现象——并�?ai-verify-mcp 自身问题，而是触达 Trae 上限后按工具粒度丢失描述。具体规避措施请参�?Trae 官方文档�?
+大量堆叠 MCP 后，可能出现"`list tools failed`"或工具显示不全的现象——并非 ai-verify-mcp 自身问题，而是触达 Trae 上限后按工具粒度丢失描述。具体规避措施请参考 Trae 官方文档。
 
-### �?Codex CLI（OpenAI�?
+### 在 Codex CLI（OpenAI）
 
-`~/.codex/config.toml`�?*TOML 格式**，注意与 JSON 区别）：
+`~/.codex/config.toml`（TOML 格式，注意与 JSON 区别）：
 
 ```toml
 [mcp_servers.ai-verify-mcp]
@@ -531,17 +549,17 @@ args = ["-y", "ai-verify-mcp"]
 MCP_HTTP_PORT = "3456"
 ```
 
-或使�?CLI 一次性添加：
+或使用 CLI 一次性添加：
 
 ```bash
 codex mcp add ai-verify-mcp -- npx -y ai-verify-mcp
 ```
 
-> 💡 Codex CLI 默认�?stdio，HTTP 端口仅在 `MCP_MODE=http` 时使用；如需�?HTTP 暴露给浏览器调试，需�?`start-http.js` 启动后让 Codex 通过 SSE/HTTP 连接（Codex 0.40+ 支持）�?
+> 💡 Codex CLI 默认用 stdio，HTTP 端口仅在 `MCP_MODE=http` 时使用；如需用 HTTP 暴露给浏览器调试，需用 `start-http.js` 启动后让 Codex 通过 SSE/HTTP 连接（Codex 0.40+ 支持）。
 
-### �?OpenClaw（开�?Claude Code 替代品）
+### 在 OpenClaw（开源 Claude Code 替代品）
 
-`~/.openclaw/openclaw.json`�?
+`~/.openclaw/openclaw.json`：
 
 ```json
 {
@@ -559,9 +577,9 @@ codex mcp add ai-verify-mcp -- npx -y ai-verify-mcp
 }
 ```
 
-> 💡 OpenClaw 使用 `mcp.servers.<name>` 嵌套结构（不�?servers 后缀是另一种风格），与 Claude Code 同源协议，可平滑迁移�?
+> 💡 OpenClaw 使用 `mcp.servers.<name>` 嵌套结构（不是 servers 后缀是另一种风格），与 Claude Code 同源协议，可平滑迁移。
 
-### �?Hermes Agent（Nous Research�?
+### 在 Hermes Agent（Nous Research）
 
 `~/.hermes/config.yaml`（YAML 格式，与 JSON 路径不同）：
 
@@ -574,7 +592,7 @@ mcp_servers:
       MCP_HTTP_PORT: "3456"
 ```
 
-或使�?CLI 交互式添加：
+或使用 CLI 交互式添加：
 
 ```bash
 hermes mcp add ai-verify-mcp \
@@ -582,11 +600,11 @@ hermes mcp add ai-verify-mcp \
   --args "-y,ai-verify-mcp"
 ```
 
-> 💡 Hermes 会自�?discover 工具列表，启动后�?`hermes tools list` 可看�?`browser_*`、`validation_*` 等工具已注册�?
+> 💡 Hermes 会自动 discover 工具列表，启动后用 `hermes tools list` 可看到 `browser_*`、`validation_*` 等工具已注册。
 
-### �?华为�?CodeArts（码�?IDE�?
+### 在华为云 CodeArts（码云 IDE）
 
-设置 �?MCP工具 �?"配置MCP" �?编辑 `mcp_settings.json`�?
+设置 → MCP工具 → "配置MCP" → 编辑 `mcp_settings.json`：
 
 ```json
 {
@@ -602,19 +620,19 @@ hermes mcp add ai-verify-mcp \
 }
 ```
 
-或在 IDE 命令面板执行�?
+或在 IDE 命令面板执行：
 
-1. `Ctrl+Shift+P` �?"CodeArts: Add MCP Server"
-2. �?stdio �?�?`npx` �?`-y,ai-verify-mcp`
+1. `Ctrl+Shift+P` → "CodeArts: Add MCP Server"
+2. 选 stdio → 填 `npx` → 填 `-y,ai-verify-mcp`
 3. 配置自动写入 `mcp_settings.json`
 
-> ⚠️ 华为云码�?*建议开�?MCP �?8 个，启用 3 个最�?*，本工具是验证类，建议与 Playwright、Context7 等共用并设置 defer_loading 避免冲突�?
+> ⚠️ 华为云码云建议开启 MCP 不超过 8 个，启用 3 个最佳，本工具是验证类，建议与 Playwright、Context7 等共用并设置 defer_loading 避免冲突。
 
-### �?Tencent CodeBuddy
+### 在 Tencent CodeBuddy
 
-**方式 A �?推荐：`~/.codebuddy/.mcp.json`（推荐）**
+**方式 A（推荐）：`~/.codebuddy/.mcp.json`（推荐）**
 
-`~/.codebuddy/.mcp.json`（全局）或项目�?`.mcp.json`（项目级）：
+`~/.codebuddy/.mcp.json`（全局）或项目级 `.mcp.json`（项目级）：
 
 ```json
 {
@@ -630,9 +648,9 @@ hermes mcp add ai-verify-mcp \
 }
 ```
 
-**方式 B �?Settings.json 集成**
+**方式 B：Settings.json 集成**
 
-设置 �?"Add MCP" �?自动打开 `settings.json`，追加：
+设置 → "Add MCP" → 自动打开 `settings.json`，追加：
 
 ```json
 {
@@ -645,33 +663,33 @@ hermes mcp add ai-verify-mcp \
 }
 ```
 
-> 💡 CodeBuddy 支持 STDIO / SSE / HTTP 三种 transports，本节配置均�?STDIO（最常用）；如需�?HTTP 模式，把 `command/args` 替换�?`url: "http://localhost:3456/sse"` 即可�?
+> 💡 CodeBuddy 支持 STDIO / SSE / HTTP 三种 transports，本节配置均用 STDIO（最常用）；如需用 HTTP 模式，把 `command/args` 替换为 `url: "http://localhost:3456/sse"` 即可。
 
 ---
 
-## 🎬 演示：✅ vs �?对比
+## 🎬 演示：✅ vs ❌ 对比
 
-### �?没有验证（普�?AI 编程�?
+### ❌ 没有验证（普通 AI 编程）
 
 ```
 👤 "帮我写一个登录页"
-🤖 "已生�?login.html / login.js ... �?
+🤖 "已生成 login.html / login.js ..."
 👤 "能跑吗？"
-🤖 "应该没问�?
-👤 "......"   �?没有证据
+🤖 "应该没问题"
+👤 "......"   ❌ 没有证据
 ```
 
-### �?�?ValidPilot Verify
+### ✅ 使用 ValidPilot Verify
 
 ```
-👤 "帮我写一个登录页，跑完之后验证一�?
+👤 "帮我写一个登录页，跑完之后验证一下"
 🤖 "好的，我边写边验证：
-    1. 打开页面 �?validation_quick_run �?
-    2. 输入用户�?�?screenshot 已留�?
-    3. 输入密码 �?screenshot 已留�?
-    4. 点击登录 �?screenshot + URL断言 �?
-    5. 验证首页 �?evidence/report.md �?
-👤 *(点击 evidence/login-flow-report.md 查看截图证据�?*
+    1. 打开页面 → validation_quick_run ✅
+    2. 输入用户名 → screenshot 已留存
+    3. 输入密码 → screenshot 已留存
+    4. 点击登录 → screenshot + URL断言 ✅
+    5. 验证首页 → evidence/report.md ✅
+👤 *(点击 evidence/login-flow-report.md 查看截图证据)*
 ```
 
 完整证据链文件结构：
@@ -688,9 +706,9 @@ artifacts/
 
 ---
 
-## 📦 发布自动�?
+## 📦 发布自动化
 
-发布�?npm 时会自动执行健康校验�?
+发布到 npm 时会自动执行健康校验。
 
 ```json
 {
@@ -705,7 +723,7 @@ artifacts/
 }
 ```
 
-执行流程�?
+执行流程：
 ```bash
 $ npm publish
 > ai-verify-mcp@1.0.0 prepublishOnly
@@ -714,27 +732,27 @@ $ npm publish
 { "ok": true, "name": "ai-verify-mcp", "version": "1.0.0", ... }
 npm notice package size: 102.4 kB
 npm notice total files: 101
-+ npm publish �?上传 npm registry
++ npm publish → 上传 npm registry
 ```
 
-发布前可手动验证�?
-- `npm run validate` �?Playwright 健康检�?
-- `npm run pack:dry` �?打包预览（不实际打包�?
+发布前可手动验证：
+- `npm run validate` → Playwright 健康检查
+- `npm run pack:dry` → 打包预览（不实际打包）
 
 ---
 
 ## 🙏 致谢
 
-感谢以下项目和技术的启发�?
-- [Playwright](https://playwright.dev/) �?浏览器自动化引擎
-- [@modelcontextprotocol/sdk](https://github.com/modelcontextprotocol/typescript-sdk) �?MCP 协议 SDK
-- [axe-core](https://github.com/dequelabs/axe-core) �?无障碍检�?
+感谢以下项目和技术的启发：
+- [Playwright](https://playwright.dev/) 浏览器自动化引擎
+- [@modelcontextprotocol/sdk](https://github.com/modelcontextprotocol/typescript-sdk) MCP 协议 SDK
+- [axe-core](https://github.com/dequelabs/axe-core) 无障碍检查
 
 ---
 
-## 💬 社区与联�?
+## 💬 社区与联系
 
-### 钉钉交流�?
+### 钉钉交流群
 
 扫码加入 `ai-verify-mcp` 官方交流群，提问、反馈、交流最佳实践：
 
@@ -747,24 +765,24 @@ npm notice total files: 101
 📧 [validpilot@outlook.com](mailto:validpilot@outlook.com)
 
 - 商务合作
-- 安全漏洞报告（请优先使用 [SECURITY.md](SECURITY.md) 流程�?
+- 安全漏洞报告（请优先使用 [SECURITY.md](SECURITY.md) 流程）
 - 其他问题
 
 ---
 
 ## ❤️ 支持捐赠 / Donations
 
-感谢您对本项目的关注与支持！如果您觉得这个项目对您有帮助，欢迎通过捐赠的方式给予鼓励�?
+感谢您对本项目的关注与支持！如果您觉得这个项目对您有帮助，欢迎通过捐赠的方式给予鼓励。
 
 _Thank you for your interest and support! If you find this project helpful, consider buying me a coffee._
 
-> 捐赠将用于项目维护、功能开发、服务器开销等，所有资金将透明公开，专款专用�?
+> 捐赠将用于项目维护、功能开发、服务器开销等，所有资金将透明公开，专款专用。
 >
 > _Donations will be used for project maintenance, feature development, and server costs. All funds will be transparent and project-dedicated._
 
 ### 捐赠方式 / Donation Methods
 
-| 支付�?(Alipay) | 微信支付 (WeChat) | PayPal |
+| 支付宝 (Alipay) | 微信支付 (WeChat) | PayPal |
 |:---:|:---:|:---:|
 | ![支付宝](https://ghproxy.net/https://raw.githubusercontent.com/validpilot/ai-verify-mcp/main/docs/images/alipay.jpg) | ![微信支付](https://ghproxy.net/https://raw.githubusercontent.com/validpilot/ai-verify-mcp/main/docs/images/weixinpay.jpg) | [![PayPal](https://img.shields.io/badge/PayPal-00457C?style=for-the-badge&logo=paypal&logoColor=white)](https://paypal.me/qianzhiliang) |
 
@@ -776,18 +794,18 @@ _Thank you for your interest and support! If you find this project helpful, cons
 
 ---
 
-**Contributing** �?欢迎贡献！阅�?[CONTRIBUTING.md](CONTRIBUTING.md) 了解如何参与。请遵守 [Code of Conduct](CODE_OF_CONDUCT.md)�?
+**Contributing**：欢迎贡献！阅读 [CONTRIBUTING.md](CONTRIBUTING.md) 了解如何参与。请遵守 [Code of Conduct](CODE_OF_CONDUCT.md)。
 
-**Security** �?发现漏洞？查�?[SECURITY.md](SECURITY.md) 了解安全策略�?
+**Security**：发现漏洞？查看 [SECURITY.md](SECURITY.md) 了解安全策略。
 
-**AI Agents** �?你是 AI Agent？查�?[AGENTS.md](AGENTS.md) 获取编码指南和项目约定�?
+**AI Agents**：你是 AI Agent？查看 [AGENTS.md](AGENTS.md) 获取编码指南和项目约定。
 
-**License** �?[MIT](LICENSE) © 2026 ValidPilot
+**License**：[MIT](LICENSE) © 2026 ValidPilot
 
-## 📜 许可�?
+## 📜 许可证
 
 [MIT](LICENSE) © 2026 ValidPilot Team
 
 ---
 
-> **Don't just generate, verify.** �?�?AI 编程可信赖�?
+> **Don't just generate, verify.** 让 AI 编程可信赖。

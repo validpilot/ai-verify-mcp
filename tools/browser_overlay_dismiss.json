@@ -1,0 +1,29 @@
+{
+  "name": "browser_overlay_dismiss",
+  "description": "遮挡物自动关闭 - 自动识别并点击关闭常见遮挡物（Cookie横幅、弹窗、浮层、遮罩等），支持多种关闭按钮选择器模式",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "format": {
+        "type": "string",
+        "enum": ["json", "html"],
+        "default": "json",
+        "description": "输出格式：json（默认结构化数据）或 html（HTML 报告）"
+      }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "status": { "type": "string", "enum": ["success", "partial", "warning"] },
+      "success": { "type": "boolean" },
+      "dismissedCount": { "type": "number" },
+      "dismissResults": { "type": "array", "items": { "type": "object" } },
+      "remainingOverlays": { "type": "number" },
+      "hasBlockingOverlay": { "type": "boolean" },
+      "nextSteps": { "type": "array", "items": { "type": "string" } },
+      "suggestions": { "type": "array", "items": { "type": "object" } },
+      "paidUpgradeHint": { "type": "string" }
+    }
+  }
+}

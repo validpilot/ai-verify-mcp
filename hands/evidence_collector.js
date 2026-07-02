@@ -5,6 +5,7 @@ const path = require('path');
 const { PNG } = require('pngjs');
 const pixelmatch = require('pixelmatch').default || require('pixelmatch');
 const { defaultAdapter, ensureDir, truncate } = require('./../engines/playwright_adapter');
+const { redact } = require('./../core/redaction');
 
 const DIFF_DIR = path.join(__dirname, '..', 'artifacts', 'phase1');
 
@@ -28,7 +29,7 @@ async function collectEvidence(args = {}) {
       url: evidence.dom.url,
       title: evidence.dom.title,
       readyState: evidence.dom.readyState,
-      textSummary: truncate(evidence.dom.textSummary, 600),
+      textSummary: redact(truncate(evidence.dom.textSummary, 600)),
       controls: (evidence.dom.controls || []).slice(0, 20),
       alerts: (evidence.dom.alerts || []).slice(0, 10)
     } : null
@@ -36,8 +37,8 @@ async function collectEvidence(args = {}) {
 
   return {
     ok: true,
-    summary,
-    evidence: fullEvidence,
+    summary: redact(summary),
+    evidence: redact(fullEvidence),
     artifactPath
   };
 }

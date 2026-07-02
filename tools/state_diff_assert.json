@@ -1,0 +1,96 @@
+{
+  "name": "state_diff_assert",
+  "description": "捕获并对比操作前后的页面/API/存储状态，用于验证 UI、API、数据状态是否真的发生预期变化。先做进现有 MCP，后续可剥离为独立双链路验证模块。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "action": {
+        "type": "string",
+        "enum": ["capture", "compare"],
+        "description": "capture=采集当前状态快照；compare=采集当前状态并与 before/compareTo 快照对比",
+        "default": "capture"
+      },
+      "targetUrl": {
+        "type": "string",
+        "description": "可选，采集前先打开的页面 URL"
+      },
+      "snapshotId": {
+        "type": "string",
+        "description": "采集快照时指定 ID，便于后续 compareTo 引用"
+      },
+      "compareTo": {
+        "type": "string",
+        "description": "对比时引用之前 capture 返回的 snapshotId"
+      },
+      "beforeSnapshotId": {
+        "type": "string",
+        "description": "compareTo 的别名"
+      },
+      "before": {
+        "type": "object",
+        "description": "直接传入之前 capture 返回的 snapshot 对象"
+      },
+      "after": {
+        "type": "object",
+        "description": "可选，直接传入 after snapshot；不传则现场采集"
+      },
+      "label": {
+        "type": "string",
+        "description": "本次状态采集或对比名称"
+      },
+      "sources": {
+        "type": "array",
+        "description": "要采集的状态源列表",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string", "description": "状态字段名，如 balance/owned/apiBalance" },
+            "type": {
+              "type": "string",
+              "enum": ["selectorText", "selectorNumber", "bodyText", "localStorage", "eval", "apiJson", "file", "runtimeData"],
+              "description": "状态源类型"
+            },
+            "selector": { "type": "string", "description": "selectorText/selectorNumber 使用的 CSS 选择器" },
+            "key": { "type": "string", "description": "localStorage key" },
+            "expression": { "type": "string", "description": "eval 表达式，例如 document.body.innerText.includes('已拥有')" },
+            "url": { "type": "string", "description": "apiJson/file 完整 URL 或文件路径" },
+            "path": { "type": "string", "description": "apiJson 相对路径，如 /api/credits/balance" },
+            "method": { "type": "string", "description": "apiJson 请求方法，默认 GET" },
+            "headers": { "type": "object", "description": "apiJson 请求头" },
+            "body": { "description": "apiJson 请求体" },
+            "jsonPath": { "type": "string", "description": "apiJson/file/runtimeData 返回 JSON 取值路径，如 $.account.balance 或 $.items.length" },
+            "dataset": { "type": "string", "description": "runtimeData 数据集名，如 users/marketplace/orders/credits，自动映射到 poc/data/<dataset>.json" },
+            "basePath": { "type": "string", "description": "runtimeData 数据目录覆盖路径" },
+            "filePath": { "type": "string", "description": "file 类型的文件绝对路径" },
+            "timeout": { "type": "number", "description": "采集超时时间，默认 5000ms" }
+          },
+          "additionalProperties": true
+        }
+      },
+      "expectations": {
+        "type": "array",
+        "description": "对比断言列表",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string", "description": "要断言的状态字段名" },
+            "operator": {
+              "type": "string",
+              "enum": ["exists", "equals", "notEquals", "changed", "unchanged", "contains", "increased", "decreased", "delta"],
+              "description": "断言方式"
+            },
+            "value": { "description": "equals/notEquals/contains 的期望值" },
+            "by": { "type": "number", "description": "delta 的期望变化量，例如 -800" },
+            "tolerance": { "type": "number", "description": "delta 容差，默认 0" }
+          },
+          "required": ["name", "operator"]
+        }
+      },
+      "evidence": { "type": "boolean", "description": "是否生成步骤证据，默认 true" },
+      "screenshot": { "type": "boolean", "description": "是否截图，默认 true" },
+      "snapshot": { "type": "boolean", "description": "是否采集 DOM 简要快照，默认 true" },
+      "timeout": { "type": "number", "description": "页面打开超时，默认 30000ms" }
+    },
+    "required": ["sources"]
+  }
+}

@@ -238,6 +238,17 @@ function buildSummary(topErrors, uniqueCount, totalCount) {
 }
 
 function errorSummaryMd(input = {}, options = {}) {
+  const evidence = input.evidence || input;
+  const aggregation = evidence.errorAggregation || input.errorAggregation;
+  if (aggregation && !input.topErrors) {
+    const topErrors = (aggregation.topPatterns || []).map(item => ({
+      signature: item.pattern,
+      count: item.count || 1,
+      severity: 2,
+      examples: [{ source: 'aggregate', text: item.pattern }]
+    }));
+    return buildSummary(topErrors, topErrors.length, aggregation.totalErrors || 0);
+  }
   const aggregated = input.topErrors ? input : aggregateErrors(input, options);
   return aggregated.summary || buildSummary(aggregated.topErrors || [], aggregated.uniqueCount || 0, aggregated.totalCount || 0);
 }

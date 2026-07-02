@@ -1,34 +1,34 @@
 # ai-verify-mcp 用户操作手册
 
-> 从安装到精通，完整的使用指南�?
+> 从安装到精通，完整的使用指南?
 
 ---
 
 ## 目录
 
-- [一、快速导航](#一快速导�?
+- [一、快速导航](#一快速导?
 - [二、安装与卸载](#二安装与卸载)
 - [三、CLI 命令详解](#三cli-命令详解)
-- [四、MCP Server 配置（AI 客户端）](#四mcp-server-配置ai-客户�?
+- [四、MCP Server 配置（AI 客户端）](#四mcp-server-配置ai-客户?
 - [五、Skill + MCP 组合使用（推荐）](#五skill--mcp-组合使用推荐)
-- [六�?5 个工具速查](#�?5-个工具速查)
-- [七、典型使用场景](#七典型使用场�?
-- [八、产物与证据链](#八产物与证据�?
-- [九、环境变量参考](#九环境变量参�?
-- [十、常见故障排除](#十常见故障排�?
+- [六?5 个工具速查](#?5-个工具速查)
+- [七、典型使用场景](#七典型使用场?
+- [八、产物与证据链](#八产物与证据?
+- [九、环境变量参考](#九环境变量参?
+- [十、常见故障排除](#十常见故障排?
 
 ---
 
-## 一、快速导�?
+## 一、快速导?
 
-| 你的目的 | 去这�?|
+| 你的目的 | 去这?|
 |---------|--------|
-| 快速体验验证功�?| [3.2 validate 命令](#32-validate-快速验�? |
-| 配置�?Cursor 使用 | [4.2 Cursor](#42-cursor) |
-| 配置�?Trae 使用 | [4.1 Trae](#41-trae) |
-| 配合 Skill 最佳体�?| [第五章](#五skill--mcp-组合使用推荐) |
-| 了解有哪些工�?| [第六章](#�?5-个工具速查) |
-| 遇到错误 | [第十章](#十常见故障排�? |
+| 快速体验验证功?| [3.2 validate 命令](#32-validate-快速验? |
+| 配置?Cursor 使用 | [4.2 Cursor](#42-cursor) |
+| 配置?Trae 使用 | [4.1 Trae](#41-trae) |
+| 配合 Skill 最佳体?| [第五章](#五skill--mcp-组合使用推荐) |
+| 了解有哪些工?| [第六章](#?5-个工具速查) |
+| 遇到错误 | [第十章](#十常见故障排? |
 
 ---
 
@@ -36,11 +36,11 @@
 
 ### 2.1 环境要求
 
-| �?| 要求 |
+| ?| 要求 |
 |----|------|
-| Node.js | >= 18（推�?20 LTS�?|
+| Node.js | >= 18（推?20 LTS?|
 | 操作系统 | Windows / macOS / Linux |
-| 浏览�?| Playwright 自动管理 Chromium（首次运行自动下载） |
+| 浏览?| Playwright 自动管理 Chromium（首次运行自动下载） |
 
 ### 2.2 安装方式
 
@@ -50,30 +50,30 @@
 npm install -g @validpilot/ai-verify-mcp
 ```
 
-安装后可直接使用 `ai-verify-mcp` 命令�?
+安装后可直接使用 `ai-verify-mcp` 命令?
 
-**方式 B：npx 临时使用（无需安装�?*
+**方式 B：npx 临时使用（无需安装?*
 
 ```bash
-npx @validpilot/@validpilot/@validpilot/@validpilot/ai-verify-mcp --version
-npx @validpilot/@validpilot/@validpilot/@validpilot/ai-verify-mcp validate --url https://example.com
+npx @validpilot/ai-verify-mcp --version
+npx @validpilot/ai-verify-mcp validate --url https://example.com
 ```
 
-每次使用自动下载最新版，用完即删�?
+每次使用自动下载最新版，用完即删?
 
-**方式 C：项目本地安�?*
+**方式 C：项目本地安?*
 
 ```bash
 cd your-project
 npm install --save-dev @validpilot/ai-verify-mcp
 ```
 
-适合在项�?CI 流程中使用，或在 `package.json` 中添加脚本：
+适合在项?CI 流程中使用，或在 `package.json` 中添加脚本：
 
 ```json
 {
   "scripts": {
-    "verify": "@validpilot/@validpilot/@validpilot/ai-verify-mcp validate --url http://localhost:5173",
+    "verify": "@validpilot/ai-verify-mcp validate --url http://localhost:5173",
     "verify:start": "ai-verify-mcp"
   }
 }
@@ -82,10 +82,10 @@ npm install --save-dev @validpilot/ai-verify-mcp
 ### 2.3 验证安装
 
 ```bash
-@validpilot/@validpilot/@validpilot/ai-verify-mcp --version
+@validpilot/ai-verify-mcp --version
 # 输出: 1.0.0
 
-@validpilot/@validpilot/@validpilot/ai-verify-mcp health
+@validpilot/ai-verify-mcp health
 # 输出: {"ok":true,"name":"ai-verify-mcp","version":"1.0.0","message":"Playwright browser is available"}
 ```
 
@@ -99,60 +99,60 @@ npm uninstall -g ai-verify-mcp
 
 ## 三、CLI 命令详解
 
-### 3.1 `health` �?健康检�?
+### 3.1 `health` ?健康检?
 
-检�?Playwright 浏览器是否可用�?
+检?Playwright 浏览器是否可用?
 
 ```bash
-@validpilot/@validpilot/@validpilot/ai-verify-mcp health
+@validpilot/ai-verify-mcp health
 
-# 成功�?exit 0:
+# 成功?exit 0:
 # {"ok":true,"name":"ai-verify-mcp","version":"1.0.0","message":"Playwright browser is available"}
 
-# 失败�?exit 1:
+# 失败?exit 1:
 # {"ok":false,"error":"Playwright browser is not available"}
 ```
 
-**用�?*：CI 流水线前置检查、Docker 容器健康检查�?
+**用?*：CI 流水线前置检查、Docker 容器健康检查?
 
 ---
 
-### 3.2 `validate` �?快速验�?
+### 3.2 `validate` ?快速验?
 
-一键验证一�?URL �?7 项核心检查�?
+一键验证一?URL ?7 项核心检查?
 
 ```bash
-@validpilot/@validpilot/@validpilot/ai-verify-mcp validate --url <URL>
+@validpilot/ai-verify-mcp validate --url <URL>
 ```
 
-**参数**�?
+**参数**?
 
 | 参数 | 必填 | 说明 |
 |------|------|------|
-| `--url <URL>` | �?| 要验证的页面地址（http/https/file 协议�?|
-| `--ai-provider` | �?| AI 提供商（openai/deepseek/qwen�?|
-| `--ai-api-key` | �?| AI API Key |
+| `--url <URL>` | ?| 要验证的页面地址（http/https/file 协议?|
+| `--ai-provider` | ?| AI 提供商（openai/deepseek/qwen?|
+| `--ai-api-key` | ?| AI API Key |
 
-**示例**�?
+**示例**?
 
 ```bash
-# 验证本地开发页�?
-@validpilot/@validpilot/@validpilot/ai-verify-mcp validate --url http://localhost:5173
+# 验证本地开发页?
+@validpilot/ai-verify-mcp validate --url http://localhost:5173
 
 # 验证远程页面
-@validpilot/@validpilot/@validpilot/ai-verify-mcp validate --url https://example.com
+@validpilot/ai-verify-mcp validate --url https://example.com
 
 # 验证本地 HTML 文件
-@validpilot/@validpilot/@validpilot/ai-verify-mcp validate --url file:///path/to/index.html
+@validpilot/ai-verify-mcp validate --url file:///path/to/index.html
 ```
 
-**输出说明**�?
+**输出说明**?
 
 ```json
 {
-  "pass": true,                    // true=全部通过, false=存在失败�?
+  "pass": true,                    // true=全部通过, false=存在失败?
   "mode": "quick",
-  "summary": "所�?7 项检查通过，加载耗时 684ms",
+  "summary": "所?7 项检查通过，加载耗时 684ms",
   "topErrors": [],                 // 如失败，列出 Top 错误
   "artifacts": [                   // 产物路径列表
     "E:\\project\\artifacts\\quick-run-xxx.png"
@@ -160,78 +160,78 @@ npm uninstall -g ai-verify-mcp
 }
 ```
 
-**7 项检查内�?*�?
+**7 项检查内?*?
 
 | # | 检查项 | 说明 |
 |---|--------|------|
 | 1 | 页面加载 | 页面能在 30s 内正常打开 |
-| 2 | 白屏检�?| 页面有可见的文本/元素内容 |
-| 3 | Console 错误 | �?JavaScript 异常输出 |
+| 2 | 白屏检?| 页面有可见的文本/元素内容 |
+| 3 | Console 错误 | ?JavaScript 异常输出 |
 | 4 | CSS 加载 | 所有样式表正常加载 |
-| 5 | JS 加载 | 所有脚本正常加�?|
-| 6 | 图片资源 | 图片资源不返�?4xx/5xx |
-| 7 | 可用�?| 页面有可交互元素 |
+| 5 | JS 加载 | 所有脚本正常加?|
+| 6 | 图片资源 | 图片资源不返?4xx/5xx |
+| 7 | 可用?| 页面有可交互元素 |
 
 ---
 
-### 3.3 `run` �?执行验证流程
+### 3.3 `run` ?执行验证流程
 
-�?flow JSON 文件执行多步骤验证�?
+?flow JSON 文件执行多步骤验证?
 
 ```bash
 ai-verify-mcp run --flow <flow-file.json>
 ```
 
-**参数**�?
+**参数**?
 
 | 参数 | 必填 | 说明 |
 |------|------|------|
-| `--flow <file>` | �?| flow JSON 文件路径 |
-| `--ai-provider` | �?| AI 提供�?|
-| `--ai-api-key` | �?| AI API Key |
+| `--flow <file>` | ?| flow JSON 文件路径 |
+| `--ai-provider` | ?| AI 提供?|
+| `--ai-api-key` | ?| AI API Key |
 
-**Flow JSON 格式**�?
+**Flow JSON 格式**?
 
 ```json
 {
   "name": "登录页面验证",
-  "goal": "打开登录�?�?截图 �?校验",
+  "goal": "打开登录??截图 ?校验",
   "steps": [
     { "type": "open", "url": "http://localhost:5173/login" },
-    { "type": "screenshot", "name": "登录�? },
+    { "type": "screenshot", "name": "登录? },
     { "type": "check", "checks": ["no_top_errors"] }
   ]
 }
 ```
 
-**支持的类�?*�?
+**支持的类?*?
 
 | type | 参数 | 说明 |
 |------|------|------|
 | `open` | `url` (必填) | 打开页面 |
 | `click` | `selector` (必填) | 点击元素 |
 | `type` | `selector` + `text` | 输入文本 |
-| `wait` | `ms` �?`urlContains` | 等待 |
+| `wait` | `ms` ?`urlContains` | 等待 |
 | `screenshot` | `name` | 截图 |
 | `hover` | `selector` | 悬停 |
 | `scroll` | `distance` | 滚动 |
 | `press_key` | `key` + `selector` | 按键 |
 | `eval` | `expression` | 执行 JS |
-| `errors` | �?| 查看 Console 错误 |
-| `errors_clear` | �?| 清空错误基线 |
+| `errors` | ?| 查看 Console 错误 |
+| `errors_clear` | ?| 清空错误基线 |
 | `check` | `checks`/`selector` | 校验 |
-| `collect` | �?| 收集证据 |
-| `report` | �?| 生成报告 |
+| `collect` | ?| 收集证据 |
+| `report` | ?| 生成报告 |
 
-**示例**�?
+**示例**?
 
 ```json
 {
-  "name": "购物车流程验�?,
-  "goal": "打开商品�?�?加入购物�?�?截图 �?检查错�?,
+  "name": "购物车流程验?,
+  "goal": "打开商品??加入购物??截图 ?检查错?,
   "steps": [
     { "type": "open", "url": "http://localhost:5173/shop" },
-    { "type": "screenshot", "name": "商品�? },
+    { "type": "screenshot", "name": "商品? },
     { "type": "click", "selector": ".add-to-cart" },
     { "type": "wait", "ms": 2000 },
     { "type": "screenshot", "name": "加入购物车后" },
@@ -242,26 +242,26 @@ ai-verify-mcp run --flow <flow-file.json>
 
 ---
 
-### 3.4 `start` �?启动 MCP Server
+### 3.4 `start` ?启动 MCP Server
 
-启动 stdio 模式�?MCP Server，供 AI 客户端连接�?
+启动 stdio 模式?MCP Server，供 AI 客户端连接?
 
 ```bash
 # stdio 模式（默认）
-@validpilot/@validpilot/@validpilot/ai-verify-mcp start
+@validpilot/ai-verify-mcp start
 
 # HTTP 模式
-@validpilot/@validpilot/@validpilot/ai-verify-mcp start --http --port 3456
+@validpilot/ai-verify-mcp start --http --port 3456
 ```
 
-**参数**�?
+**参数**?
 
 | 参数 | 说明 |
 |------|------|
-| `--http` | �?HTTP 模式启动（默�?stdio�?|
-| `--port <port>` | HTTP 模式端口（默�?3456�?|
+| `--http` | ?HTTP 模式启动（默?stdio?|
+| `--port <port>` | HTTP 模式端口（默?3456?|
 
-启动�?Server 持续运行，等�?AI 客户端发起工具调用�?
+启动?Server 持续运行，等?AI 客户端发起工具调用?
 
 ---
 
@@ -271,7 +271,7 @@ ai-verify-mcp run --flow <flow-file.json>
 
 **方式 A：项目级配置（推荐）**
 
-在项目根目录创建 `.trae/mcp.json`�?
+在项目根目录创建 `.trae/mcp.json`?
 
 ```json
 {
@@ -286,7 +286,7 @@ ai-verify-mcp run --flow <flow-file.json>
 
 **方式 B：用户级全局配置**
 
-路径：`%APPDATA%\Trae CN\User\mcp.json`（Windows�?
+路径：`%APPDATA%\Trae CN\User\mcp.json`（Windows?
 
 ```json
 {
@@ -299,13 +299,13 @@ ai-verify-mcp run --flow <flow-file.json>
 }
 ```
 
-**注意**�?
+**注意**?
 - 配置后需重启 Trae 会话
-- Trae 单个 Server 工具上限 40 个，超过会触�?`list tools failed`。如启用多个 Server，建议只保留需要的�?
+- Trae 单个 Server 工具上限 40 个，超过会触?`list tools failed`。如启用多个 Server，建议只保留需要的?
 
 ### 4.2 Cursor
 
-**项目级配�?*：`.cursor/mcp.json`�?
+**项目级配?*：`.cursor/mcp.json`?
 
 ```json
 {
@@ -318,11 +318,11 @@ ai-verify-mcp run --flow <flow-file.json>
 }
 ```
 
-Cursor �?Settings �?MCP �?查看 Server 状态�?
+Cursor ?Settings ?MCP ?查看 Server 状态?
 
 ### 4.3 Claude Desktop
 
-`claude_desktop_config.json`�?
+`claude_desktop_config.json`?
 
 ```json
 {
@@ -340,7 +340,7 @@ Windows: `%APPDATA%\Claude\claude_desktop_config.json`
 
 ### 4.4 Windsurf
 
-Windsurf �?Settings �?MCP Servers �?Add�?
+Windsurf ?Settings ?MCP Servers ?Add?
 
 ```json
 {
@@ -370,7 +370,7 @@ claude mcp add ai-verify-mcp npx -y ai-verify-mcp
 }
 ```
 
-配置文件位置见各客户端文档�?
+配置文件位置见各客户端文档?
 
 ### 4.7 Codex CLI
 
@@ -378,7 +378,7 @@ claude mcp add ai-verify-mcp npx -y ai-verify-mcp
 codex mcp add ai-verify-mcp -- npx -y ai-verify-mcp
 ```
 
-或写�?`~/.codex/config.toml`�?
+或写?`~/.codex/config.toml`?
 
 ```toml
 [mcpServers.ai-verify-mcp]
@@ -392,7 +392,7 @@ args = ["-y", "ai-verify-mcp"]
 hermes mcp add ai-verify-mcp npx -y ai-verify-mcp
 ```
 
-或写�?`~/.hermes/config.yaml`�?
+或写?`~/.hermes/config.yaml`?
 
 ```yaml
 mcp_servers:
@@ -403,7 +403,7 @@ mcp_servers:
 
 ### 4.9 CodeArts
 
-IDE �?设置 �?MCP Settings�?
+IDE ?设置 ?MCP Settings?
 
 ```json
 {
@@ -416,7 +416,7 @@ IDE �?设置 �?MCP Settings�?
 }
 ```
 
-**�?*：CodeArts 建议启用 Server 不超�?3 个，否则可能影响性能�?
+**?*：CodeArts 建议启用 Server 不超?3 个，否则可能影响性能?
 
 ### 4.10 CodeBuddy
 
@@ -431,7 +431,7 @@ IDE �?设置 �?MCP Settings�?
 }
 ```
 
-支持 stdio / SSE / HTTP 三种 transport�?
+支持 stdio / SSE / HTTP 三种 transport?
 
 ---
 
@@ -439,18 +439,18 @@ IDE �?设置 �?MCP Settings�?
 
 ### 5.1 为什么要组合
 
-ai-verify-mcp 提供 75 �?*原子验证工具**（浏览器操作、截图、a11y 扫描等），但这些工具需要被**编排调用**才能完成完整的验证任务。Skill 系统就是编排层�?
+ai-verify-mcp 提供 75 ?*原子验证工具**（浏览器操作、截图、a11y 扫描等），但这些工具需要被**编排调用**才能完成完整的验证任务。Skill 系统就是编排层?
 
-| 单独�?MCP | 单独�?Skill | Skill + MCP 组合 |
+| 单独?MCP | 单独?Skill | Skill + MCP 组合 |
 |-----------|------------|-----------------|
-| �?77 个工具但需手动编排调用 | 有流程但缺执行能�?| �?自动编排 + 自动执行 |
-| 验证结果零散 | 流程模板固定 | �?完整证据�?+ 灵活配置 |
+| ?77 个工具但需手动编排调用 | 有流程但缺执行能?| ?自动编排 + 自动执行 |
+| 验证结果零散 | 流程模板固定 | ?完整证据?+ 灵活配置 |
 
 ### 5.2 配置步骤
 
-**�?1 步：�?Trae 中配�?ai-verify-mcp MCP Server**
+**?1 步：?Trae 中配?ai-verify-mcp MCP Server**
 
-`.trae/mcp.json`�?
+`.trae/mcp.json`?
 
 ```json
 {
@@ -463,76 +463,76 @@ ai-verify-mcp 提供 75 �?*原子验证工具**（浏览器操作、截图、a
 }
 ```
 
-**�?2 步：确保 Skill 文件存在**
+**?2 步：确保 Skill 文件存在**
 
-Skill 配置文件�?`.trae/skills/browser-dev-full-validation-skill/SKILL.md`，检查确认文件存在且内容完整�?
+Skill 配置文件?`.trae/skills/browser-dev-full-validation-skill/SKILL.md`，检查确认文件存在且内容完整?
 
-**�?3 步：重启 Trae 会话**
+**?3 步：重启 Trae 会话**
 
-使配置生效�?
+使配置生效?
 
 ### 5.3 工作流程
 
 ```
-�?�?告诉 AI Assistant "帮我验证这个页面"
-     �?
+??告诉 AI Assistant "帮我验证这个页面"
+     ?
 Skill 自动编排 7 阶段流程:
-  1. 打开页面 �?截图
-  2. 检�?Console 错误
-  3. 检查网络请�?
-  4. 扫描无障�?(a11y)
-  5. 检�?CSS 变量
+  1. 打开页面 ?截图
+  2. 检?Console 错误
+  3. 检查网络请?
+  4. 扫描无障?(a11y)
+  5. 检?CSS 变量
   6. 生成报告
   7. 汇总证据链
-     �?
-ai-verify-mcp 执行每个阶段的具体操�?
-     �?
-产出：截�?+ 错误诊断 + 证据链报�?
+     ?
+ai-verify-mcp 执行每个阶段的具体操?
+     ?
+产出：截?+ 错误诊断 + 证据链报?
 ```
 
-### 5.4 对比：有 Skill vs �?Skill
+### 5.4 对比：有 Skill vs ?Skill
 
 ```text
-�?只有 MCP（手动模式）�?
-   �? "�?browser_open 打开页面"
-   AI: 好的，打开�?
-   �? "再用 browser_screenshot 截图"
+?只有 MCP（手动模式）?
+   ? "?browser_open 打开页面"
+   AI: 好的，打开?
+   ? "再用 browser_screenshot 截图"
    AI: 好的，截好了
-   ...重复每一�?..
+   ...重复每一?..
 
-�?�?Skill（自动模式）�?
-   �? "帮我验证这个页面"
-   AI: 开始执�?7 阶段验证流程...
-       �?页面加载正常
-       �?�?Console 错误
-       ⚠️ 发现两个无障碍问�?
-       �?报告已生�?
+??Skill（自动模式）?
+   ? "帮我验证这个页面"
+   AI: 开始执?7 阶段验证流程...
+       ?页面加载正常
+       ??Console 错误
+       ⚠️ 发现两个无障碍问?
+       ?报告已生?
 ```
 
 ---
 
-## 六�?7 个工具速查
+## 六?7 个工具速查
 
-> 以下�?ai-verify-mcp 提供的全�?77 个工具，按功能分类列出。其�?`error_fix_suggestion` 已内�?23 种错误匹配模式（�?4 �?Python 后端修复模式），支持自动诊断并推荐修复方案�?
+> 以下?ai-verify-mcp 提供的全?77 个工具，按功能分类列出。其?`error_fix_suggestion` 已内?23 种错误匹配模式（?4 ?Python 后端修复模式），支持自动诊断并推荐修复方案?
 
 ### 6.1 浏览器操作（25 个）
 
-| 工具�?| 说明 |
+| 工具?| 说明 |
 |--------|------|
-| `browser_batch` | 批量执行浏览器操作序�?|
+| `browser_batch` | 批量执行浏览器操作序?|
 | `browser_click` | 点击页面元素 |
-| `browser_dom` | DOM 查询与操�?|
+| `browser_dom` | DOM 查询与操?|
 | `browser_eval` | 在页面中执行 JavaScript |
-| `browser_find_element` | 按文本智能查找元�?|
+| `browser_find_element` | 按文本智能查找元?|
 | `browser_find_page` | 页面类型识别 |
-| `browser_flow` | 浏览器操作流程编�?|
+| `browser_flow` | 浏览器操作流程编?|
 | `browser_highlight` | 高亮页面元素 |
 | `browser_hover` | 悬停元素 |
-| `browser_instrument` | 注入工具脚本到页�?|
-| `browser_links` | 获取页面所有链�?|
-| `browser_locator_suggest` | 选择器建�?|
-| `browser_locator_validate` | 选择器验�?|
-| `browser_navigate` | 导航到指�?URL |
+| `browser_instrument` | 注入工具脚本到页?|
+| `browser_links` | 获取页面所有链?|
+| `browser_locator_suggest` | 选择器建?|
+| `browser_locator_validate` | 选择器验?|
+| `browser_navigate` | 导航到指?URL |
 | `browser_open` | 打开页面 |
 | `browser_press_key` | 按键操作 |
 | `browser_screenshot` | 全屏截图 |
@@ -547,11 +547,11 @@ ai-verify-mcp 执行每个阶段的具体操�?
 
 ### 6.2 诊断与调试（17 个）
 
-| 工具�?| 说明 |
+| 工具?| 说明 |
 |--------|------|
-| `browser_console` | 查看控制台日�?|
+| `browser_console` | 查看控制台日?|
 | `browser_debug_report` | 生成调试报告 |
-| `browser_diagnose` | 自动错误诊断（根因分�?+ 置信度） |
+| `browser_diagnose` | 自动错误诊断（根因分?+ 置信度） |
 | `browser_element_status` | 元素状态检查（可见性、可交互性） |
 | `browser_errors` | 查看页面 Console 错误 |
 | `browser_errors_aggregate` | 错误聚合统计 |
@@ -560,56 +560,56 @@ ai-verify-mcp 执行每个阶段的具体操�?
 | `browser_events_clear` | 清除已捕获的事件 |
 | `browser_network` | 查看网络请求列表 |
 | `browser_network_detail` | 查看网络请求详情 |
-| `browser_performance_check` | 页面性能检�?|
-| `browser_quick_fix` | 快速修复（多种策略�?|
+| `browser_performance_check` | 页面性能检?|
+| `browser_quick_fix` | 快速修复（多种策略?|
 | `browser_verify_fix` | 修复验证闭环 |
 | `debug_investigate` | 深度调查分析 |
 | `error_fix_suggestion` | 错误修复建议 |
-| `error_summary_md` | 错误摘要（Markdown�?|
+| `error_summary_md` | 错误摘要（Markdown?|
 
-### 6.3 验证框架�?4 个）
+### 6.3 验证框架?4 个）
 
-| 工具�?| 说明 |
+| 工具?| 说明 |
 |--------|------|
-| `browser_assert` | 断言验证（URL、标题、元素等�?|
+| `browser_assert` | 断言验证（URL、标题、元素等?|
 | `fix_verify` | 修复结果验证 |
 | `screenshot_diff` | 截图差异对比 |
 | `validation_check` | 检查点验证（负载、JS 错误等） |
 | `validation_decision` | 验证决策 |
 | `validation_element` | 元素验证（存在、可见、文本） |
-| `validation_flow` | 多步骤流程验�?|
+| `validation_flow` | 多步骤流程验?|
 | `validation_matrix` | 验证矩阵 |
-| `validation_quick_run` | 一�?7 项快速验�?|
+| `validation_quick_run` | 一?7 项快速验?|
 | `validation_report` | 生成验证报告 |
 | `validation_report_export` | 导出验证报告 |
 | `validation_run` | 运行验证 |
 | `validation_start` | 启动验证会话 |
 | `validation_suite_run` | 运行验证套件 |
 
-### 6.4 会话管理�? 个）
+### 6.4 会话管理? 个）
 
-| 工具�?| 说明 |
+| 工具?| 说明 |
 |--------|------|
-| `browser_session_create` | 创建浏览器会�?|
-| `browser_session_close` | 关闭浏览器会�?|
-| `browser_session_switch` | 切换浏览器会�?|
-| `browser_sessions` | 列出所有活跃会�?|
+| `browser_session_create` | 创建浏览器会?|
+| `browser_session_close` | 关闭浏览器会?|
+| `browser_session_switch` | 切换浏览器会?|
+| `browser_sessions` | 列出所有活跃会?|
 | `browser_cookies` | Cookie 管理 |
-| `browser_storage` | 浏览器存储管�?|
+| `browser_storage` | 浏览器存储管?|
 | `browser_har_export` | 导出 HAR 网络请求归档 |
 
 ### 6.5 证据与产物（4 个）
 
-| 工具�?| 说明 |
+| 工具?| 说明 |
 |--------|------|
 | `browser_artifacts` | 管理验证产物 |
 | `browser_artifacts_clear` | 清除验证产物 |
-| `browser_trace_start` | 开�?Playwright 追踪 |
+| `browser_trace_start` | 开?Playwright 追踪 |
 | `browser_trace_stop` | 停止 Playwright 追踪 |
 
-### 6.6 视觉回归�? 个）
+### 6.6 视觉回归? 个）
 
-| 工具�?| 说明 |
+| 工具?| 说明 |
 |--------|------|
 | `browser_visual_baseline` | 设置视觉基准 |
 | `browser_visual_compare` | 视觉对比 |
@@ -617,92 +617,92 @@ ai-verify-mcp 执行每个阶段的具体操�?
 
 ### 6.7 无障碍检查（1 个）
 
-| 工具�?| 说明 |
+| 工具?| 说明 |
 |--------|------|
-| `browser_a11y_check` | axe-core 无障碍扫�?|
+| `browser_a11y_check` | axe-core 无障碍扫?|
 
-### 6.8 辅助工具�? 个）
+### 6.8 辅助工具? 个）
 
-| 工具�?| 说明 |
+| 工具?| 说明 |
 |--------|------|
 | `ai_debug_investigate` | AI 辅助深度排查 |
 | `benchmark_run` | 基准性能测试 |
-| `mcp_health_check` | MCP Server 健康检�?|
-| `mcp_self_test` | MCP 自检（协�?+ 工具数） |
+| `mcp_health_check` | MCP Server 健康检?|
+| `mcp_self_test` | MCP 自检（协?+ 工具数） |
 
 ---
 
-## 七、典型使用场�?
+## 七、典型使用场?
 
-### 场景 1：验�?AI 生成的登录页�?
+### 场景 1：验?AI 生成的登录页?
 
-**背景**：你�?AI 生成了一个登录页面，现在想确认它能不能正常使用�?
+**背景**：你?AI 生成了一个登录页面，现在想确认它能不能正常使用?
 
-**�?AI 客户端中告诉 AI**�?
+**?AI 客户端中告诉 AI**?
 
 ```
-帮我验证这个登录页面�?
+帮我验证这个登录页面?
 1. 打开 http://localhost:5173/login
 2. 截图
-3. 输入用户�?admin@test.com，密�?123456
+3. 输入用户?admin@test.com，密?123456
 4. 点击登录按钮
-5. 截图登录后页�?
+5. 截图登录后页?
 6. 检查有没有 Console 错误
-7. 告诉我结�?
+7. 告诉我结?
 ```
 
-**AI 会顺序调�?*�?
-1. `browser_open` �?打开页面
-2. `browser_screenshot` �?截图
-3. `browser_type` �?输入用户�?
-4. `browser_type` �?输入密码
-5. `browser_click` �?点击登录
-6. `browser_screenshot` �?截图登录�?
-7. `validation_check` �?检查结�?
+**AI 会顺序调?*?
+1. `browser_open` ?打开页面
+2. `browser_screenshot` ?截图
+3. `browser_type` ?输入用户?
+4. `browser_type` ?输入密码
+5. `browser_click` ?点击登录
+6. `browser_screenshot` ?截图登录?
+7. `validation_check` ?检查结?
 
-### 场景 2：验证页面样式合�?
+### 场景 2：验证页面样式合?
 
 ```
 验证这个页面的样式：
 1. 打开 http://localhost:5173/settings
 2. 截图
-3. 检查无障碍问题（a11y�?
-4. 检查是否有缺失�?CSS 变量
+3. 检查无障碍问题（a11y?
+4. 检查是否有缺失?CSS 变量
 5. 报告结果
 ```
 
-**AI 会调�?*�?
-1. `browser_open` �?打开
-2. `browser_screenshot` �?截图
-3. `browser_a11y_check` �?axe 扫描
-4. `browser_css_trace` �?CSS 变量追溯
+**AI 会调?*?
+1. `browser_open` ?打开
+2. `browser_screenshot` ?截图
+3. `browser_a11y_check` ?axe 扫描
+4. `browser_css_trace` ?CSS 变量追溯
 
-### 场景 3：诊断页面错�?
+### 场景 3：诊断页面错?
 
 ```
-这个页面报错了，帮我诊断�?
+这个页面报错了，帮我诊断?
 1. 打开 http://localhost:5173/dashboard
 2. 查看 Console 错误
-3. 查看网络请求状�?
+3. 查看网络请求状?
 4. 自动诊断根因
-5. 告诉我怎么�?
+5. 告诉我怎么?
 ```
 
-**AI 会调�?*�?
-1. `browser_open` �?打开
-2. `browser_errors` �?Console 错误
-3. `browser_network` �?网络请求
-4. `browser_diagnose` �?自动诊断
-5. `browser_quick_fix` �?修复建议
+**AI 会调?*?
+1. `browser_open` ?打开
+2. `browser_errors` ?Console 错误
+3. `browser_network` ?网络请求
+4. `browser_diagnose` ?自动诊断
+5. `browser_quick_fix` ?修复建议
 
-### 场景 4：完整验�?+ 证据留存
+### 场景 4：完整验?+ 证据留存
 
 ```
 验证首页，生成完整的证据链报告：
 1. 打开 http://localhost:5173
 2. 截图首页
 3. 点击"产品"导航
-4. 截图产品�?
+4. 截图产品?
 5. 点击"联系我们"
 6. 截图的联系页
 7. 生成验证报告
@@ -710,34 +710,34 @@ ai-verify-mcp 执行每个阶段的具体操�?
 
 ---
 
-## 八、产物与证据�?
+## 八、产物与证据?
 
 ### 8.1 产物目录结构
 
-每次验证操作都会�?`artifacts/` 目录下留存证据：
+每次验证操作都会?`artifacts/` 目录下留存证据：
 
 ```
 artifacts/
 ├── screenshots/           # 截图文件
-�?  ├── login-page.png
-�?  ├── dashboard.png
-�?  └── ...
-├── traces/               # Playwright trace 文件（含完整操作录像�?
+?  ├── login-page.png
+?  ├── dashboard.png
+?  └── ...
+├── traces/               # Playwright trace 文件（含完整操作录像?
 ├── har/                  # HAR 网络请求日志
 ├── reports/              # 验证报告
-�?  ├── validation-report.md
-�?  └── validation-report.json
+?  ├── validation-report.md
+?  └── validation-report.json
 └── ...                   # 其他产物
 ```
 
-### 8.2 证据链说�?
+### 8.2 证据链说?
 
 | 产物类型 | 格式 | 说明 |
 |---------|------|------|
 | 截图 | PNG | 每个操作步骤的浏览器截图 |
 | Trace | ZIP | Playwright trace，可回放完整操作过程 |
 | HAR | JSON | 所有网络请求的完整记录 |
-| 报告 | MD+JSON | 验证结果�?Markdown 和结构化数据 |
+| 报告 | MD+JSON | 验证结果?Markdown 和结构化数据 |
 
 ### 8.3 配置产物路径
 
@@ -745,34 +745,34 @@ artifacts/
 
 ```bash
 set VALIDPILOT_ARTIFACTS_DIR=E:/my-reports
-@validpilot/@validpilot/@validpilot/ai-verify-mcp validate --url http://localhost:5173
+@validpilot/ai-verify-mcp validate --url http://localhost:5173
 ```
 
 ---
 
-## 九、环境变量参�?
+## 九、环境变量参?
 
-| 变量 | 默认�?| 说明 |
+| 变量 | 默认?| 说明 |
 |------|--------|------|
 | `PORT` | 3456 | HTTP 模式端口 |
 | `VALIDPILOT_ARTIFACTS_DIR` | `./artifacts` | 产物目录路径 |
 | `VALIDPILOT_REDACTION` | `false` | 启用敏感信息脱敏 |
-| `VALIDPILOT_ALLOWLIST` | `*` | 域名白名单（逗号分隔�?|
-| `VALIDPILOT_BLOCKED_HOSTS` | �?| 域名黑名单（逗号分隔�?|
-| `MCP_API_KEY` | �?| HTTP 模式 API Key 认证 |
-| `SSH_PASS` | �?| SSH 密码（远程隧道时用） |
-| `SSH_KEY_PATH` | �?| SSH 私钥路径 |
+| `VALIDPILOT_ALLOWLIST` | `*` | 域名白名单（逗号分隔?|
+| `VALIDPILOT_BLOCKED_HOSTS` | ?| 域名黑名单（逗号分隔?|
+| `MCP_API_KEY` | ?| HTTP 模式 API Key 认证 |
+| `SSH_PASS` | ?| SSH 密码（远程隧道时用） |
+| `SSH_KEY_PATH` | ?| SSH 私钥路径 |
 | `NODE_ENV` | `production` | 环境模式（test/dev 开启调试日志） |
 
 ---
 
-## 十、常见故障排�?
+## 十、常见故障排?
 
 ### Server 启动失败
 
 ```text
-错误：端�?3456 已被占用
-解决：@validpilot/@validpilot/ai-verify-mcp start --http --port 3457
+错误：端?3456 已被占用
+解决：@validpilot/ai-verify-mcp start --http --port 3457
 ```
 
 ```text
@@ -788,25 +788,25 @@ set VALIDPILOT_ARTIFACTS_DIR=E:/my-reports
 ### MCP 工具列表为空
 
 - 重启 AI 客户端会话使配置生效
-- 检查配置文�?JSON 格式（逗号、引号常见错误）
-- Trae 用户注意 40 工具上限，减少其�?Server
+- 检查配置文?JSON 格式（逗号、引号常见错误）
+- Trae 用户注意 40 工具上限，减少其?Server
 
-### 验证结果不符合预�?
+### 验证结果不符合预?
 
-- 检�?Network 请求是否�?CORS 或防火墙拦截
-- 确认页面 URL �?AI 客户端所在网络可�?
-- 检�?`VALIDPILOT_ALLOWLIST` 是否包含目标域名
+- 检?Network 请求是否?CORS 或防火墙拦截
+- 确认页面 URL ?AI 客户端所在网络可?
+- 检?`VALIDPILOT_ALLOWLIST` 是否包含目标域名
 
-### 产物文件不生�?
+### 产物文件不生?
 
-- 确认 `VALIDPILOT_ARTIFACTS_DIR` 目录有写入权�?
-- 默认产物�?`./artifacts/`（当前工作目录）
+- 确认 `VALIDPILOT_ARTIFACTS_DIR` 目录有写入权?
+- 默认产物?`./artifacts/`（当前工作目录）
 
 ---
 
-> **更多帮助**�?
-> - [日志排查手册](LOG-TROUBLESHOOTING.md) �?详细的错误代码与解决方案
-> - [MCP 协议速查](MCP-CHEATSHEET.md) �?MCP 基础概念
+> **更多帮助**?
+> - [日志排查手册](LOG-TROUBLESHOOTING.md) ?详细的错误代码与解决方案
+> - [MCP 协议速查](MCP-CHEATSHEET.md) ?MCP 基础概念
 > - GitHub Issues：https://github.com/validpilot/ai-verify-mcp/issues
 > - 邮箱：validpilot@outlook.com
 
@@ -871,8 +871,8 @@ After installation, you can use the `ai-verify-mcp` command directly.
 **Method B: Temporary Use with npx (No Installation Required)**
 
 ```bash
-npx @validpilot/@validpilot/@validpilot/@validpilot/ai-verify-mcp --version
-npx @validpilot/@validpilot/@validpilot/@validpilot/ai-verify-mcp validate --url https://example.com
+npx @validpilot/ai-verify-mcp --version
+npx @validpilot/ai-verify-mcp validate --url https://example.com
 ```
 
 Automatically downloads the latest version each time and removes it after use.
@@ -889,7 +889,7 @@ Suitable for use in project CI pipelines, or add scripts to `package.json`:
 ```json
 {
   "scripts": {
-    "verify": "@validpilot/@validpilot/@validpilot/ai-verify-mcp validate --url http://localhost:5173",
+    "verify": "@validpilot/ai-verify-mcp validate --url http://localhost:5173",
     "verify:start": "ai-verify-mcp"
   }
 }
@@ -898,10 +898,10 @@ Suitable for use in project CI pipelines, or add scripts to `package.json`:
 ### 2.3 Verify Installation
 
 ```bash
-@validpilot/@validpilot/@validpilot/ai-verify-mcp --version
+@validpilot/ai-verify-mcp --version
 # Output: 1.0.0
 
-@validpilot/@validpilot/@validpilot/ai-verify-mcp health
+@validpilot/ai-verify-mcp health
 # Output: {"ok":true,"name":"ai-verify-mcp","version":"1.0.0","message":"Playwright browser is available"}
 ```
 
@@ -915,12 +915,12 @@ npm uninstall -g ai-verify-mcp
 
 ## 3. CLI Command Reference
 
-### 3.1 `health` �?Health Check
+### 3.1 `health` ?Health Check
 
 Check if the Playwright browser is available.
 
 ```bash
-@validpilot/@validpilot/@validpilot/ai-verify-mcp health
+@validpilot/ai-verify-mcp health
 
 # On success exit 0:
 # {"ok":true,"name":"ai-verify-mcp","version":"1.0.0","message":"Playwright browser is available"}
@@ -933,33 +933,33 @@ Check if the Playwright browser is available.
 
 ---
 
-### 3.2 `validate` �?Quick Validation
+### 3.2 `validate` ?Quick Validation
 
 One-click validation of 7 core checks for a URL.
 
 ```bash
-@validpilot/@validpilot/@validpilot/ai-verify-mcp validate --url <URL>
+@validpilot/ai-verify-mcp validate --url <URL>
 ```
 
 **Parameters**:
 
 | Parameter | Required | Description |
 |-----------|----------|-------------|
-| `--url <URL>` | �?| Page address to validate (http/https/file protocols) |
-| `--ai-provider` | �?| AI provider (openai/deepseek/qwen) |
-| `--ai-api-key` | �?| AI API Key |
+| `--url <URL>` | ?| Page address to validate (http/https/file protocols) |
+| `--ai-provider` | ?| AI provider (openai/deepseek/qwen) |
+| `--ai-api-key` | ?| AI API Key |
 
 **Examples**:
 
 ```bash
 # Validate local development page
-@validpilot/@validpilot/@validpilot/ai-verify-mcp validate --url http://localhost:5173
+@validpilot/ai-verify-mcp validate --url http://localhost:5173
 
 # Validate remote page
-@validpilot/@validpilot/@validpilot/ai-verify-mcp validate --url https://example.com
+@validpilot/ai-verify-mcp validate --url https://example.com
 
 # Validate local HTML file
-@validpilot/@validpilot/@validpilot/ai-verify-mcp validate --url file:///path/to/index.html
+@validpilot/ai-verify-mcp validate --url file:///path/to/index.html
 ```
 
 **Output Description**:
@@ -990,7 +990,7 @@ One-click validation of 7 core checks for a URL.
 
 ---
 
-### 3.3 `run` �?Execute Validation Flow
+### 3.3 `run` ?Execute Validation Flow
 
 Execute multi-step validation from a flow JSON file.
 
@@ -1002,16 +1002,16 @@ ai-verify-mcp run --flow <flow-file.json>
 
 | Parameter | Required | Description |
 |-----------|----------|-------------|
-| `--flow <file>` | �?| Path to flow JSON file |
-| `--ai-provider` | �?| AI provider |
-| `--ai-api-key` | �?| AI API Key |
+| `--flow <file>` | ?| Path to flow JSON file |
+| `--ai-provider` | ?| AI provider |
+| `--ai-api-key` | ?| AI API Key |
 
 **Flow JSON Format**:
 
 ```json
 {
   "name": "Login Page Validation",
-  "goal": "Open login page �?Screenshot �?Verify",
+  "goal": "Open login page ?Screenshot ?Verify",
   "steps": [
     { "type": "open", "url": "http://localhost:5173/login" },
     { "type": "screenshot", "name": "Login page" },
@@ -1033,18 +1033,18 @@ ai-verify-mcp run --flow <flow-file.json>
 | `scroll` | `distance` | Scroll |
 | `press_key` | `key` + `selector` | Press key |
 | `eval` | `expression` | Execute JS |
-| `errors` | �?| View Console errors |
-| `errors_clear` | �?| Clear error baseline |
+| `errors` | ?| View Console errors |
+| `errors_clear` | ?| Clear error baseline |
 | `check` | `checks`/`selector` | Verify |
-| `collect` | �?| Collect evidence |
-| `report` | �?| Generate report |
+| `collect` | ?| Collect evidence |
+| `report` | ?| Generate report |
 
 **Example**:
 
 ```json
 {
   "name": "Shopping Cart Flow Validation",
-  "goal": "Open product page �?Add to cart �?Screenshot �?Check errors",
+  "goal": "Open product page ?Add to cart ?Screenshot ?Check errors",
   "steps": [
     { "type": "open", "url": "http://localhost:5173/shop" },
     { "type": "screenshot", "name": "Product page" },
@@ -1058,16 +1058,16 @@ ai-verify-mcp run --flow <flow-file.json>
 
 ---
 
-### 3.4 `start` �?Start MCP Server
+### 3.4 `start` ?Start MCP Server
 
 Start MCP Server in stdio mode for AI client connections.
 
 ```bash
 # stdio mode (default)
-@validpilot/@validpilot/@validpilot/ai-verify-mcp start
+@validpilot/ai-verify-mcp start
 
 # HTTP mode
-@validpilot/@validpilot/@validpilot/ai-verify-mcp start --http --port 3456
+@validpilot/ai-verify-mcp start --http --port 3456
 ```
 
 **Parameters**:
@@ -1134,7 +1134,7 @@ Path: `%APPDATA%\Trae CN\User\mcp.json` (Windows)
 }
 ```
 
-Cursor �?Settings �?MCP �?View Server status.
+Cursor ?Settings ?MCP ?View Server status.
 
 ### 4.3 Claude Desktop
 
@@ -1156,7 +1156,7 @@ Windows: `%APPDATA%\Claude\claude_desktop_config.json`
 
 ### 4.4 Windsurf
 
-Windsurf �?Settings �?MCP Servers �?Add:
+Windsurf ?Settings ?MCP Servers ?Add:
 
 ```json
 {
@@ -1219,7 +1219,7 @@ mcp_servers:
 
 ### 4.9 CodeArts
 
-IDE �?Settings �?MCP Settings:
+IDE ?Settings ?MCP Settings:
 
 ```json
 {
@@ -1259,8 +1259,8 @@ ai-verify-mcp provides 77 **atomic validation tools** (browser operations, scree
 
 | MCP Alone | Skill Alone | Skill + MCP Combined |
 |-----------|-------------|---------------------|
-| 77 tools but requires manual orchestration | Has workflows but lacks execution capability | �?Auto-orchestration + auto-execution |
-| Scattered validation results | Fixed workflow templates | �?Complete evidence chain + flexible configuration |
+| 77 tools but requires manual orchestration | Has workflows but lacks execution capability | ?Auto-orchestration + auto-execution |
+| Scattered validation results | Fixed workflow templates | ?Complete evidence chain + flexible configuration |
 
 ### 5.2 Configuration Steps
 
@@ -1290,39 +1290,39 @@ To make the configuration take effect.
 ### 5.3 Workflow
 
 ```
-You �?Tell AI Assistant "Help me validate this page"
-     �?
+You ?Tell AI Assistant "Help me validate this page"
+     ?
 Skill auto-orchestrates 7-phase flow:
-  1. Open page �?Screenshot
+  1. Open page ?Screenshot
   2. Check Console errors
   3. Check network requests
   4. Scan accessibility (a11y)
   5. Check CSS variables
   6. Generate report
   7. Compile evidence chain
-     �?
+     ?
 ai-verify-mcp executes specific operations for each phase
-     �?
+     ?
 Output: Screenshots + error diagnosis + evidence chain report
 ```
 
 ### 5.4 Comparison: With Skill vs Without Skill
 
 ```text
-�?MCP Only (Manual Mode):
+?MCP Only (Manual Mode):
    You: "Open the page with browser_open"
    AI: Okay, opened
    You: "Take a screenshot with browser_screenshot"
    AI: Okay, screenshot taken
    ...repeat each step...
 
-�?With Skill (Auto Mode):
+?With Skill (Auto Mode):
    You: "Help me validate this page"
    AI: Starting 7-phase validation flow...
-       �?Page loaded successfully
-       �?No Console errors
+       ?Page loaded successfully
+       ?No Console errors
        ⚠️ Found two accessibility issues
-       �?Report generated
+       ?Report generated
 ```
 
 ---
@@ -1468,13 +1468,13 @@ Help me validate this login page:
 ```
 
 **AI will sequentially call**:
-1. `browser_open` �?Open page
-2. `browser_screenshot` �?Screenshot
-3. `browser_type` �?Enter username
-4. `browser_type` �?Enter password
-5. `browser_click` �?Click login
-6. `browser_screenshot` �?Screenshot after login
-7. `validation_check` �?Check results
+1. `browser_open` ?Open page
+2. `browser_screenshot` ?Screenshot
+3. `browser_type` ?Enter username
+4. `browser_type` ?Enter password
+5. `browser_click` ?Click login
+6. `browser_screenshot` ?Screenshot after login
+7. `validation_check` ?Check results
 
 ### Scenario 2: Validate Page Style Compliance
 
@@ -1488,10 +1488,10 @@ Validate this page's styles:
 ```
 
 **AI will call**:
-1. `browser_open` �?Open
-2. `browser_screenshot` �?Screenshot
-3. `browser_a11y_check` �?axe scan
-4. `browser_css_trace` �?CSS variable tracing
+1. `browser_open` ?Open
+2. `browser_screenshot` ?Screenshot
+3. `browser_a11y_check` ?axe scan
+4. `browser_css_trace` ?CSS variable tracing
 
 ### Scenario 3: Diagnose Page Errors
 
@@ -1505,11 +1505,11 @@ This page is throwing errors, help me diagnose:
 ```
 
 **AI will call**:
-1. `browser_open` �?Open
-2. `browser_errors` �?Console errors
-3. `browser_network` �?Network requests
-4. `browser_diagnose` �?Auto-diagnosis
-5. `browser_quick_fix` �?Fix suggestions
+1. `browser_open` ?Open
+2. `browser_errors` ?Console errors
+3. `browser_network` ?Network requests
+4. `browser_diagnose` ?Auto-diagnosis
+5. `browser_quick_fix` ?Fix suggestions
 
 ### Scenario 4: Complete Validation + Evidence Retention
 
@@ -1535,14 +1535,14 @@ Each validation operation retains evidence in the `artifacts/` directory:
 ```
 artifacts/
 ├── screenshots/           # Screenshot files
-�?  ├── login-page.png
-�?  ├── dashboard.png
-�?  └── ...
+?  ├── login-page.png
+?  ├── dashboard.png
+?  └── ...
 ├── traces/               # Playwright trace files (with full operation recording)
 ├── har/                  # HAR network request logs
 ├── reports/              # Validation reports
-�?  ├── validation-report.md
-�?  └── validation-report.json
+?  ├── validation-report.md
+?  └── validation-report.json
 └── ...                   # Other artifacts
 ```
 
@@ -1561,7 +1561,7 @@ Customize artifact directory location via environment variables:
 
 ```bash
 set VALIDPILOT_ARTIFACTS_DIR=E:/my-reports
-@validpilot/@validpilot/@validpilot/ai-verify-mcp validate --url http://localhost:5173
+@validpilot/ai-verify-mcp validate --url http://localhost:5173
 ```
 
 ---
@@ -1574,10 +1574,10 @@ set VALIDPILOT_ARTIFACTS_DIR=E:/my-reports
 | `VALIDPILOT_ARTIFACTS_DIR` | `./artifacts` | Artifact directory path |
 | `VALIDPILOT_REDACTION` | `false` | Enable sensitive information redaction |
 | `VALIDPILOT_ALLOWLIST` | `*` | Domain allowlist (comma-separated) |
-| `VALIDPILOT_BLOCKED_HOSTS` | �?| Domain blocklist (comma-separated) |
-| `MCP_API_KEY` | �?| HTTP mode API Key authentication |
-| `SSH_PASS` | �?| SSH password (used for remote tunneling) |
-| `SSH_KEY_PATH` | �?| SSH private key path |
+| `VALIDPILOT_BLOCKED_HOSTS` | ?| Domain blocklist (comma-separated) |
+| `MCP_API_KEY` | ?| HTTP mode API Key authentication |
+| `SSH_PASS` | ?| SSH password (used for remote tunneling) |
+| `SSH_KEY_PATH` | ?| SSH private key path |
 | `NODE_ENV` | `production` | Environment mode (test/dev enables debug logs) |
 
 ---
@@ -1588,7 +1588,7 @@ set VALIDPILOT_ARTIFACTS_DIR=E:/my-reports
 
 ```text
 Error: Port 3456 is already in use
-Solution: @validpilot/@validpilot/@validpilot/ai-verify-mcp start --http --port 3457
+Solution: @validpilot/ai-verify-mcp start --http --port 3457
 ```
 
 ```text
@@ -1621,7 +1621,7 @@ Solution: npx playwright install chromium
 ---
 
 > **More Help**:
-> - [Log Troubleshooting Manual](LOG-TROUBLESHOOTING.md) �?Detailed error codes and solutions
-> - [MCP Protocol Cheatsheet](MCP-CHEATSHEET.md) �?MCP basic concepts
+> - [Log Troubleshooting Manual](LOG-TROUBLESHOOTING.md) ?Detailed error codes and solutions
+> - [MCP Protocol Cheatsheet](MCP-CHEATSHEET.md) ?MCP basic concepts
 > - GitHub Issues: https://github.com/validpilot/ai-verify-mcp/issues
 > - Email: validpilot@outlook.com

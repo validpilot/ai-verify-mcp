@@ -3,6 +3,8 @@
 // Handler: diagnose
 // Extracted from server.js callTool switch statements
 
+const { mcpError, mcpParamMissing } = require('../core/mcp-error');
+
 const tools = [
   "browser_diagnose",
   "browser_anti_bot_detect",
@@ -408,7 +410,12 @@ const { target } = await ensurePage();
       }
     }
 
-    return text(JSON.stringify(diagnosis, null, 2));
+    return text(JSON.stringify({
+      ...diagnosis,
+      nextSteps: ['使用 browser_quick_fix 修复发现的问题', '使用 browser_element_status 深入检查'],
+      suggestions: [{ type: 'next', tool: 'browser_quick_fix', reason: '自动修复诊断发现的问题' }],
+      paidUpgradeHint: '需要 AI 自动诊断问题、智能修复建议、批量修复能力？升级到 Pro 版本获取智能诊断修复能力。'
+    }, null, 2));
   }
 
   // ====== browser_anti_bot_detect ======
@@ -556,7 +563,9 @@ const { target } = await ensurePage();
         title: pageAnalysis.title,
         hasChallenge: detected.some(d => d.type === 'js_challenge'),
         challengeType: detected.find(d => d.type === 'js_challenge')?.name || null
-      }
+      },
+      nextSteps: ['使用 browser_diagnose 诊断页面交互状态', '使用 browser_screenshot 截图留存证据'],
+      paidUpgradeHint: '需要更强大的反爬检测绕过、智能指纹管理、自动验证码处理？升级到 Pro 版本获取高级反爬能力。'
     }, null, 2));
   }
 
@@ -571,7 +580,7 @@ const { target } = await ensurePage();
 const { target } = await ensurePage();
     const selector = args.selector;
     if (!selector) {
-      return { isError: true, content: [{ type: 'text', text: 'browser_element_status 需要提供 selector 参数' }] };
+      return mcpParamMissing('selector', name);
     }
 
     const checkEvents = args.checkEvents !== false;
@@ -716,7 +725,7 @@ const { target } = await ensurePage();
 const { target } = await ensurePage();
     const selector = args.selector;
     if (!selector) {
-      return { isError: true, content: [{ type: 'text', text: 'browser_quick_fix 需要提供 selector 参数' }] };
+      return mcpParamMissing('selector', name);
     }
 
     const problems = args.problems || (args.problem ? [args.problem] : ['not_found']);
@@ -1039,7 +1048,7 @@ const { target } = await ensurePage();
 const { target } = await ensurePage();
     const selector = args.selector;
     if (!selector) {
-      return { isError: true, content: [{ type: 'text', text: 'browser_verify_fix 需要提供 selector 参数' }] };
+      return mcpParamMissing('selector', name);
     }
 
     const fixAction = args.fixAction || 'quick_fix';
@@ -1565,7 +1574,7 @@ const { target } = await ensurePage(args);
     return text(JSON.stringify(investigation, null, 2));
   }
 
-  return { isError: true, content: [{ type: 'text', text: `未知工具（diagnose）: ${name}` }] };
+  return mcpError(`未知工具（diagnose）: ${name}`, { error: 'UNKNOWN_TOOL', toolName: name });
   } finally {
     for (const k of _depsKeys) { deps[k] = globalThis[k]; }
     for (const k of _depsKeys) { if (k in _depsPrev) globalThis[k] = _depsPrev[k]; else delete globalThis[k]; }

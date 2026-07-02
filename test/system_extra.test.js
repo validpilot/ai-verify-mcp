@@ -94,31 +94,17 @@ describe('skill_mcp_validate', () => {
 });
 
 // ============================================================
-// skill_mcp_sync
+// skill_mcp_sync（OSS 不包含，属于 Team 版付费能力）
 // ============================================================
 
 describe('skill_mcp_sync', () => {
-  test('schema 文件存在且 JSON 合法', () => {
+  test('schema 文件不存在（OSS 不包含付费功能）', () => {
     const filePath = path.join(TOOLS_DIR, 'skill_mcp_sync.json');
-    assert.ok(fs.existsSync(filePath));
-    const schema = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    assert.equal(schema.name, 'skill_mcp_sync');
-    assert.ok(schema.description);
-    assert.ok(schema.inputSchema);
+    assert.ok(!fs.existsSync(filePath), 'skill_mcp_sync.json 不应存在于 OSS 版本中');
   });
 
-  test('schema 包含 skillName 为必填，及 dryRun 布尔参数', () => {
-    const schema = JSON.parse(fs.readFileSync(path.join(TOOLS_DIR, 'skill_mcp_sync.json'), 'utf8'));
-    const props = schema.inputSchema.properties;
-    assert.ok(props.skillName);
-    assert.equal(props.skillName.type, 'string');
-    assert.ok(schema.inputSchema.required.includes('skillName'), 'skillName 应为必填');
-    assert.ok(props.dryRun);
-    assert.equal(props.dryRun.type, 'boolean');
-  });
-
-  test('toolNames 中包含 skill_mcp_sync（已注册到 MCP）', () => {
-    assert.ok(toolNames.has('skill_mcp_sync'), '工具 skill_mcp_sync 应在 toolNames 中');
+  test('toolNames 中不包含 skill_mcp_sync（OSS 不包含付费功能）', () => {
+    assert.ok(!toolNames.has('skill_mcp_sync'), '工具 skill_mcp_sync 不应在 OSS 版本中（属于 Team 版付费能力）');
   });
 });
 
@@ -157,35 +143,17 @@ describe('browser_trace_chain', () => {
 });
 
 // ============================================================
-// backend_logs
+// backend_logs（OSS 不包含，属于 Pro 版付费能力）
 // ============================================================
 
 describe('backend_logs', () => {
-  test('schema 文件存在且 JSON 合法', () => {
+  test('schema 文件不存在（OSS 不包含付费功能）', () => {
     const filePath = path.join(TOOLS_DIR, 'backend_logs.json');
-    assert.ok(fs.existsSync(filePath));
-    const schema = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    assert.equal(schema.name, 'backend_logs');
-    assert.ok(schema.description);
-    assert.ok(schema.inputSchema);
+    assert.ok(!fs.existsSync(filePath), 'backend_logs.json 不应存在于 OSS 版本中');
   });
 
-  test('schema 包含 traceId 为必填，及 service/since/lines 可选参数', () => {
-    const schema = JSON.parse(fs.readFileSync(path.join(TOOLS_DIR, 'backend_logs.json'), 'utf8'));
-    const props = schema.inputSchema.properties;
-    assert.ok(props.traceId);
-    assert.equal(props.traceId.type, 'string');
-    assert.ok(schema.inputSchema.required.includes('traceId'), 'traceId 应为必填');
-    assert.ok(props.service);
-    assert.equal(props.service.type, 'string');
-    assert.ok(props.since);
-    assert.equal(props.since.type, 'string');
-    assert.ok(props.lines);
-    assert.equal(props.lines.type, 'number');
-  });
-
-  test('toolNames 中包含 backend_logs（已注册到 MCP）', () => {
-    assert.ok(toolNames.has('backend_logs'), '工具 backend_logs 应在 toolNames 中');
+  test('toolNames 中不包含 backend_logs（OSS 不包含付费功能）', () => {
+    assert.ok(!toolNames.has('backend_logs'), '工具 backend_logs 不应在 OSS 版本中（属于 Pro 版付费能力）');
   });
 });
 
@@ -226,46 +194,17 @@ describe('browser_full_regression', () => {
 });
 
 // ============================================================
-// browser_deep_interact
+// browser_deep_interact（OSS 不包含，属于 Pro 版付费能力）
 // ============================================================
 
 describe('browser_deep_interact', () => {
-  test('schema 文件存在且 JSON 合法', () => {
+  test('schema 文件不存在（OSS 不包含付费功能）', () => {
     const filePath = path.join(TOOLS_DIR, 'browser_deep_interact.json');
-    assert.ok(fs.existsSync(filePath));
-    const schema = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    assert.equal(schema.name, 'browser_deep_interact');
-    assert.ok(schema.description);
-    assert.ok(schema.inputSchema);
+    assert.ok(!fs.existsSync(filePath), 'browser_deep_interact.json 不应存在于 OSS 版本中');
   });
 
-  test('schema 包含 mode 枚举/url/workflow/fillFields/submit/maxActions/interactModals/visible 参数', () => {
-    const schema = JSON.parse(fs.readFileSync(path.join(TOOLS_DIR, 'browser_deep_interact.json'), 'utf8'));
-    const props = schema.inputSchema.properties;
-    assert.ok(props.mode);
-    assert.equal(props.mode.type, 'string');
-    assert.ok(props.mode.enum.includes('detect'), 'mode 应包含 detect');
-    assert.ok(props.mode.enum.includes('form'), 'mode 应包含 form');
-    assert.ok(props.mode.enum.includes('workflow'), 'mode 应包含 workflow');
-    assert.ok(props.mode.enum.includes('explore'), 'mode 应包含 explore');
-    assert.ok(props.url);
-    assert.equal(props.url.type, 'string');
-    assert.ok(props.workflow);
-    assert.equal(props.workflow.type, 'array');
-    assert.ok(props.fillFields);
-    assert.equal(props.fillFields.type, 'boolean');
-    assert.ok(props.submit);
-    assert.equal(props.submit.type, 'boolean');
-    assert.ok(props.maxActions);
-    assert.equal(props.maxActions.type, 'number');
-    assert.ok(props.interactModals);
-    assert.equal(props.interactModals.type, 'boolean');
-    assert.ok(props.visible);
-    assert.equal(props.visible.type, 'boolean');
-  });
-
-  test('toolNames 中包含 browser_deep_interact（已注册到 MCP）', () => {
-    assert.ok(toolNames.has('browser_deep_interact'), '工具 browser_deep_interact 应在 toolNames 中');
+  test('toolNames 中不包含 browser_deep_interact（OSS 不包含付费功能）', () => {
+    assert.ok(!toolNames.has('browser_deep_interact'), '工具 browser_deep_interact 不应在 OSS 版本中（属于 Pro 版付费能力）');
   });
 });
 
@@ -357,119 +296,61 @@ describe('mcp_self_test', () => {
 });
 
 // ============================================================
-// benchmark_run（占位工具，仅验证注册）
+// benchmark_run（OSS 不包含，属于 Pro 版付费能力）
 // ============================================================
 
 describe('benchmark_run', () => {
-  test('schema 文件存在且 JSON 合法', () => {
+  test('schema 文件不存在（OSS 不包含付费功能）', () => {
     const filePath = path.join(TOOLS_DIR, 'benchmark_run.json');
-    assert.ok(fs.existsSync(filePath));
-    const schema = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    assert.equal(schema.name, 'benchmark_run');
-    assert.ok(schema.description);
-    assert.ok(schema.inputSchema);
+    assert.ok(!fs.existsSync(filePath), 'benchmark_run.json 不应存在于 OSS 版本中');
   });
 
-  test('schema 名称为 benchmark_run 且包含 description 和 inputSchema', () => {
-    const schema = JSON.parse(fs.readFileSync(path.join(TOOLS_DIR, 'benchmark_run.json'), 'utf8'));
-    assert.equal(schema.name, 'benchmark_run');
-    assert.ok(schema.description);
-    assert.ok(schema.inputSchema);
-  });
-
-  test('toolNames 中包含 benchmark_run（已注册到 MCP）', () => {
-    assert.ok(toolNames.has('benchmark_run'), '工具 benchmark_run 应在 toolNames 中');
+  test('toolNames 中不包含 benchmark_run（OSS 不包含付费功能）', () => {
+    assert.ok(!toolNames.has('benchmark_run'), '工具 benchmark_run 不应在 OSS 版本中（属于 Pro 版付费能力）');
   });
 });
 
 // ============================================================
-// ai_debug_investigate（占位工具，仅验证注册）
+// ai_debug_investigate（OSS 不包含，属于 Pro 版付费能力）
 // ============================================================
 
 describe('ai_debug_investigate', () => {
-  test('schema 文件存在且 JSON 合法', () => {
+  test('schema 文件不存在（OSS 不包含付费功能）', () => {
     const filePath = path.join(TOOLS_DIR, 'ai_debug_investigate.json');
-    assert.ok(fs.existsSync(filePath));
-    const schema = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    assert.equal(schema.name, 'ai_debug_investigate');
-    assert.ok(schema.description);
-    assert.ok(schema.inputSchema);
+    assert.ok(!fs.existsSync(filePath), 'ai_debug_investigate.json 不应存在于 OSS 版本中');
   });
 
-  test('schema 名称为 ai_debug_investigate 且包含 description 和 inputSchema', () => {
-    const schema = JSON.parse(fs.readFileSync(path.join(TOOLS_DIR, 'ai_debug_investigate.json'), 'utf8'));
-    assert.equal(schema.name, 'ai_debug_investigate');
-    assert.ok(schema.description);
-    assert.ok(schema.inputSchema);
-  });
-
-  test('toolNames 中包含 ai_debug_investigate（已注册到 MCP）', () => {
-    assert.ok(toolNames.has('ai_debug_investigate'), '工具 ai_debug_investigate 应在 toolNames 中');
+  test('toolNames 中不包含 ai_debug_investigate（OSS 不包含付费功能）', () => {
+    assert.ok(!toolNames.has('ai_debug_investigate'), '工具 ai_debug_investigate 不应在 OSS 版本中（属于 Pro 版付费能力）');
   });
 });
 
 // ============================================================
-// auto_fix_pipeline
+// auto_fix_pipeline（OSS 不包含，属于 Pro 版付费能力）
 // ============================================================
 
 describe('auto_fix_pipeline', () => {
-  test('schema 文件存在且 JSON 合法', () => {
+  test('schema 文件不存在（OSS 不包含付费功能）', () => {
     const filePath = path.join(TOOLS_DIR, 'auto_fix_pipeline.json');
-    assert.ok(fs.existsSync(filePath));
-    const schema = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    assert.equal(schema.name, 'auto_fix_pipeline');
-    assert.ok(schema.description);
-    assert.ok(schema.inputSchema);
+    assert.ok(!fs.existsSync(filePath), 'auto_fix_pipeline.json 不应存在于 OSS 版本中');
   });
 
-  test('schema 包含 url/maxIterations/autoConfirm 参数', () => {
-    const schema = JSON.parse(fs.readFileSync(path.join(TOOLS_DIR, 'auto_fix_pipeline.json'), 'utf8'));
-    const props = schema.inputSchema.properties;
-    assert.ok(props.url);
-    assert.equal(props.url.type, 'string');
-    assert.ok(props.maxIterations);
-    assert.equal(props.maxIterations.type, 'number');
-    assert.ok(props.autoConfirm);
-    assert.equal(props.autoConfirm.type, 'boolean');
-  });
-
-  test('toolNames 中包含 auto_fix_pipeline（已注册到 MCP）', () => {
-    assert.ok(toolNames.has('auto_fix_pipeline'), '工具 auto_fix_pipeline 应在 toolNames 中');
+  test('toolNames 中不包含 auto_fix_pipeline（OSS 不包含付费功能）', () => {
+    assert.ok(!toolNames.has('auto_fix_pipeline'), '工具 auto_fix_pipeline 不应在 OSS 版本中（属于 Pro 版付费能力）');
   });
 });
 
 // ============================================================
-// fix_verify
+// fix_verify（OSS 不包含，属于 Pro 版付费能力）
 // ============================================================
 
 describe('fix_verify', () => {
-  test('schema 文件存在且 JSON 合法', () => {
+  test('schema 文件不存在（OSS 不包含付费功能）', () => {
     const filePath = path.join(TOOLS_DIR, 'fix_verify.json');
-    assert.ok(fs.existsSync(filePath));
-    const schema = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    assert.equal(schema.name, 'fix_verify');
-    assert.ok(schema.description);
-    assert.ok(schema.inputSchema);
+    assert.ok(!fs.existsSync(filePath), 'fix_verify.json 不应存在于 OSS 版本中');
   });
 
-  test('schema 包含 url/beforeSummary/afterSummary/timeout/captureScreenshots/checkDomElements 参数', () => {
-    const schema = JSON.parse(fs.readFileSync(path.join(TOOLS_DIR, 'fix_verify.json'), 'utf8'));
-    const props = schema.inputSchema.properties;
-    assert.ok(props.url);
-    assert.equal(props.url.type, 'string');
-    assert.ok(props.beforeSummary);
-    assert.equal(props.beforeSummary.type, 'object');
-    assert.ok(props.afterSummary);
-    assert.equal(props.afterSummary.type, 'object');
-    assert.ok(props.timeout);
-    assert.equal(props.timeout.type, 'number');
-    assert.ok(props.captureScreenshots);
-    assert.equal(props.captureScreenshots.type, 'boolean');
-    assert.ok(props.checkDomElements);
-    assert.equal(props.checkDomElements.type, 'array');
-  });
-
-  test('toolNames 中包含 fix_verify（已注册到 MCP）', () => {
-    assert.ok(toolNames.has('fix_verify'), '工具 fix_verify 应在 toolNames 中');
+  test('toolNames 中不包含 fix_verify（OSS 不包含付费功能）', () => {
+    assert.ok(!toolNames.has('fix_verify'), '工具 fix_verify 不应在 OSS 版本中（属于 Pro 版付费能力）');
   });
 });

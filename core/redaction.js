@@ -5,7 +5,9 @@ const SENSITIVE_TEXT_PATTERNS = [
   /Bearer\s+[A-Za-z0-9._~+\/-]+=*/gi,
   /ark-[A-Za-z0-9-]{20,}/gi,
   /(api[_-]?key\s*[:=]\s*)[A-Za-z0-9._~+\/-]{8,}/gi,
-  /(token\s*[:=]\s*)[A-Za-z0-9._~+\/-]{8,}/gi
+  /(token\s*[:=]\s*)[A-Za-z0-9._~+\/-]{8,}/gi,
+  /sk_live_[\w-]{10,}/gi,
+  /sk_test_[\w-]{10,}/gi
 ];
 
 function redactString(value) {

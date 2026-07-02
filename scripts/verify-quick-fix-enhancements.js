@@ -99,22 +99,13 @@ async function testQuickFix() {
 }
 
 async function testFixVerify() {
-  console.log('\n📋 Test: fix_verify schema');
-  const tools = JSON.parse(fs.readFileSync(path.join(BASE, 'tools', 'fix_verify.json'), 'utf8'));
-  const props = tools.inputSchema.properties;
-  assert(props.captureScreenshots !== undefined, 'captureScreenshots field exists');
-  assert(props.checkDomElements !== undefined, 'checkDomElements field exists');
+  console.log('\n📋 Test: fix_verify (OSS - should not exist)');
+  assert(!fs.existsSync(path.join(BASE, 'tools', 'fix_verify.json')), 'fix_verify.json should not exist in OSS (paid feature)');
 }
 
 async function testAutoFixPipeline() {
-  console.log('\n📋 Test: auto_fix_pipeline');
-  assert(fs.existsSync(path.join(BASE, 'tools', 'auto_fix_pipeline.json')), 'schema file exists');
-  const tools = JSON.parse(fs.readFileSync(path.join(BASE, 'tools', 'auto_fix_pipeline.json'), 'utf8'));
-  assert(tools.name === 'auto_fix_pipeline', 'tool name correct');
-  const props = tools.inputSchema.properties;
-  assert(props.url !== undefined, 'url param exists');
-  assert(props.maxIterations !== undefined, 'maxIterations param exists');
-  assert(props.autoConfirm !== undefined, 'autoConfirm param exists');
+  console.log('\n📋 Test: auto_fix_pipeline (OSS - should not exist)');
+  assert(!fs.existsSync(path.join(BASE, 'tools', 'auto_fix_pipeline.json')), 'auto_fix_pipeline.json should not exist in OSS (paid feature)');
 }
 
 async function testOriginalTools() {
@@ -127,12 +118,12 @@ async function testOriginalTools() {
 }
 
 async function testServerJS() {
-  console.log('\n📋 Test: server.js includes all fix handlers');
+  console.log('\n📋 Test: server.js fix handlers (OSS)');
   const src = fs.readFileSync(path.join(BASE, 'server.js'), 'utf8');
-  assert(src.includes("case 'auto_fix_pipeline'"), 'auto_fix_pipeline handler exists');
+  assert(!src.includes("case 'auto_fix_pipeline'"), 'auto_fix_pipeline should not exist in OSS (paid feature)');
   assert(src.includes("case 'error_fix_suggestion'"), 'error_fix_suggestion handler exists');
   assert(src.includes("case 'browser_quick_fix'"), 'browser_quick_fix handler exists');
-  assert(src.includes("case 'fix_verify'"), 'fix_verify handler exists');
+  assert(!src.includes("case 'fix_verify'"), 'fix_verify should not exist in OSS (paid feature)');
   assert(src.includes("case 'browser_verify_fix'"), 'browser_verify_fix handler exists');
   
   // Check new strategies in browser_quick_fix
