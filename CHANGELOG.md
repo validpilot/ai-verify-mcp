@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.6.1] - 2026-07-03
+
+### Fixed
+
+- 修复 GitHub Actions 文档部署工作流的 Node.js 20 弃用警告：`actions/checkout@v4` → `actions/checkout@v5`，`actions/setup-node@v4` → `actions/setup-node@v5`
+- 文档部署工作流运行时升级为 Node.js 22
+- 修正 npm 打包清单，避免将 VitePress 缓存目录打入发布包
+
 ## [1.6.0] - 2026-07-03
 
 ### Added
