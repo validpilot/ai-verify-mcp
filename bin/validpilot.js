@@ -3,6 +3,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { spawn } = require('child_process');
 const { validationQuickRun } = require('../hands/verification_runner');
 const browserOperator = require('../hands/browser_operator');
 
@@ -16,6 +17,8 @@ function printHelp() {
 💡 最佳搭配：配合 Trae Skill (browser-dev-full-validation-skill) 使用，形成「生成→验证→修复→复验」闭环。
 
 Usage:
+  ${cmd} start                        启动 MCP stdio 服务（MCP 客户端配置使用）
+  ${cmd} http                         启动 MCP HTTP 服务
   ${cmd} health                       检查 Playwright 可用性 (exit 0=ok / exit 1=unavailable)
   ${cmd} run     --flow <file>        执行轻量 flow JSON，逐 action 输出结果
   ${cmd} validate --url <url>         快速验证 URL，输出 pass/fail / Top errors / artifact 路径
@@ -129,6 +132,23 @@ async function cmdRun(flowPath) {
   }, null, 2));
 }
 
+function startServer(script, extraEnv = {}) {
+  const child = spawn(process.execPath, [path.join(__dirname, '..', script)], {
+    stdio: 'inherit',
+    env: { ...process.env, ...extraEnv }
+  });
+
+  child.on('error', (error) => {
+    console.error(JSON.stringify({ pass: false, error: error.message }, null, 2));
+    process.exit(1);
+  });
+
+  child.on('exit', (code, signal) => {
+    if (signal) process.kill(process.pid, signal);
+    process.exit(code || 0);
+  });
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const command = args._[0];
@@ -146,8 +166,18 @@ async function main() {
     console.log(PKG.version || '0.1.0');
     return;
   }
-  if (args.help || command === '--help' || command === '-h' || !command) {
+  if (args.help || command === '--help' || command === '-h') {
     printHelp();
+    return;
+  }
+
+  if (!command || command === 'start' || command === 'mcp' || args.stdio) {
+    startServer('server.js', { MCP_MODE: 'stdio' });
+    return;
+  }
+
+  if (command === 'http' || args.http) {
+    startServer('start-http.js');
     return;
   }
 

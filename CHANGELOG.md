@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.6.2] - 2026-07-03
+
+### Fixed
+
+- 修复 npm bin 入口默认显示帮助并退出导致 MCP 客户端连接立即关闭的问题
+- 新增 `start` / `mcp` / 无参数启动 stdio MCP 服务，适配 Trae、Cursor 等 MCP 客户端配置
+- 新增 `http` 子命令启动 HTTP 模式
+
 ## [1.6.1] - 2026-07-03
 
 ### Fixed

@@ -17,6 +17,7 @@ lib/
 reports/
 screenshots/
 traces/
+har/
 visual/actual/
 visual/diff/
 visual/baselines/
