@@ -1,7 +1,7 @@
 {
   "name": "browser_select",
   "description": "在下拉框(select元素)中选择选项，支持按value值、按label文本、按索引选择。",
-  "inputSchema": {
+  "arguments": {
     "type": "object",
     "properties": {
       "selector": {
@@ -21,6 +21,8 @@
         "description": "要选择的option的索引（从0开始）"
       }
     },
-    "required": ["selector"]
+    "required": [
+      "selector"
+    ]
   }
 }

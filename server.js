@@ -1,4 +1,4 @@
-try { require('dotenv').config({ quiet: true }); } catch(e) { console.warn('[ValidPilot] dotenv not loaded:', e.message); }
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿try { require('dotenv').config({ quiet: true }); } catch(e) { console.warn('[ValidPilot] dotenv not loaded:', e.message); }
 // 修复 Windows 终端中文编码
 require('./core/win-encoding');
 const fs = require('fs');
@@ -24,6 +24,8 @@ const logger = new Logger();
 function log(level, message, data) {
   logger.log(level, message, data);
 }
+const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf8'));
+const VERSION = pkg.version || '1.0.0';
 function resetRuntimeLogs() {
   stateManager.resetRuntimeLogs(log);
   currentCheckpoint = stateManager.currentCheckpoint;
@@ -34,12 +36,17 @@ const traceManager = new TraceManager();
 const FEATURE_GATE = {
   ossFeatures: [
     'mcp_health_check', 'mcp_self_test', 'browser_open', 'browser_click', 'browser_type',
-    'browser_navigate', 'browser_snapshot', 'browser_screenshot', 'browser_evaluate',
+    'browser_navigate', 'browser_snapshot', 'browser_screenshot', 'browser_eval',
     'browser_network', 'browser_errors', 'evidence_pack', 'evidence_index',
     'error_summary_md', 'contract_guard', 'contract_baseline', 'validation_run',
     'browser_memory_check', 'browser_performance_check', 'browser_visual_component',
-    'browser_full_regression', 'browser_dom', 'browser_locator', 'browser_wait',
-    'browser_chain', 'validation_chain', 'validation_flow', 'browser_assert'
+    'browser_full_regression', 'browser_dom', 'browser_wait',
+    'browser_chain', 'validation_chain', 'validation_flow', 'browser_assert',
+    'exploration_quick', 'atl_learn', 'atl_fix', 'correlate_triple_check', 'bypass_login', 'asset_endpoint_probe', 'asset_endpoint_enum', 'asset_routes_discover',
+    'business_loop_validate', 'arch_reverse_probe', 'memory_recall',
+    'browser_captcha_detect', 'browser_captcha_screenshot', 'browser_captcha_read',
+    'browser_find_element', 'browser_find_page', 'browser_locator_suggest', 'browser_locator_validate',
+    'browser_data_compare', 'dual_chain_explore'
   ],
   proFeatures: [
     'trace_correlate', 'backend_logs', 'auto_fix_pipeline', 'fix_verify',
@@ -85,10 +92,19 @@ const handlerDiagnose = require('./handlers/diagnose');
 const handlerVisual = require('./handlers/visual');
 const handlerLocator = require('./handlers/locator');
 const handlerSystem = require('./handlers/system');
+const handlerAsset = require('./handlers/asset');
+const handlerExploration = require('./handlers/exploration');
+const handlerCorrelate = require('./handlers/correlate');
+const handlerAtl = require('./handlers/atl');
+const handlerArchReverse = require('./handlers/arch_reverse');
+const handlerMemory = require('./handlers/memory');
+const handlerDataCompare = require('./handlers/data_compare');
+const handlerDualChain = require('./handlers/dual_chain');
 
 const allHandlers = [
   handlerBrowser, handlerSession, handlerEvidence, handlerNetwork,
-  handlerValidation, handlerDiagnose, handlerVisual, handlerLocator, handlerSystem
+  handlerValidation, handlerDiagnose, handlerVisual, handlerLocator, handlerSystem,
+  handlerAsset, handlerExploration, handlerCorrelate, handlerAtl, handlerArchReverse, handlerMemory, handlerDataCompare, handlerDualChain
 ];
 
 const handlerMap = new Map();
@@ -308,19 +324,48 @@ function redact(value, key = '') {
 
 const tools = stateManager.loadTools(TOOLS_DIR, log);
 const toolNames = new Set(tools.map(tool => tool.name));
+// 声明了 outputSchema 的工具必须返回 structuredContent，否则 MCP 客户端会报
+// "has an output schema but did not return structured content"。
+const toolsWithOutputSchema = new Set(tools.filter(t => t.outputSchema).map(t => t.name));
+
+// 为声明了 outputSchema 的工具补充 structuredContent：
+// handler 统一以 text(JSON) 返回，这里把首个 JSON 文本解析为结构化内容。
+function attachStructuredContent(name, result) {
+  if (!result || result.isError || result.structuredContent) return result;
+  if (!toolsWithOutputSchema.has(name)) return result;
+  const textPart = Array.isArray(result.content) ? result.content.find(c => c && c.type === 'text') : null;
+  if (!textPart || typeof textPart.text !== 'string') return result;
+  try {
+    const parsed = JSON.parse(textPart.text);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      result.structuredContent = parsed;
+    }
+  } catch (_) { /* 非 JSON 文本则不附加，保持原样 */ }
+  return result;
+}
 
 // ===== 浏览器预热 =====
 async function warmupBrowser() {
   try {
     logger.log('INFO', '预热浏览器...', {});
-    const wBrowser = await chromium.launch({ headless: true });
-    const wContext = await wBrowser.newContext({ viewport: { width: 1280, height: 720 } });
-    const wPage = await wContext.newPage();
-    await wPage.goto('about:blank', { waitUntil: 'domcontentloaded', timeout: 10000 });
-    const poolId = '__warmup__';
-    browserPool.set(poolId, { browser: wBrowser, context: wContext, page: wPage, createdAt: Date.now() });
+    delete process.env.http_proxy;
+    delete process.env.https_proxy;
+    delete process.env.HTTP_PROXY;
+    delete process.env.HTTPS_PROXY;
+    browser = await chromium.launch({ 
+      headless: false,
+      args: ['--no-proxy-server', '--disable-proxy', '--proxy-server=', '--proxy-bypass-list=*', '--ignore-certificate-errors']
+    });
+    const context = await browser.newContext({ 
+      viewport: { width: 1280, height: 720 },
+      proxy: undefined
+    });
+    page = await context.newPage();
+    setupPageListeners(page);
+    installInstrumentation(page).catch(e => logger.log('WARN', 'installInstrumentation 失败', { error: e.message }));
+    browserSessionId += 1;
     logger.log('INFO', '浏览器预热完成', {});
-    return poolId;
+    return 'warmup';
   } catch (error) {
     logger.log('WARN', '浏览器预热失败，将在首次open时启动', { error: error.message });
     return null;
@@ -632,40 +677,103 @@ async function analyzeScreenshotForErrors(target, imagePath) {
 
 async function ensurePage(args = {}) {
   const extensionPath = args.extensionPath || args.loadExtensionPath;
+  const targetUrl = args.url;
   let reused = true;
 
   // 1) 优先使用现有存活页面
   if (page && !page.isClosed()) {
     try {
       await page.evaluate('1');
-      return { target: page, reused: true, sessionId: browserSessionId };
+      const currentUrl = page.url();
+      logger.log('DEBUG', 'ensurePage - currentUrl', { currentUrl });
+      if (currentUrl && currentUrl !== 'about:blank') {
+        if (targetUrl && currentUrl !== targetUrl) {
+          await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: args.timeout || 30000 }).catch(() => {});
+        }
+        return { target: page, reused: true, sessionId: browserSessionId };
+      } else {
+        logger.log('DEBUG', 'ensurePage - closing about:blank page');
+        await page.close().catch(() => {});
+        page = null;
+      }
     } catch (e) {
-      // 页面已死，继续往下
+      logger.log('DEBUG', 'ensurePage - page evaluation failed', { error: e.message });
+      page = null;
     }
   }
 
-  // 2) 从池中取可用浏览器（非 extension 模式）
+  // 2) 尝试复用现有浏览器实例（在同一浏览器中创建新页面）
+  if (!extensionPath && browser) {
+    try {
+      if (!browser.isConnected()) {
+        browser = null;
+      } else {
+        const contexts = browser.contexts();
+        let context = contexts.length > 0 ? contexts[0] : null;
+        if (!context) {
+          context = await browser.newContext({ 
+            viewport: { width: 1280, height: 720 },
+            proxy: undefined
+          });
+        }
+        const pages = context.pages();
+        let newPage = pages.length > 0 ? pages[0] : null;
+        if (!newPage || newPage.isClosed()) {
+          newPage = await context.newPage();
+        }
+        page = newPage;
+        if (targetUrl) {
+          await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: args.timeout || 30000 }).catch(() => {});
+        }
+        browserSessionId += 1;
+        setupPageListeners(page);
+        installInstrumentation(page).catch(e => logger.log('WARN', 'installInstrumentation 失败', { error: e.message }));
+        logger.log('INFO', '复用现有浏览器实例');
+        return { target: page, reused: true, sessionId: browserSessionId };
+      }
+    } catch (e) {
+      logger.log('DEBUG', 'ensurePage - failed to reuse browser', { error: e.message });
+      browser = null;
+    }
+  }
+
+  // 3) 从池中取可用页面（非 extension 模式）
   if (!extensionPath && browserPool.size > 0) {
     for (const [id, poolItem] of browserPool) {
       try {
         await poolItem.page.evaluate('1');
-        // 从池中取出
+        const poolUrl = poolItem.page.url();
+        if (poolUrl === 'about:blank') {
+          continue;
+        }
         browser = poolItem.browser;
         page = poolItem.page;
         browserPool.delete(id);
+        if (targetUrl && poolUrl !== targetUrl) {
+          await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: args.timeout || 30000 }).catch(() => {});
+        }
         setupPageListeners(page);
         browserSessionId += 1;
-        logger.log('INFO', '复用池中浏览器', { poolId: id });
+        logger.log('INFO', '复用池中页面', { poolId: id });
         return { target: page, reused: true, sessionId: browserSessionId };
       } catch (e) {
-        // 池中页面已死，移除
         browserPool.delete(id);
       }
     }
   }
 
-  // 3) 新建浏览器实例
+  // 4) 新建浏览器实例 - 先清理超出池大小的旧实例
   reused = false;
+  if (browserPool.size >= BROWSER_POOL_SIZE) {
+    const oldestEntry = [...browserPool.entries()].sort((a, b) => a[1].createdAt - b[1].createdAt)[0];
+    if (oldestEntry) {
+      const [poolId, poolItem] = oldestEntry;
+      logger.log('DEBUG', 'ensurePage - closing oldest browser from pool', { poolId });
+      await poolItem.browser.close().catch(() => {});
+      browserPool.delete(poolId);
+    }
+  }
+
   const browserType = args.browserType || 'chromium';
   const browserEngines = { chromium, firefox, webkit };
   const engine = browserEngines[browserType];
@@ -689,26 +797,30 @@ async function ensurePage(args = {}) {
       ]
     });
     page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    if (targetUrl) {
+      await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: args.timeout || 30000 }).catch(() => {});
+    }
   } else {
-    browser = await engine.launch({ headless: args.headless === true ? true : false });
-    const context = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+    delete process.env.http_proxy;
+    delete process.env.https_proxy;
+    delete process.env.HTTP_PROXY;
+    delete process.env.HTTPS_PROXY;
+    browser = await engine.launch({ 
+      headless: args.headless === true ? true : false,
+      args: ['--no-proxy-server', '--disable-proxy', '--proxy-server=', '--proxy-bypass-list=*', '--ignore-certificate-errors']
+    });
+    const context = await browser.newContext({ 
+      viewport: { width: 1280, height: 720 },
+      proxy: undefined
+    });
     page = await context.newPage();
 
-    // 加入池（但先不占用——池作为冷备，当前页直接用）
-    const poolId = `pool-${Date.now()}`;
-    browserPool.set(poolId, { browser, context, page, createdAt: Date.now() });
-    // 限制池大小（添加简单保护：等待锁释放）
-    if (browserPool.size > BROWSER_POOL_SIZE) {
-      const oldest = [...browserPool.entries()].sort((a, b) => a[1].createdAt - b[1].createdAt)[0];
-      if (oldest && oldest[0] !== poolId) {
-        await oldest[1].browser.close().catch(e => { console.error('[browserPool] cleanup error:', e.message); });
-        browserPool.delete(oldest[0]);
-      }
+    if (targetUrl) {
+      await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: args.timeout || 30000 }).catch(() => {});
     }
   }
   browserSessionId += 1;
   setupPageListeners(page);
-  // 注入全局错误捕获脚本（用 __mcpInstrumented 防重，多次调用安全）
   installInstrumentation(page).catch(e => logger.log('WARN', 'installInstrumentation 失败', { error: e.message }));
 
   return { target: page, reused, sessionId: browserSessionId };
@@ -1366,6 +1478,7 @@ async function buildDebugReport(target, args = {}) {
 }
 
 async function screenshotWithRedaction(target, filePath, args = {}) {
+  if (!args) args = {};
   const selectors = Array.isArray(args.redactSelectors) ? [...args.redactSelectors] : [];
   selectors.push('input[type="password"]', 'input[id*="key" i]', 'input[name*="key" i]', 'textarea[id*="key" i]', 'textarea[name*="key" i]', 'input[id*="token" i]', 'input[name*="token" i]');
   const handles = [];
@@ -2069,7 +2182,7 @@ function exportHar(args = {}) {
   const har = redact({
     log: {
       version: '1.2',
-      creator: { name: 'ai-verify-mcp', version: '1.0.0' },
+      creator: { name: 'ai-verify-mcp', version: VERSION },
       pages: [],
       entries
     }
@@ -3639,7 +3752,7 @@ function buildValidationReportContract(run, rows, failedRows, artifacts, generat
       conclusion: run.passed ? 'PASS' : (failedRows.some(r => classifySeverity(r) === 'blocking') ? 'BLOCKING' : 'FAIL'),
       runId: currentRunId, runDir: currentRunDir
     },
-    toolchain: { browser: run.browser || 'chromium', tools: run.toolsUsed || [], version: '1.0.0' },
+    toolchain: { browser: run.browser || 'chromium', tools: run.toolsUsed || [], version: VERSION },
     findings,
     networkEvidence: collectNetworkEvidence(),
     artifacts: {
@@ -3751,7 +3864,7 @@ function mcpHealthCheck() {
   const ok = schema.missing.length === 0 && schema.invalid.length === 0 && dirs.every(item => item.writable);
   return redact({
     ok,
-    version: '1.0.0',
+    version: VERSION,
     activeSession: browserSessionId,
     schema,
     directories: dirs,
@@ -4438,13 +4551,51 @@ async function findPage(target, args = {}) {
 
 async function findElement(target, args = {}) {
   const text = String(args.text || '').trim();
+  const selector = args.selector || '';
   const role = args.role ? String(args.role).toLowerCase() : null;
   const tagName = args.tagName ? String(args.tagName).toLowerCase() : null;
   const onlyVisible = args.onlyVisible !== false;
   const limit = Number(args.limit) || 5;
 
-  if (!text) {
-    return { results: [], total: 0, query: { text, role, tagName } };
+  console.log('[findElement DEBUG] args:', JSON.stringify(args));
+  console.log('[findElement DEBUG] selector:', selector);
+  console.log('[findElement DEBUG] text:', text);
+
+  if (!text && !selector) {
+    return { results: [], total: 0, query: { text, selector, role, tagName }, error: '缺少 text 或 selector 参数' };
+  }
+
+  if (selector) {
+    const results = [];
+    try {
+      const elements = await target.$$(selector);
+      for (const el of elements.slice(0, limit)) {
+        const rect = await el.boundingBox();
+        const tag = await el.evaluate(el => el.tagName.toLowerCase());
+        const className = await el.evaluate(el => typeof el.className === 'string' ? el.className : '');
+        const innerText = await el.evaluate(el => el.innerText.trim().slice(0, 200));
+        const visible = rect && rect.width > 0 && rect.height > 0;
+        results.push({
+          selector,
+          text: innerText,
+          tagName: tag,
+          className,
+          confidence: 1.0,
+          visible,
+          position: rect ? { top: Math.round(rect.y), left: Math.round(rect.x) } : null,
+          matchMethod: 'selector_direct'
+        });
+      }
+    } catch (e) {
+      return { results: [], total: 0, query: { text, selector, role, tagName }, error: `选择器无效: ${e.message}` };
+    }
+    return {
+      query: { text, selector, role, tagName, onlyVisible, limit },
+      results,
+      total: results.length,
+      returned: results.length,
+      debug: { selectorUsed: !!selector, elementsFound: results.length }
+    };
   }
 
   const results = await target.evaluate((params) => {
@@ -4632,12 +4783,12 @@ async function findElement(target, args = {}) {
   }, { text, role, tagName, onlyVisible });
 
   const limitedResults = results.results.slice(0, limit);
-  return redact({
+  return {
     query: { text, role, tagName, onlyVisible, limit },
     results: limitedResults,
     total: results.total,
     returned: limitedResults.length
-  });
+  };
 }
 
 async function getPageLinks(args = {}) {
@@ -6472,7 +6623,7 @@ const deps = {
   backendProbeResults, instrumentationEnabled,
   imageErrors, lastImageErrorCheckpoint,
   validationResults, lastQualityChecks, lastValidationRun,
-  requestStartTimes,
+  requestStartTimes, stateManager,
 
   // === Constants ===
   MAX_SESSIONS, SCREENSHOT_DIR, HAR_DIR, VISUAL_DIR,
@@ -6511,6 +6662,9 @@ const deps = {
 
   // === Node built-ins ===
   path, fs, execSync,
+
+  // === Tool dispatch ===
+  callTool: (name, args = {}) => callTool(name, args),
 };
 
 async function callTool(name, args = {}) {
@@ -6546,7 +6700,23 @@ async function callTool(name, args = {}) {
     if (!handler) {
       return { isError: true, content: [{ type: 'text', text: `未知工具：${name}` }] };
     }
-    return await handler.handle(name, args, deps);
+    const result = await handler.handle(name, args, deps);
+    page = deps.page;
+    browser = deps.browser;
+    browserSessionId = deps.browserSessionId;
+    activeSessionName = deps.activeSessionName;
+    sessionCounter = deps.sessionCounter;
+    traceActive = deps.traceActive;
+    currentTraceName = deps.currentTraceName;
+    instrumentationEnabled = deps.instrumentationEnabled;
+    currentCheckpoint = deps.currentCheckpoint;
+    eventCheckpoint = deps.eventCheckpoint;
+    lastAction = deps.lastAction;
+    lastImageErrorCheckpoint = deps.lastImageErrorCheckpoint;
+    if (stateManager.currentCheckpoint !== currentCheckpoint) {
+      stateManager.currentCheckpoint = currentCheckpoint;
+    }
+    return result;
 
   } catch (error) {
     logger.log('ERROR', `工具调用失败: ${name}`, { error: error.message, stack: error.stack });
@@ -6562,7 +6732,7 @@ async function callTool(name, args = {}) {
 
 // 创建MCP Server实例
 function createMcpServer() {
-  const server = new Server({ name: 'ai-verify-mcp', version: '1.0.0' }, { capabilities: { tools: {} } });
+  const server = new Server({ name: 'ai-verify-mcp', version: VERSION }, { capabilities: { tools: {} } });
   
   server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools }));
   server.setRequestHandler(CallToolRequestSchema, async request => {
@@ -6595,7 +6765,7 @@ function createMcpServer() {
     trimTraceLogs();
     const startedAt = Date.now();
     try {
-      const result = await callTool(name, args || {});
+      const result = attachStructuredContent(name, await callTool(name, args || {}));
       traceLogs.push({
         traceId: toolTraceId,
         spanId: toolSpanId,
@@ -6643,12 +6813,29 @@ function createMcpServer() {
     logger.log('INFO', 'MCP request cancelled', notification.params || {});
   });
   
-  process.on('uncaughtException', (error) => {
+  process.on('uncaughtException', async (error) => {
     logger.log('ERROR', 'Uncaught Exception', { error: error.message, stack: error.stack });
+    try {
+      if (page && !page.isClosed()) await page.close().catch(() => {});
+      if (browser) await browser.close().catch(() => {});
+      for (const [, item] of browserPool) {
+        await item.browser.close().catch(() => {});
+      }
+      browserPool.clear();
+    } catch (_) {}
+    process.exit(1);
   });
   
-  process.on('unhandledRejection', (reason, promise) => {
+  process.on('unhandledRejection', async (reason, promise) => {
     logger.log('ERROR', 'Unhandled Rejection', { reason: reason?.message || String(reason) });
+    try {
+      if (page && !page.isClosed()) await page.close().catch(() => {});
+      if (browser) await browser.close().catch(() => {});
+      for (const [, item] of browserPool) {
+        await item.browser.close().catch(() => {});
+      }
+      browserPool.clear();
+    } catch (_) {}
   });
   
   return server;
@@ -6688,7 +6875,7 @@ async function main() {
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  logger.log('INFO', 'ValidPilot OSS MCP Server ready (stdio mode)', { version: '1.0.0', tools: tools.length });
+  logger.log('INFO', 'ValidPilot OSS MCP Server ready (stdio mode)', { version: VERSION, tools: tools.length });
 
   // 非阻塞启动浏览器预热
   warmupBrowser().catch(() => {});
@@ -6725,7 +6912,7 @@ async function startHttpMode() {
           result: {
             protocolVersion: '2024-11-05',
             capabilities: { tools: {} },
-            serverInfo: { name: 'ai-verify-mcp', version: '1.0.0' }
+            serverInfo: { name: 'ai-verify-mcp', version: VERSION }
           }
         };
       }

@@ -1,7 +1,7 @@
 {
   "name": "chain_spec_run",
   "description": "按链路规格执行简化版业务链路验证：支持打开页面、点击、输入、等待、断言、状态采集/对比，并汇总每步 Console、PageError、Network、状态 diff 和证据。先做进现有 MCP，后续再剥离为独立链路验证引擎。",
-  "inputSchema": {
+  "arguments": {
     "type": "object",
     "properties": {
       "runId": {
@@ -28,7 +28,26 @@
           "properties": {
             "type": {
               "type": "string",
-              "enum": ["navigate", "goto", "reload", "refresh", "click", "type", "fill", "press", "wait", "eval", "apiRequest", "api", "assert", "validate", "stateCapture", "captureState", "stateCompare", "compareState"],
+              "enum": [
+                "navigate",
+                "goto",
+                "reload",
+                "refresh",
+                "click",
+                "type",
+                "fill",
+                "press",
+                "wait",
+                "eval",
+                "apiRequest",
+                "api",
+                "assert",
+                "validate",
+                "stateCapture",
+                "captureState",
+                "stateCompare",
+                "compareState"
+              ],
               "description": "步骤类型"
             },
             "action": {
@@ -110,7 +129,9 @@
               "description": "是否为该步骤采集证据"
             }
           },
-          "required": ["type"]
+          "required": [
+            "type"
+          ]
         }
       },
       "stateSources": {
@@ -162,6 +183,8 @@
         "description": "打开 targetUrl 的超时时间，默认 30000ms"
       }
     },
-    "required": ["steps"]
+    "required": [
+      "steps"
+    ]
   }
 }

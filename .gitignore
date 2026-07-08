@@ -52,3 +52,15 @@ Thumbs.db
 
 # Trae IDE
 .trae/
+
+# Exploration reports
+exploration-reports/
+
+# Temp directories
+temp/
+
+# npm packages
+*.tgz
+
+# OCR trained data
+eng.traineddata

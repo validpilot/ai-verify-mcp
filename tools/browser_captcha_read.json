@@ -1,0 +1,40 @@
+{
+  "name": "browser_captcha_read",
+  "description": "读取页面中的验证码图片，支持从图片URL直接提取文字（适用于简单验证码服务），以及使用OCR识别复杂验证码。当识别失败或置信度较低时，会返回验证码图片供人工识别。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "url": { "type": "string", "description": "目标页面URL，可选" },
+      "captchaSelector": { "type": "string", "description": "验证码图片的CSS选择器，可选" },
+      "captchaIndex": { "type": "number", "description": "验证码图片索引（当页面有多个验证码时使用，从0开始），可选" }
+    },
+    "required": []
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "success": { "type": "boolean" },
+      "captchaText": { "type": "string", "description": "识别到的验证码文字" },
+      "captchaUrl": { "type": "string", "description": "验证码图片URL" },
+      "captchaImageBase64": { "type": "string", "description": "验证码图片的Base64编码，用于人工识别" },
+      "imageInfo": {
+        "type": "object",
+        "properties": {
+          "width": { "type": "number" },
+          "height": { "type": "number" },
+          "naturalWidth": { "type": "number" },
+          "naturalHeight": { "type": "number" }
+        }
+      },
+      "method": { "type": "string", "description": "识别方法：url_extract / ddddocr_ocr / manual" },
+      "confidence": { "type": "number", "description": "识别置信度 0-1" },
+      "requiresHumanInteraction": { "type": "boolean", "description": "是否需要人工处理（识别失败或置信度低）" },
+      "tips": { "type": "string", "description": "使用提示和建议" },
+      "nextSteps": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "下一步建议操作"
+      }
+    }
+  }
+}

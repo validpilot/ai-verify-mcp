@@ -13,7 +13,7 @@ const serverPath = path.join(__dirname, 'server.js');
 
 console.log('=== ValidPilot OSS MCP 独立启动 ===');
 console.log('服务器路径:', serverPath);
-console.log('工具数量: 60');
+console.log('工具数量: 107');
 console.log('');
 
 // 启动MCP服务器（stdio模式）

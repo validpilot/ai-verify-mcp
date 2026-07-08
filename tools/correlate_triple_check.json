@@ -1,0 +1,130 @@
+{
+  "name": "correlate_triple_check",
+  "description": "开源版 UI-API 三方比对：从页面 DOM 提取数据，调用对应 API 获取数据，对比两者是否一致。支持列表页和详情页两种模式。检测数据不一致、字段遗漏、格式差异等问题。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "mode": {
+        "type": "string",
+        "enum": ["list", "detail"],
+        "default": "list",
+        "description": "比对模式：list=列表页模式（DOM表格 vs API列表）；detail=详情页模式（DOM表单 vs API详情）"
+      },
+      "apiEndpoint": {
+        "type": "string",
+        "description": "API 端点 URL（如 /api/leads），默认从当前页面 URL 推导"
+      },
+      "apiMethod": {
+        "type": "string",
+        "enum": ["GET", "POST"],
+        "default": "GET",
+        "description": "API 请求方法"
+      },
+      "apiPayload": {
+        "type": "object",
+        "description": "POST 请求时的请求体"
+      },
+      "tableSelector": {
+        "type": "string",
+        "default": "table, .table, [role=\"grid\"]",
+        "description": "列表页模式：表格选择器"
+      },
+      "rowSelector": {
+        "type": "string",
+        "default": "tr, [role=\"row\"]",
+        "description": "列表页模式：行选择器"
+      },
+      "fieldMappings": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "domSelector": { "type": "string", "description": "DOM 字段选择器" },
+            "domAttribute": { "type": "string", "description": "DOM 属性（text, value, src, href, data-*等），默认 text" },
+            "apiField": { "type": "string", "description": "API 返回中的字段名" },
+            "name": { "type": "string", "description": "字段显示名称" }
+          },
+          "required": ["domSelector", "apiField"]
+        },
+        "description": "字段映射配置：指定 DOM 元素与 API 字段的对应关系"
+      },
+      "maxRows": {
+        "type": "number",
+        "default": 10,
+        "description": "最大比对行数"
+      },
+      "identifierField": {
+        "type": "string",
+        "default": "id",
+        "description": "唯一标识字段名，用于匹配 DOM 行与 API 记录"
+      },
+      "strictMode": {
+        "type": "boolean",
+        "default": false,
+        "description": "严格模式：API 返回的字段必须在 DOM 中存在，否则视为差异"
+      }
+    },
+    "required": ["mode"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "success": { "type": "boolean", "description": "执行是否成功" },
+      "mode": { "type": "string", "description": "比对模式" },
+      "apiEndpoint": { "type": "string", "description": "使用的API端点" },
+      "findings": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "rowIndex": { "type": "number" },
+            "apiId": { "type": ["string", "number"] },
+            "domData": { "type": "object" },
+            "matches": { "type": "array", "items": { "type": "object" } },
+            "mismatches": { "type": "array", "items": { "type": "object" } }
+          }
+        },
+        "description": "详细比对结果"
+      },
+      "discrepancies": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "rowIndex": { "type": "number" },
+            "field": { "type": "string" },
+            "domValue": { "type": "string" },
+            "apiValue": { "type": ["string", "number", "boolean", "null"] }
+          }
+        },
+        "description": "发现的数据不一致项"
+      },
+      "matchedCount": { "type": "number", "description": "匹配的字段数" },
+      "unmatchedCount": { "type": "number", "description": "不匹配的字段数" },
+      "pageStructure": {
+        "type": "object",
+        "properties": {
+          "tables": { "type": "number" },
+          "lists": { "type": "number" },
+          "cards": { "type": "number" },
+          "charts": { "type": "number" }
+        },
+        "description": "页面结构分析"
+      },
+      "status": { "type": "string", "enum": ["consistent", "inconsistent"], "description": "一致性状态" },
+      "summary": {
+        "type": "object",
+        "properties": {
+          "totalFields": { "type": "number" },
+          "matchedFields": { "type": "number" },
+          "unmatchedFields": { "type": "number" },
+          "consistencyRate": { "type": "string" }
+        },
+        "description": "统计摘要"
+      },
+      "message": { "type": "string", "description": "执行消息" },
+      "error": { "type": "string", "description": "错误信息（失败时）" }
+    },
+    "required": ["success", "status", "summary"]
+  }
+}

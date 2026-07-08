@@ -1,0 +1,103 @@
+{
+  "name": "business_loop_validate",
+  "description": "开源版业务闭环验证：自动识别页面上的业务关键节点（留资/下单/结算），并验证各节点的可达性、表单完整性和流程连贯性。识别 6 类业务节点：lead_capture（留资）、product_browse（商品浏览）、cart（购物车）、checkout（下单结算）、payment（支付）、account（账户）。每类节点检查：可达性、表单字段、按钮、网络请求、状态转换。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "target": {
+        "type": "string",
+        "description": "目标页面 URL（必填）"
+      },
+      "loop": {
+        "type": "string",
+        "enum": ["ecommerce", "lead_gen", "saas_signup", "content_publish", "auto"],
+        "default": "auto",
+        "description": "业务闭环类型：ecommerce=电商（浏览→购物车→下单→支付）；lead_gen=留资（访问→填表→提交）；saas_signup=SaaS注册（访问→注册→激活）；content_publish=内容发布（访问→编辑→发布）；auto=自动识别"
+      },
+      "depth": {
+        "type": "number",
+        "default": 2,
+        "minimum": 1,
+        "maximum": 3,
+        "description": "探测深度：1=仅当前页；2=跟随主要 CTA；3=完整流程测试"
+      },
+      "checkForm": {
+        "type": "boolean",
+        "default": true,
+        "description": "是否检查表单字段完整性"
+      },
+      "checkNetwork": {
+        "type": "boolean",
+        "default": true,
+        "description": "是否检查网络请求可达性"
+      },
+      "maxSteps": {
+        "type": "number",
+        "default": 15,
+        "description": "最大流程探测步数"
+      }
+    },
+    "required": ["target"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "success": { "type": "boolean" },
+      "target": { "type": "string" },
+      "loopType": { "type": "string", "description": "识别出的业务闭环类型" },
+      "nodes": {
+        "type": "array",
+        "description": "识别到的业务节点列表",
+        "items": {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string", "description": "节点类型" },
+            "found": { "type": "boolean" },
+            "url": { "type": "string" },
+            "confidence": { "type": "number", "description": "置信度 0-1" },
+            "evidence": { "type": "array", "items": { "type": "string" } },
+            "formFields": { "type": "array", "items": { "type": "object" } },
+            "buttons": { "type": "array", "items": { "type": "string" } },
+            "apiCalls": { "type": "array", "items": { "type": "string" } }
+          }
+        }
+      },
+      "flow": {
+        "type": "object",
+        "description": "业务流程连贯性分析",
+        "properties": {
+          "complete": { "type": "boolean", "description": "闭环是否完整" },
+          "missingNodes": { "type": "array", "items": { "type": "string" } },
+          "brokenLinks": { "type": "array", "items": { "type": "string" } },
+          "orderCorrect": { "type": "boolean" }
+        }
+      },
+      "issues": {
+        "type": "array",
+        "description": "发现的问题",
+        "items": {
+          "type": "object",
+          "properties": {
+            "severity": { "type": "string", "enum": ["blocking", "major", "warning", "info"] },
+            "node": { "type": "string" },
+            "message": { "type": "string" }
+          }
+        }
+      },
+      "summary": {
+        "type": "object",
+        "properties": {
+          "totalNodes": { "type": "number" },
+          "foundNodes": { "type": "number" },
+          "missingNodes": { "type": "number" },
+          "issuesCount": { "type": "number" },
+          "blockingIssues": { "type": "number" },
+          "completeness": { "type": "number", "description": "完整度 0-100" }
+        }
+      },
+      "nextSteps": { "type": "array", "items": { "type": "string" } },
+      "paidUpgradeHint": { "type": "string" }
+    },
+    "required": ["success", "loopType", "nodes", "summary"]
+  }
+}

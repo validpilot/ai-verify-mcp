@@ -722,6 +722,55 @@ async function exploreLikeHuman(page, options = {}) {
 // ======================================================================
 
 /**
+ * 根据字段元数据推断语义化字段类型
+ * 优先级：type属性 > name属性 > label > placeholder
+ * @param {object} field - { name, type, tag, label, placeholder }
+ * @returns {string} 字段类型
+ */
+function inferFieldType(field) {
+  const { type, tag, name = '', label = '', placeholder = '' } = field;
+
+  // 1. 基于 HTML 元素类型的判断（最高优先级）
+  if (type === 'checkbox') return 'checkbox';
+  if (type === 'radio') return 'radio';
+  if (tag === 'select') return 'select';
+  if (tag === 'textarea') return 'textarea';
+  if (type === 'email') return 'email';
+  if (type === 'tel') return 'phone';
+  if (type === 'password') return 'password';
+  if (type === 'number') return 'number';
+  if (type === 'date' || type === 'datetime-local') return 'date';
+  if (type === 'url') return 'url';
+
+  // 2. 基于 name 属性的判断（高优先级）
+  const nameLower = name.toLowerCase();
+  if (/email|e-mail|mail/i.test(nameLower)) return 'email';
+  if (/phone|mobile|tel|cellphone/i.test(nameLower)) return 'phone';
+  if (/password|passwd|pwd|pass/i.test(nameLower)) return 'password';
+  if (/username|user_name|user|login_name|loginname/i.test(nameLower)) return 'name';
+  if (/realname|real_name|fullname|full_name/i.test(nameLower)) return 'name';
+  if (/idcard|id_card|idnumber|id_number|identity/i.test(nameLower)) return 'idCard';
+  if (/address|addr/i.test(nameLower)) return 'address';
+  if (/birthday|birth_date|birth/i.test(nameLower)) return 'date';
+  if (/website|site_url|homepage|blog/i.test(nameLower)) return 'url';
+  if (/age|count|amount|price|total|num|quantity/i.test(nameLower)) return 'number';
+
+  // 3. 基于 label 和 placeholder 的判断（较低优先级）
+  const hint = `${label} ${placeholder}`.toLowerCase();
+  if (/邮箱|e-mail|email address/i.test(hint)) return 'email';
+  if (/手机|电话|手机号|联系电话|mobile|phone/i.test(hint)) return 'phone';
+  if (/密码|口令|passw/i.test(hint)) return 'password';
+  if (/姓名|用户名|真实姓名|user name|full name/i.test(hint)) return 'name';
+  if (/身份证|证件号|identity card|id card/i.test(hint)) return 'idCard';
+  if (/地址|住址|详细地址|address/i.test(hint)) return 'address';
+  if (/生日|出生日期|birth|date of birth/i.test(hint)) return 'date';
+  if (/网址|网站|链接|url|website/i.test(hint)) return 'url';
+  if (/年龄|数量|金额|数字|number|age|amount/i.test(hint)) return 'number';
+
+  return 'text';
+}
+
+/**
  * 自动填充表单字段
  * @param {object} page - Playwright Page 对象
  * @param {string} formSelector - 表单选择器，默认 'form'
@@ -730,6 +779,9 @@ async function exploreLikeHuman(page, options = {}) {
  */
 async function autoFillForm(page, formSelector = 'form', overrides = {}) {
   const result = { filled: false, fields: [], error: null };
+  let dataGen;
+  try { dataGen = require('./data_generator'); } catch (_) { dataGen = null; }
+
   try {
     const form = await page.locator(formSelector).first();
     if (!(await form.count())) {
@@ -737,58 +789,197 @@ async function autoFillForm(page, formSelector = 'form', overrides = {}) {
       return result;
     }
 
-    // 收集所有表单字段
-    const fields = await form.evaluate((el, ov) => {
+    // 收集所有表单字段的元数据（在浏览器上下文中执行）
+    // 对 radio/checkbox 组进行去重，每个 name 只保留一条记录
+    const fieldMetas = await form.evaluate((el, ov) => {
       const fieldData = [];
+      const seenNames = new Set();
       const inputs = el.querySelectorAll('input, textarea, select');
       inputs.forEach((input, i) => {
         const name = input.name || input.id || `field_${i}`;
         const type = (input.type || 'text').toLowerCase();
         const tag = input.tagName.toLowerCase();
 
-        // 跳过隐藏字段和按钮
+        // 跳过隐藏字段、按钮和禁用字段
         if (['hidden', 'submit', 'button', 'reset', 'image'].includes(type)) return;
 
-        let value = ov[name] || '';
-        if (!value) {
-          // 根据类型生成 mock 数据
-          if (type === 'email') value = 'test@example.com';
-          else if (type === 'tel' || type === 'phone') value = '13800138000';
-          else if (type === 'number') value = '42';
-          else if (type === 'url') value = 'https://example.com';
-          else if (type === 'date') value = new Date().toISOString().slice(0, 10);
-          else if (type === 'password') value = 'Test123456!';
-          else if (tag === 'select') {
-            const options = input.options || [];
-            value = options.length > 1 ? (options[1].value || options[1].text) : (options[0]?.value || '');
-          }
-          else if (type === 'checkbox') { /* handled separately */ }
-          else if (type === 'radio') { /* handled separately */ }
-          else value = `test_${name}_value`;
+        // radio/checkbox 组去重：同名的只保留第一条记录
+        if ((type === 'radio' || type === 'checkbox') && input.name) {
+          if (seenNames.has(name)) return;
+          seenNames.add(name);
         }
 
-        fieldData.push({ name, type, tag, selector: `[name="${name}"], #${name}`, value });
+        const placeholder = input.placeholder || '';
+        const disabled = input.disabled || input.readOnly;
+
+        // 找 label
+        let label = '';
+        const id = input.id;
+        if (id) {
+          const labelEl = el.querySelector(`label[for="${id}"]`);
+          if (labelEl) label = labelEl.textContent.trim();
+        }
+        if (!label) {
+          const parentLabel = input.closest('label');
+          if (parentLabel) label = parentLabel.textContent.trim();
+        }
+
+        // preserveValue 模式且无 override：跳过此字段
+        const preserveOnly = ov._preserveOnly === true;
+        const hasOverride = ov[name] !== undefined;
+        if (preserveOnly && !hasOverride) return;
+
+        // 收集 radio/checkbox 组的选项
+        let options = null;
+        if (type === 'radio' || type === 'checkbox') {
+          const groupInputs = el.querySelectorAll(`[name="${input.name}"]`);
+          options = Array.from(groupInputs).map(inp => ({
+            value: inp.value,
+            label: inp.closest('label')?.textContent?.trim() || inp.value,
+            disabled: inp.disabled
+          }));
+        }
+
+        // select 的 options
+        if (tag === 'select') {
+          options = Array.from(input.options).map(o => ({
+            value: o.value,
+            label: o.text,
+            disabled: o.disabled
+          }));
+        }
+
+        fieldData.push({
+          name, type, tag, placeholder, label, disabled,
+          selector: `[name="${name}"], #${name}`,
+          options
+        });
       });
       return fieldData;
     }, overrides);
 
+    // 为每个字段生成 mock 数据（在 Node.js 上下文中执行，可使用 data_generator）
+    const fields = [];
+    for (const meta of fieldMetas) {
+      let value;
+      const hasOverride = overrides[meta.name] !== undefined;
+
+      if (hasOverride) {
+        value = overrides[meta.name];
+      } else if (meta.tag === 'select') {
+        value = ''; // select 在填充阶段单独处理
+      } else if (meta.type === 'checkbox' || meta.type === 'radio') {
+        value = true; // checkbox/radio 在填充阶段单独处理
+      } else {
+        const fieldType = inferFieldType(meta);
+        if (dataGen && dataGen.isSupported && dataGen.isSupported(fieldType)) {
+          try {
+            value = dataGen.generate(fieldType, {});
+          } catch (_) {
+            value = `test_${meta.name}_value`;
+          }
+        } else {
+          // 基础 fallback
+          switch (fieldType) {
+            case 'email': value = 'test@example.com'; break;
+            case 'phone': value = '13800138000'; break;
+            case 'number': value = '42'; break;
+            case 'url': value = 'https://example.com'; break;
+            case 'date': value = new Date().toISOString().slice(0, 10); break;
+            case 'password': value = 'Test123456!'; break;
+            default: value = `test_${meta.name}_value`;
+          }
+        }
+      }
+
+      fields.push({
+        ...meta,
+        value,
+        fieldType: inferFieldType(meta)
+      });
+    }
+
     // 逐字段填充
     for (const field of fields) {
+      if (field.disabled) {
+        result.fields.push({ ...field, filled: false, reason: 'disabled' });
+        continue;
+      }
       try {
-        const loc = form.locator(field.selector).first();
-        if (await loc.count()) {
-          if (field.tag === 'select') {
-            await loc.selectOption({ value: field.value }).catch(() => {});
-          } else if (field.type === 'checkbox') {
-            const isChecked = await loc.isChecked().catch(() => false);
-            if (!isChecked) await loc.check().catch(() => {});
-          } else {
-            await loc.fill('').catch(() => {});
-            await loc.type(field.value, { delay: 10 }).catch(() => {});
+        const groupLocator = form.locator(field.selector);
+        const count = await groupLocator.count();
+        if (!count) {
+          result.fields.push({ ...field, filled: false, reason: 'element not found' });
+          continue;
+        }
+
+        if (field.tag === 'select') {
+          const firstSelect = groupLocator.first();
+          const options = field.options || [];
+          const validOptions = options.filter(o => o.value && !o.disabled);
+          const targetOption = validOptions[0] || options[0];
+          if (targetOption) {
+            if (field.value && field.value !== '') {
+              await firstSelect.selectOption({ value: String(field.value) }).catch(() => {});
+            } else {
+              await firstSelect.selectOption({ value: targetOption.value }).catch(() => {});
+              field.value = targetOption.value;
+            }
           }
           result.fields.push({ ...field, filled: true });
+        } else if (field.type === 'radio') {
+          const options = field.options || [];
+          const validOptions = options.filter(o => !o.disabled);
+          let selectedValue = null;
+          if (field.value && field.value !== true) {
+            selectedValue = String(field.value);
+          } else if (validOptions.length > 0) {
+            selectedValue = validOptions[validOptions.length - 1].value;
+          }
+          if (selectedValue) {
+            const radio = form.locator(`[name="${field.name}"][value="${selectedValue}"]`);
+            if (await radio.count()) {
+              await radio.check().catch(() => {});
+              field.value = selectedValue;
+              result.fields.push({ ...field, filled: true, optionsCount: options.length });
+            } else {
+              result.fields.push({ ...field, filled: false, reason: `radio value ${selectedValue} not found` });
+            }
+          } else {
+            result.fields.push({ ...field, filled: false, reason: 'no valid radio options' });
+          }
+        } else if (field.type === 'checkbox') {
+          const options = field.options || [];
+          const validOptions = options.filter(o => !o.disabled);
+          let checkedValues = [];
+          if (field.value && field.value !== true) {
+            checkedValues = Array.isArray(field.value) ? field.value.map(String) : [String(field.value)];
+          } else if (validOptions.length > 0) {
+            const n = Math.min(2, validOptions.length);
+            for (let k = 0; k < n; k++) {
+              checkedValues.push(validOptions[k].value);
+            }
+          }
+          let anyChecked = false;
+          for (const val of checkedValues) {
+            const cb = form.locator(`[name="${field.name}"][value="${val}"]`);
+            if (await cb.count()) {
+              const isChecked = await cb.isChecked().catch(() => false);
+              if (!isChecked) await cb.check().catch(() => {});
+              anyChecked = true;
+            }
+          }
+          if (anyChecked) {
+            field.value = checkedValues;
+            result.fields.push({ ...field, filled: true, optionsCount: options.length, checkedCount: checkedValues.length });
+          } else {
+            result.fields.push({ ...field, filled: false, reason: 'no valid checkbox options' });
+          }
         } else {
-          result.fields.push({ ...field, filled: false, reason: 'element not found' });
+          const firstEl = groupLocator.first();
+          await firstEl.fill('').catch(() => {});
+          await firstEl.type(String(field.value), { delay: 10 }).catch(() => {});
+          result.fields.push({ ...field, filled: true });
         }
       } catch (e) {
         result.fields.push({ ...field, filled: false, reason: e.message });
@@ -803,6 +994,163 @@ async function autoFillForm(page, formSelector = 'form', overrides = {}) {
       const buf = await form.screenshot({ type: 'png' });
       result.screenshot = buf.toString('base64').slice(0, 2000);
     } catch (_) {}
+  } catch (e) {
+    result.error = e.message;
+  }
+  return result;
+}
+
+/**
+ * 读取表单当前所有字段的值
+ * @param {object} page - Playwright Page 对象
+ * @param {string} formSelector - 表单选择器，默认 'form'
+ * @returns {object} { found, values, fields, error }
+ */
+async function getFormValues(page, formSelector = 'form') {
+  const result = { found: false, values: {}, fields: [], error: null };
+  try {
+    const form = await page.locator(formSelector).first();
+    if (!(await form.count())) {
+      result.error = `未找到表单元素: ${formSelector}`;
+      return result;
+    }
+    result.found = true;
+
+    const formData = await form.evaluate((el) => {
+      const values = {};
+      const fields = [];
+      const inputs = el.querySelectorAll('input, textarea, select');
+      const seen = new Set();
+
+      inputs.forEach((input, i) => {
+        const name = input.name || input.id || `field_${i}`;
+        const type = (input.type || 'text').toLowerCase();
+        const tag = input.tagName.toLowerCase();
+
+        if (['hidden', 'submit', 'button', 'reset', 'image'].includes(type)) return;
+
+        // 对 radio/checkbox 组去重
+        if ((type === 'radio' || type === 'checkbox') && input.name) {
+          if (seen.has(name)) return;
+          seen.add(name);
+        }
+
+        let value;
+        if (type === 'checkbox') {
+          const group = el.querySelectorAll(`[name="${input.name}"]:checked`);
+          value = Array.from(group).map(cb => cb.value);
+        } else if (type === 'radio') {
+          const checked = el.querySelector(`[name="${input.name}"]:checked`);
+          value = checked ? checked.value : '';
+        } else if (tag === 'select') {
+          if (input.multiple) {
+            value = Array.from(input.selectedOptions).map(o => o.value);
+          } else {
+            value = input.value;
+          }
+        } else {
+          value = input.value;
+        }
+
+        values[name] = value;
+        fields.push({
+          name,
+          type,
+          tag,
+          value,
+          disabled: input.disabled || input.readOnly
+        });
+      });
+
+      return { values, fields };
+    });
+
+    result.values = formData.values;
+    result.fields = formData.fields;
+    result.fieldCount = formData.fields.length;
+  } catch (e) {
+    result.error = e.message;
+  }
+  return result;
+}
+
+/**
+ * 无 form 标签时的 Fallback：直接填充页面 input/textarea/select 元素
+ * @param {object} page - Playwright Page 对象
+ * @param {object} overrides - { name: value } 映射，_preserveOnly 跳过未指定字段
+ */
+async function autoFillInputs(page, overrides = {}) {
+  const result = { filled: false, fields: [], error: null };
+  let dataGen;
+  try { dataGen = require('./data_generator'); } catch (_) { dataGen = null; }
+
+  try {
+    const preserveOnly = overrides._preserveOnly === true;
+    const inputs = await page.locator('input:visible, textarea:visible, select:visible').all();
+    const inputCount = inputs.length;
+    if (!inputCount) {
+      result.error = '页面无可见输入元素';
+      return result;
+    }
+    for (let i = 0; i < inputs.length; i++) {
+      const el = inputs[i];
+      try {
+        const id = await el.getAttribute('id');
+        const name = await el.getAttribute('name');
+        const placeholder = await el.getAttribute('placeholder') || '';
+        const type = (await el.getAttribute('type') || 'text').toLowerCase();
+        const tag = await el.evaluate(e => e.tagName.toLowerCase()).catch(() => 'input');
+        const key = name || id || `field_${i}`;
+        if (['hidden', 'submit', 'button', 'reset', 'image'].includes(type)) continue;
+
+        const hasOverride = overrides[key] !== undefined;
+        if (preserveOnly && !hasOverride) continue;
+
+        let value;
+        if (hasOverride) {
+          value = overrides[key];
+        } else if (tag === 'select') {
+          const options = await el.locator('option').all();
+          const secondOption = options.length > 1 ? options[1] : options[0];
+          value = secondOption ? (await secondOption.getAttribute('value')) || '' : '';
+        } else if (type === 'checkbox' || type === 'radio') {
+          await el.check().catch(() => {});
+          result.fields.push({ key, id, type, value: 'checked', filled: true });
+          continue;
+        } else {
+          const fieldType = inferFieldType({ type, tag, name, placeholder });
+          if (dataGen && dataGen.isSupported && dataGen.isSupported(fieldType)) {
+            try {
+              value = dataGen.generate(fieldType, {});
+            } catch (_) {
+              value = `test_${key}_value`;
+            }
+          } else {
+            switch (fieldType) {
+              case 'email': value = 'test@example.com'; break;
+              case 'phone': value = '13800138000'; break;
+              case 'number': value = '42'; break;
+              case 'url': value = 'https://example.com'; break;
+              case 'date': value = new Date().toISOString().slice(0, 10); break;
+              case 'password': value = 'Test123456!'; break;
+              default: value = `test_${key}_value`;
+            }
+          }
+        }
+        if (tag === 'select') {
+          await el.selectOption({ value }).catch(() => {});
+        } else {
+          await el.fill('').catch(() => {});
+          await el.fill(String(value)).catch(() => {});
+        }
+        result.fields.push({ key, id, type, value: value, fieldType: inferFieldType({ type, tag, name, placeholder }), filled: true });
+      } catch (e) {
+        result.fields.push({ key: name || id || `field_${i}`, filled: false, error: e.message });
+      }
+    }
+    result.filled = result.fields.some(f => f.filled);
+    result.totalFields = inputCount;
+    result.filledCount = result.fields.filter(f => f.filled).length;
   } catch (e) {
     result.error = e.message;
   }
@@ -935,5 +1283,8 @@ module.exports = {
   executeWorkflow,
   exploreLikeHuman,
   autoFillForm,
+  autoFillInputs,
+  getFormValues,
   runInteractionChain,
+  inferFieldType,
 };

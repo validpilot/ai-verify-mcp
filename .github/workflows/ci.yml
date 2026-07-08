@@ -11,17 +11,17 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node-version: [22.x]
+        node-version: [18.x, 20.x, 22.x]
     env:
       PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
 
     steps:
       - uses: actions/checkout@v5
 
-      - name: Setup Node.js
+      - name: Setup Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v5
         with:
-          node-version: '22.x'
+          node-version: ${{ matrix.node-version }}
           cache: 'npm'
 
       - name: Install dependencies
@@ -41,3 +41,10 @@ jobs:
 
       - name: Lint package
         run: node scripts/ci-lint-package.js
+
+      - name: Upload coverage report
+        if: success() && matrix.node-version == '22.x'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report-node-${{ matrix.node-version }}
+          path: coverage/

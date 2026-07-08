@@ -1,14 +1,24 @@
 {
   "name": "browser_matrix_test",
   "description": "跨浏览器矩阵测试。在指定的多个浏览器引擎上依次执行相同的操作序列，返回各浏览器的执行结果对比。支持 chromium / firefox / webkit 任意组合。自动管理浏览器的创建和关闭，每个浏览器独立隔离。符合产品定位 v2.0 能力补齐方案 §P0-6。",
-  "inputSchema": {
+  "arguments": {
     "type": "object",
     "properties": {
       "browsers": {
         "type": "array",
-        "items": { "type": "string", "enum": ["chromium", "firefox", "webkit"] },
+        "items": {
+          "type": "string",
+          "enum": [
+            "chromium",
+            "firefox",
+            "webkit"
+          ]
+        },
         "description": "要测试的浏览器列表，默认 ['chromium', 'firefox']",
-        "default": ["chromium", "firefox"]
+        "default": [
+          "chromium",
+          "firefox"
+        ]
       },
       "steps": {
         "type": "array",
@@ -18,15 +28,35 @@
           "properties": {
             "action": {
               "type": "string",
-              "enum": ["navigate", "click", "type", "screenshot", "evaluate"],
+              "enum": [
+                "navigate",
+                "click",
+                "type",
+                "screenshot",
+                "evaluate"
+              ],
               "description": "操作类型: navigate / click / type / screenshot / evaluate"
             },
-            "target": { "type": "string", "description": "CSS 选择器（click/type 需要）" },
-            "value": { "type": "string", "description": "输入值（type 需要）或表达式（evaluate 需要）" },
-            "url": { "type": "string", "description": "目标 URL（navigate 需要）" },
-            "name": { "type": "string", "description": "截图名称（screenshot 需要）" }
+            "target": {
+              "type": "string",
+              "description": "CSS 选择器（click/type 需要）"
+            },
+            "value": {
+              "type": "string",
+              "description": "输入值（type 需要）或表达式（evaluate 需要）"
+            },
+            "url": {
+              "type": "string",
+              "description": "目标 URL（navigate 需要）"
+            },
+            "name": {
+              "type": "string",
+              "description": "截图名称（screenshot 需要）"
+            }
           },
-          "required": ["action"]
+          "required": [
+            "action"
+          ]
         }
       },
       "headless": {
@@ -40,6 +70,8 @@
         "default": 15000
       }
     },
-    "required": ["steps"]
+    "required": [
+      "steps"
+    ]
   }
 }

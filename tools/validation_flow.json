@@ -1,7 +1,7 @@
 {
   "name": "validation_flow",
   "description": "多步流程验证工具，按步骤依次执行 navigate/click/type/wait/eval/screenshot 等操作，支持失败可配置继续执行。",
-  "inputSchema": {
+  "arguments": {
     "type": "object",
     "properties": {
       "steps": {
@@ -13,7 +13,14 @@
             "action": {
               "type": "string",
               "description": "步骤操作类型：navigate/click/type/wait/eval/screenshot",
-              "enum": ["navigate", "click", "type", "wait", "eval", "screenshot"]
+              "enum": [
+                "navigate",
+                "click",
+                "type",
+                "wait",
+                "eval",
+                "screenshot"
+              ]
             },
             "url": {
               "type": "string",
@@ -36,7 +43,9 @@
               "description": "步骤名称，用于标识和错误报告"
             }
           },
-          "required": ["action"]
+          "required": [
+            "action"
+          ]
         }
       },
       "continueOnFailure": {
@@ -50,6 +59,8 @@
         "default": 30000
       }
     },
-    "required": ["steps"]
+    "required": [
+      "steps"
+    ]
   }
 }

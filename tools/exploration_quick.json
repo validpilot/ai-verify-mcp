@@ -1,0 +1,36 @@
+{
+  "name": "exploration_quick",
+  "description": "【探索模式】对目标 URL 执行 6 阶段前端浅层自动探索：导航快照→端点提取→技术栈指纹→路由发现→表单检测→报告聚合。纯浏览器沙箱内完成，无需后端权限。发现高价值线索时自动提示 Pro/Team 升级路径。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "target": {
+        "type": "string",
+        "description": "要探索的目标页面 URL，如 https://example.com"
+      },
+      "url": {
+        "type": "string",
+        "description": "target 的别名，要探索的目标页面 URL"
+      },
+      "depth": {
+        "type": "integer",
+        "enum": [1, 2, 3],
+        "description": "探索深度：1=快速(仅导航+基本信息) 2=标准(含端点提取+路由) 3=深度(含所有阶段)。默认 2",
+        "default": 2
+      },
+      "mode": {
+        "type": "string",
+        "enum": ["basic", "full"],
+        "description": "探索模式：basic=仅结构快照 full=完整6阶段。默认 full",
+        "default": "full"
+      }
+    },
+    "required": []
+  },
+  "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": false,
+    "openWorldHint": true
+  }
+}
