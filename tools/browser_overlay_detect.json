@@ -1,47 +1,18 @@
 {
   "name": "browser_overlay_detect",
   "description": "遮挡物检测 - 在 DOM 层面自动检测页面上的遮挡元素（弹窗、Cookie横幅、浮层、色块遮挡等），分析 z-index、position、覆盖面积等属性，返回遮挡物列表和建议",
-  "inputSchema": {
+  "arguments": {
     "type": "object",
     "properties": {
       "format": {
         "type": "string",
-        "enum": ["json", "html"],
+        "enum": [
+          "json",
+          "html"
+        ],
         "default": "json",
         "description": "输出格式：json（默认结构化数据）或 html（HTML 报告）"
       }
-    }
-  },
-  "outputSchema": {
-    "type": "object",
-    "properties": {
-      "status": { "type": "string", "enum": ["success", "warning"] },
-      "hasBlockingOverlay": { "type": "boolean" },
-      "totalOverlays": { "type": "number" },
-      "totalCoveragePercent": { "type": "number" },
-      "typeCounts": { "type": "object" },
-      "overlays": {
-        "type": "array",
-        "items": {
-          "type": "object",
-          "properties": {
-            "tagName": { "type": "string" },
-            "className": { "type": "string" },
-            "id": { "type": "string" },
-            "rect": { "type": "object" },
-            "zIndex": { "type": "number" },
-            "position": { "type": "string" },
-            "opacity": { "type": "number" },
-            "coveragePercent": { "type": "number" },
-            "overlayType": { "type": "string" },
-            "text": { "type": "string" }
-          }
-        }
-      },
-      "viewportInfo": { "type": "object" },
-      "nextSteps": { "type": "array", "items": { "type": "string" } },
-      "suggestions": { "type": "array", "items": { "type": "object" } },
-      "paidUpgradeHint": { "type": "string" }
     }
   }
 }

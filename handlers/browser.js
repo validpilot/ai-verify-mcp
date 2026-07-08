@@ -1,4 +1,4 @@
-﻿'use strict';
+'use strict';
 
 // Handler: browser
 // Extracted from server.js callTool switch statements
@@ -44,16 +44,14 @@ async function handle(name, args, deps) {
   try {
   // ====== browser_open ======
   if (name === 'browser_open') {
-const { target, reused, sessionId } = await ensurePage(args);
+    const { target, reused, sessionId } = await ensurePage(args);
+    deps.page = target;
     const beforeUrl = target.url();
-    // 如果已经在目标URL上，跳过导航
     if (args.url && beforeUrl !== args.url) {
       const timeout = args.timeout || 15000;
       await target.goto(args.url, { waitUntil: args.waitUntil || 'domcontentloaded', timeout });
-      // 导航到新页面后重置错误检查点，防止旧页面错误污染新页面
       currentCheckpoint = new Date().toISOString();
       lastImageErrorCheckpoint = new Date().toISOString();
-      // 异步触发后端主动探测
       probeKnownEndpoints(target).then(results => { backendProbeResults = results; }).catch(() => {});
     }
     lastAction = { type: 'open', url: target.url(), timestamp: new Date().toISOString(), reused };
@@ -793,27 +791,32 @@ const { target } = await ensurePage();
   if (name === 'browser_navigate') {
 const { target } = await ensurePage();
     const action = args.action || 'refresh';
+    const url = args.url;
     const waitUntil = args.waitUntil || 'domcontentloaded';
     const timeout = args.timeout || 30000;
 
     try {
-      switch (action) {
-        case 'forward':
-          await target.goForward({ timeout });
-          break;
-        case 'back':
-          await target.goBack({ timeout });
-          break;
-        case 'refresh':
-        case 'reload':
-          await target.reload({ waitUntil, timeout });
-          break;
-        default:
-          return mcpError(`不支持的导航操作: ${action}，支持 forward/back/refresh/reload`, { error: 'EXECUTION_ERROR', toolName: name });
+      if (url) {
+        await target.goto(url, { waitUntil, timeout });
+      } else {
+        switch (action) {
+          case 'forward':
+            await target.goForward({ timeout });
+            break;
+          case 'back':
+            await target.goBack({ timeout });
+            break;
+          case 'refresh':
+          case 'reload':
+            await target.reload({ waitUntil, timeout });
+            break;
+          default:
+            return mcpError(`不支持的导航操作: ${action}，支持 forward/back/refresh/reload`, { error: 'EXECUTION_ERROR', toolName: name });
+        }
       }
 
       return text(JSON.stringify({
-        action,
+        action: url ? 'goto' : action,
         success: true,
         currentUrl: target.url(),
         waitUntil,

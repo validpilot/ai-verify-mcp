@@ -1,0 +1,107 @@
+{
+  "name": "dual_chain_explore",
+  "description": "双链路并行探索：链路① Browser Agent 在真实浏览器中做黑客式功能探索（发现→正向→对抗→闭环），链路② Trace Agent 追踪全栈数据流（前端→API→后端→数据库），交叉验证后输出多维判定（真通过/假通过/渲染问题/数据问题）并自动修复。两条链路独立并行，结果交叉对比，打破 AI 代码「自己验证自己」的闭环。",
+  "arguments": {
+    "type": "object",
+    "properties": {
+      "target": {
+        "type": "string",
+        "description": "目标系统 URL"
+      },
+      "sessionId": {
+        "type": "string",
+        "description": "浏览器会话 ID（可选，不传则自动创建）"
+      },
+      "chains": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": ["functional", "technical"]
+        },
+        "description": "要执行的链路：'functional' 功能链路, 'technical' 技术链路。默认双链路并行",
+        "default": ["functional", "technical"]
+      },
+      "phases": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": ["all", "discovery", "happy_path", "adversarial", "closure", "frontend", "api", "backend", "database"]
+        },
+        "description": "要执行的阶段。默认 'all' 执行全部",
+        "default": ["all"]
+      },
+      "explorationMode": {
+        "type": "string",
+        "enum": ["normal", "aggressive", "hacker"],
+        "description": "探索模式：normal 保守(top3), aggressive 全端点, hacker 最大攻击面+创造性探测",
+        "default": "normal"
+      },
+      "autoFix": {
+        "type": "boolean",
+        "description": "发现断裂后是否自动修复。默认 true",
+        "default": true
+      },
+      "writeToMemory": {
+        "type": "boolean",
+        "description": "是否将发现写入记忆体系。默认 true",
+        "default": true
+      },
+      "expectedBehavior": {
+        "type": "object",
+        "properties": {
+          "tablesShouldAdd": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "应新增记录的表名"
+          },
+          "tablesShouldUpdate": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "应更新记录的表名"
+          },
+          "tablesShouldDelete": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "应删除记录的表名"
+          },
+          "tablesShouldNotChange": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "不应变化的表名（用于检测幽灵数据）"
+          }
+        },
+        "description": "预期行为描述，用于 Phantom Data 检测"
+      },
+      "dbConfig": {
+        "type": "object",
+        "properties": {
+          "tables": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "要监控的数据库表名列表"
+          },
+          "database": {
+            "type": "string",
+            "description": "数据库名",
+            "default": "default"
+          },
+          "relations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "table": { "type": "string" },
+                "fkColumn": { "type": "string" },
+                "refTable": { "type": "string" },
+                "refColumn": { "type": "string" }
+              }
+            },
+            "description": "外键关系定义，用于孤儿数据检测"
+          }
+        },
+        "description": "数据库配置，用于链路② Phase4 快照对比"
+      }
+    },
+    "required": ["target"]
+  }
+}

@@ -1,7 +1,7 @@
 {
   "name": "browser_chain",
   "description": "链式执行多个浏览器操作，每步操作后自动检查控制台错误和网络错误。发现错误可立即终止并返回失败步骤。支持强制执行模式，开启时强制进行错误检查且不可关闭。",
-  "inputSchema": {
+  "arguments": {
     "type": "object",
     "properties": {
       "actions": {
@@ -12,7 +12,16 @@
           "properties": {
             "type": {
               "type": "string",
-              "enum": ["click", "type", "hover", "scroll", "pressKey", "select", "wait", "evaluate"],
+              "enum": [
+                "click",
+                "type",
+                "hover",
+                "scroll",
+                "pressKey",
+                "select",
+                "wait",
+                "evaluate"
+              ],
               "description": "操作类型"
             },
             "selector": {
@@ -56,7 +65,9 @@
               "description": "JS 表达式（evaluate 操作时使用）"
             }
           },
-          "required": ["type"]
+          "required": [
+            "type"
+          ]
         }
       },
       "stopOnError": {
@@ -77,6 +88,8 @@
         "default": true
       }
     },
-    "required": ["actions"]
+    "required": [
+      "actions"
+    ]
   }
 }

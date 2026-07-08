@@ -9,6 +9,7 @@ class StateManager {
     this.networkLogs = [];
     this.pageErrors = [];
     this.currentCheckpoint = new Date().toISOString();
+    this.lastPageLoadTime = 0;
     this.requestStartTimes = new Map();
     this.MAX_LOG_ENTRIES = 500;
   }
@@ -41,7 +42,14 @@ class StateManager {
 
   parseSince(args = {}) {
     if (args.since) return new Date(args.since).getTime();
-    if (args.currentOnly !== false) return new Date(this.currentCheckpoint).getTime();
+    if (args.currentOnly !== false) {
+      // 使用 currentCheckpoint 和 lastPageLoadTime 中较早的，确保捕获当前页面的网络请求
+      const cpTime = new Date(this.currentCheckpoint).getTime();
+      if (this.lastPageLoadTime && this.lastPageLoadTime < cpTime) {
+        return this.lastPageLoadTime;
+      }
+      return cpTime;
+    }
     return 0;
   }
 

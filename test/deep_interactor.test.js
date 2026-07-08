@@ -7,11 +7,18 @@ const { autoFillForm, runInteractionChain } = require('../hands/deep_interactor'
 function makeLocatorInner() {
   return {
     count: async () => 1,
-    evaluate: async (fn, overrides) => [
-      { name: 'email', type: 'email', tag: 'input', selector: '[name="email"]', value: overrides.email || 'test@example.com' },
-      { name: 'name', type: 'text', tag: 'input', selector: '[name="name"]', value: overrides.name || 'test_name_value' },
-    ],
-    locator: () => ({ first: () => makeLocatorInner() }),
+    evaluate: async (fn, overrides) => {
+      // 如果 overrides 是对象且有 _preserveOnly 等字段，返回字段元数据
+      if (typeof overrides === 'object') {
+        return [
+          { name: 'email', type: 'email', tag: 'input', selector: '[name="email"]', placeholder: '', label: '', disabled: false, options: null },
+          { name: 'name', type: 'text', tag: 'input', selector: '[name="name"]', placeholder: '', label: '', disabled: false, options: null },
+        ];
+      }
+      return [];
+    },
+    locator: () => makeLocatorInner(),
+    first: () => makeLocatorInner(),
     fill: async () => {},
     type: async () => {},
     check: async () => {},
@@ -24,7 +31,7 @@ function makeLocatorInner() {
 
 function mockPage() {
   return {
-    locator: () => ({ first: () => makeLocatorInner() }),
+    locator: () => makeLocatorInner(),
     click: async () => {},
     goto: async () => {},
     evaluate: async (fn, val) => {},

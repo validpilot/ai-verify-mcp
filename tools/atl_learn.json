@@ -1,0 +1,69 @@
+{
+  "name": "atl_learn",
+  "description": "基于历史修复模式库的ATL似然比学习机制，分析当前错误与历史修复案例的匹配度，计算贝叶斯后验概率，推荐最可能的根因和修复方案。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "errorText": { "type": "string", "description": "错误文本或消息" },
+      "errorUrl": { "type": "string", "description": "错误发生的URL" },
+      "errorType": { "type": "string", "description": "错误类型（console/network/pageerror）" },
+      "errorStatus": { "type": "number", "description": "HTTP状态码（网络错误时）" },
+      "focus": { "type": "string", "description": "聚焦的错误关键词" },
+      "currentOnly": { "type": "boolean", "description": "是否只分析当前checkpoint之后的错误，默认true" },
+      "includeWarnings": { "type": "boolean", "description": "是否包含警告级别的错误，默认false" }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "success": { "type": "boolean", "description": "执行是否成功" },
+      "totalErrorGroups": { "type": "number", "description": "错误分组总数" },
+      "highConfidenceCount": { "type": "number", "description": "高置信度匹配数量" },
+      "results": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "errorSignature": { "type": "string", "description": "错误签名" },
+            "errorCount": { "type": "number", "description": "该错误出现次数" },
+            "totalPatterns": { "type": "number", "description": "模式库总数" },
+            "matchedPatterns": { "type": "number", "description": "匹配的模式数" },
+            "hasHighConfidence": { "type": "boolean", "description": "是否有高置信度匹配" },
+            "topMatches": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "patternId": { "type": "string" },
+                  "title": { "type": "string" },
+                  "score": { "type": "number" },
+                  "probability": { "type": "number", "description": "贝叶斯后验概率" },
+                  "rootCause": { "type": "string" },
+                  "fix": { "type": "string" },
+                  "matchDetails": { "type": "array", "items": { "type": "string" } }
+                }
+              }
+            },
+            "recommendedFix": { "type": "string", "description": "推荐的修复方案" },
+            "recommendedRootCause": { "type": "string", "description": "推荐的根因" }
+          }
+        }
+      },
+      "summary": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "level": { "type": "string", "enum": ["high", "medium"] },
+            "signature": { "type": "string" },
+            "rootCause": { "type": "string" },
+            "fix": { "type": "string" },
+            "confidence": { "type": "number" }
+          }
+        }
+      },
+      "nextSteps": { "type": "array", "items": { "type": "string" }, "description": "下一步建议" }
+    },
+    "required": ["success", "totalErrorGroups", "results"]
+  }
+}

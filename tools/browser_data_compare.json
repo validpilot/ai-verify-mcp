@@ -1,0 +1,107 @@
+{
+  "name": "browser_data_compare",
+  "description": "数据一致性比对：提取页面表格、卡片、列表数据，与期望数据或基准数据进行比对，识别数据缺失、格式错误、内容差异。支持多种数据源：DOM表格、JSON响应、localStorage、API返回数据。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "session": { "type": "number", "description": "浏览器会话ID" },
+      "compareMode": {
+        "type": "string",
+        "enum": ["dom_vs_api", "dom_vs_storage", "dom_vs_expected", "api_vs_storage", "api_vs_expected", "storage_vs_expected", "baseline_compare"],
+        "description": "比对模式：dom_vs_api=页面数据与API响应比对，dom_vs_storage=页面数据与本地存储比对，dom_vs_expected=页面数据与期望数据比对，baseline_compare=与已保存的基线比对",
+        "default": "dom_vs_api"
+      },
+      "selector": { "type": "string", "description": "目标数据区域的CSS选择器，如表格、卡片列表容器" },
+      "apiEndpoint": { "type": "string", "description": "API端点URL，用于获取比对数据" },
+      "apiMethod": { "type": "string", "enum": ["GET", "POST"], "default": "GET", "description": "API请求方法" },
+      "apiBody": { "type": "object", "description": "POST请求的body数据" },
+      "storageKey": { "type": "string", "description": "localStorage/sessionStorage中的数据键名" },
+      "expectedData": {
+        "type": "array",
+        "description": "期望数据，用于与页面数据比对",
+        "items": { "type": "object" }
+      },
+      "baselineName": { "type": "string", "description": "基线名称，用于baseline_compare模式" },
+      "extractMode": {
+        "type": "string",
+        "enum": ["table", "cards", "list", "custom"],
+        "description": "数据提取模式：table=表格，cards=卡片列表，list=普通列表，custom=自定义选择器",
+        "default": "table"
+      },
+      "keyFields": {
+        "type": "array",
+        "description": "主键字段列表，用于数据匹配比对",
+        "items": { "type": "string" }
+      },
+      "ignoreFields": {
+        "type": "array",
+        "description": "忽略比对的字段列表",
+        "items": { "type": "string" }
+      },
+      "strictMode": { "type": "boolean", "default": false, "description": "严格模式：字段类型和顺序必须完全一致" }
+    },
+    "required": []
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "success": { "type": "boolean" },
+      "compareMode": { "type": "string" },
+      "totalRecords": { "type": "number", "description": "总记录数" },
+      "matchCount": { "type": "number", "description": "完全匹配的记录数" },
+      "partialMatchCount": { "type": "number", "description": "部分匹配的记录数" },
+      "mismatchCount": { "type": "number", "description": "不匹配的记录数" },
+      "missingCount": { "type": "number", "description": "缺失的记录数" },
+      "extraCount": { "type": "number", "description": "多余的记录数" },
+      "matchRate": { "type": "number", "description": "匹配率 0-1" },
+      "details": {
+        "type": "array",
+        "description": "比对详情列表",
+        "items": {
+          "type": "object",
+          "properties": {
+            "status": { "type": "string", "enum": ["match", "partial", "mismatch", "missing", "extra"] },
+            "primaryKey": { "type": "string", "description": "主键值" },
+            "sourceData": { "type": "object", "description": "源数据" },
+            "targetData": { "type": "object", "description": "目标数据（缺失时为null）" },
+            "differences": {
+              "type": "array",
+              "description": "字段差异列表",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "field": { "type": "string", "description": "字段名" },
+                  "sourceValue": { "description": "源值" },
+                  "targetValue": { "description": "目标值" },
+                  "diffType": { "type": "string", "enum": ["value", "type", "missing", "extra"] }
+                }
+              }
+            },
+            "rowSelector": { "type": "string", "description": "DOM行选择器（用于定位问题行）" }
+          }
+        }
+      },
+      "summary": { "type": "string", "description": "比对结果摘要" },
+      "suggestions": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "修复建议"
+      },
+      "nextSteps": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "下一步操作建议"
+      },
+      "dataSnapshot": {
+        "type": "object",
+        "description": "数据快照（用于基线保存）",
+        "properties": {
+          "sourceType": { "type": "string" },
+          "sourceData": { "type": "array" },
+          "timestamp": { "type": "string" },
+          "url": { "type": "string" }
+        }
+      }
+    }
+  }
+}

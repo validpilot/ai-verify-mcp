@@ -1,7 +1,7 @@
 {
   "name": "validation_chain",
   "description": "完整功能链路闭环验证工具，按步骤依次执行 navigate/click/type/wait/validate 操作，每步自动检查控制台错误和网络错误，发现错误立即终止并返回详细的失败信息，输出完整的链路验证报告。支持强制执行5步链路验证，缺少关键步骤时拒绝执行。",
-  "inputSchema": {
+  "arguments": {
     "type": "object",
     "properties": {
       "steps": {
@@ -13,7 +13,13 @@
             "type": {
               "type": "string",
               "description": "步骤操作类型：navigate/click/type/wait/validate",
-              "enum": ["navigate", "click", "type", "wait", "validate"]
+              "enum": [
+                "navigate",
+                "click",
+                "type",
+                "wait",
+                "validate"
+              ]
             },
             "name": {
               "type": "string",
@@ -44,7 +50,9 @@
               "description": "单步超时时间（毫秒）"
             }
           },
-          "required": ["type"]
+          "required": [
+            "type"
+          ]
         }
       },
       "failOnError": {
@@ -94,6 +102,8 @@
         "default": 60000
       }
     },
-    "required": ["steps"]
+    "required": [
+      "steps"
+    ]
   }
 }

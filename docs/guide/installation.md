@@ -72,14 +72,16 @@ npm uninstall -g ai-verify-mcp
 ## 客户端配?
 ### Cursor
 
-1. 打开 Cursor 设置 ?Settings ?MCP
-2. 添加以下配置?
+**方案1：开源版本（npx方式）**
+
+使用 npx 自动拉取最新版本：
+
 ```json
 {
   "mcpServers": {
-    "ai-verify": {
+    "validpilot-ai-verify-mcp": {
       "command": "npx",
-      "args": ["-y", "ai-verify-mcp", "stdio"]
+      "args": ["-y", "@validpilot/ai-verify-mcp", "stdio"]
     }
   }
 }
@@ -90,15 +92,16 @@ npm uninstall -g ai-verify-mcp
 ### Claude Desktop
 
 1. 打开 Claude Desktop 设置
-2. 找到 MCP 配置文件位置?   - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
+2. 找到 MCP 配置文件位置：
+   - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
    - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
-3. 添加?
+3. 添加：
 ```json
 {
   "mcpServers": {
-    "ai-verify": {
+    "validpilot-ai-verify-mcp": {
       "command": "npx",
-      "args": ["-y", "ai-verify-mcp", "stdio"]
+      "args": ["-y", "@validpilot/ai-verify-mcp", "stdio"]
     }
   }
 }
@@ -110,13 +113,24 @@ npm uninstall -g ai-verify-mcp
 
 1. 打开 Windsurf 设置
 2. 搜索 MCP 配置
-3. 添加同上配置
+3. 添加：
+```json
+{
+  "mcpServers": {
+    "validpilot-ai-verify-mcp": {
+      "command": "npx",
+      "args": ["-y", "@validpilot/ai-verify-mcp", "stdio"]
+    }
+  }
+}
+```
+
 4. 重启 Windsurf
 
 ### Trae
 
-1. 打开 Trae 设置 ?MCP
+1. 打开 Trae 设置 → MCP
 2. 点击"添加 MCP 服务"
-3. 选择"命令行模?
-4. 命令?`npx`，参数填 `-y @validpilot/ai-verify-mcp stdio`
-5. 保存并启?
+3. 选择"命令行模式"
+4. 命令填 `npx`，参数填 `-y @validpilot/ai-verify-mcp stdio`
+5. 保存并启动

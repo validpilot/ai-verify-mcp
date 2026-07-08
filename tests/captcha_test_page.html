@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>验证码测试页面</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+    }
+    .container {
+      background: white;
+      padding: 40px;
+      border-radius: 16px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+      text-align: center;
+      width: 400px;
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 30px;
+    }
+    .captcha-section {
+      margin-bottom: 20px;
+    }
+    #captchaCanvas {
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      cursor: pointer;
+      display: inline-block;
+    }
+    #captchaImg {
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      cursor: pointer;
+      display: inline-block;
+    }
+    .refresh-link {
+      color: #667eea;
+      text-decoration: none;
+      font-size: 14px;
+      display: block;
+      margin-top: 10px;
+    }
+    .refresh-link:hover {
+      text-decoration: underline;
+    }
+    input {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      font-size: 18px;
+      box-sizing: border-box;
+      margin-bottom: 20px;
+      outline: none;
+    }
+    input:focus {
+      border-color: #667eea;
+    }
+    button {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 12px 30px;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+      width: 100%;
+    }
+    button:hover {
+      opacity: 0.9;
+    }
+    #result {
+      margin-top: 20px;
+      font-size: 16px;
+      font-weight: bold;
+    }
+    .success {
+      color: green;
+    }
+    .error {
+      color: red;
+    }
+    .tabs {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 20px;
+      gap: 10px;
+    }
+    .tab {
+      padding: 8px 16px;
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      cursor: pointer;
+      background: white;
+    }
+    .tab.active {
+      background: #667eea;
+      color: white;
+      border-color: #667eea;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔒 验证码测试页面</h1>
+    
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('canvas')">Canvas验证码</div>
+      <div class="tab" onclick="switchTab('img')">图片验证码</div>
+    </div>
+
+    <div id="canvasTab" class="captcha-section">
+      <canvas id="captchaCanvas" width="200" height="60"></canvas>
+      <a href="#" class="refresh-link" onclick="generateCanvasCaptcha(); return false;">刷新验证码</a>
+    </div>
+
+    <div id="imgTab" class="captcha-section" style="display: none;">
+      <img id="captchaImg" src="https://dummyimage.com/200x60/ffffff/000000&text=AB12CD" alt="验证码" width="200" height="60">
+      <a href="#" class="refresh-link" onclick="generateImgCaptcha(); return false;">刷新验证码</a>
+    </div>
+
+    <input type="text" id="captchaInput" placeholder="请输入验证码">
+    <button onclick="validateCaptcha()">验证</button>
+    <div id="result"></div>
+  </div>
+
+  <script>
+    let currentCaptcha = '';
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+
+    function generateCanvasCaptcha() {
+      const canvas = document.getElementById('captchaCanvas');
+      const ctx = canvas.getContext('2d');
+      
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      currentCaptcha = '';
+      for (let i = 0; i < 6; i++) {
+        currentCaptcha += chars[Math.floor(Math.random() * chars.length)];
+      }
+      
+      for (let i = 0; i < 5; i++) {
+        ctx.strokeStyle = `rgb(${Math.random()*200}, ${Math.random()*200}, ${Math.random()*200})`;
+        ctx.beginPath();
+        ctx.moveTo(Math.random() * canvas.width, Math.random() * canvas.height);
+        ctx.lineTo(Math.random() * canvas.width, Math.random() * canvas.height);
+        ctx.stroke();
+      }
+      
+      for (let i = 0; i < currentCaptcha.length; i++) {
+        ctx.font = `${20 + Math.random() * 10}px Arial`;
+        ctx.fillStyle = `rgb(${Math.random()*100}, ${Math.random()*100}, ${Math.random()*100})`;
+        ctx.save();
+        ctx.translate(30 + i * 30, 40);
+        ctx.rotate((Math.random() - 0.5) * 0.5);
+        ctx.fillText(currentCaptcha[i], 0, 0);
+        ctx.restore();
+      }
+    }
+
+    function generateImgCaptcha() {
+      let captchaText = '';
+      for (let i = 0; i < 6; i++) {
+        captchaText += chars[Math.floor(Math.random() * chars.length)];
+      }
+      currentCaptcha = captchaText;
+      document.getElementById('captchaImg').src = `https://dummyimage.com/200x60/ffffff/000000&text=${captchaText}`;
+    }
+
+    function switchTab(tab) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      event.target.classList.add('active');
+      
+      document.getElementById('canvasTab').style.display = tab === 'canvas' ? 'block' : 'none';
+      document.getElementById('imgTab').style.display = tab === 'img' ? 'block' : 'none';
+      
+      if (tab === 'canvas') {
+        generateCanvasCaptcha();
+      } else {
+        generateImgCaptcha();
+      }
+    }
+
+    function validateCaptcha() {
+      const input = document.getElementById('captchaInput').value;
+      const result = document.getElementById('result');
+      
+      if (input.toLowerCase() === currentCaptcha.toLowerCase()) {
+        result.className = 'success';
+        result.textContent = '✅ 验证码正确！';
+      } else {
+        result.className = 'error';
+        result.textContent = '❌ 验证码错误，请重试！';
+      }
+    }
+
+    generateCanvasCaptcha();
+  </script>
+</body>
+</html>

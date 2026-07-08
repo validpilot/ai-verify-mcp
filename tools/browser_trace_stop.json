@@ -1,19 +1,9 @@
 {
   "name": "browser_trace_stop",
   "description": "停止浏览器追踪会话，返回收集到的追踪数据",
-  "inputSchema": {
+  "arguments": {
     "type": "object",
     "properties": {},
     "required": []
-  },
-  "outputSchema": {
-    "type": "object",
-    "properties": {
-      "ok": { "type": "boolean" },
-      "traceId": { "type": "string" },
-      "stoppedAt": { "type": "string" },
-      "logs": { "type": "array" },
-      "message": { "type": "string" }
-    }
   }
 }

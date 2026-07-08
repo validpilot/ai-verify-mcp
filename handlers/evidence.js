@@ -361,7 +361,7 @@ async function handle(name, args, deps) {
     ensureArtifactsDir();
     
     if (args.autoWait !== false) {
-      await target.waitForLoadState('networkidle');
+      await target.waitForLoadState('domcontentloaded');
       await new Promise(r => setTimeout(r, 500));
     }
     

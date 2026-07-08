@@ -1,7 +1,7 @@
 {
   "name": "validation_compliance",
   "description": "验证当前会话中各功能的链路验证合规性，检查是否完成了完整的5步链路验证（入口可达→操作可行→请求正确→响应正常→状态更新），未完成的功能标记为 NON-COMPLIANT。",
-  "inputSchema": {
+  "arguments": {
     "type": "object",
     "properties": {
       "functions": {
@@ -17,7 +17,12 @@
             "type": {
               "type": "string",
               "description": "功能类型：数据提交类/信息展示类/导航跳转类/交互操作类",
-              "enum": ["数据提交类", "信息展示类", "导航跳转类", "交互操作类"]
+              "enum": [
+                "数据提交类",
+                "信息展示类",
+                "导航跳转类",
+                "交互操作类"
+              ]
             },
             "steps": {
               "type": "array",
@@ -32,23 +37,41 @@
                   "stepType": {
                     "type": "string",
                     "description": "步骤类型",
-                    "enum": ["入口可达", "操作可行", "请求正确", "响应正常", "状态更新", "其他"]
+                    "enum": [
+                      "入口可达",
+                      "操作可行",
+                      "请求正确",
+                      "响应正常",
+                      "状态更新",
+                      "其他"
+                    ]
                   },
                   "status": {
                     "type": "string",
                     "description": "步骤状态",
-                    "enum": ["passed", "failed", "skipped", "not_executed"]
+                    "enum": [
+                      "passed",
+                      "failed",
+                      "skipped",
+                      "not_executed"
+                    ]
                   },
                   "evidence": {
                     "type": "string",
                     "description": "验证证据（截图路径、日志引用等）"
                   }
                 },
-                "required": ["stepType", "status"]
+                "required": [
+                  "stepType",
+                  "status"
+                ]
               }
             }
           },
-          "required": ["name", "type"]
+          "required": [
+            "name",
+            "type"
+          ]
         }
       },
       "strictMode": {
@@ -75,6 +98,8 @@
         }
       }
     },
-    "required": ["functions"]
+    "required": [
+      "functions"
+    ]
   }
 }

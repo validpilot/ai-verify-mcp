@@ -1,0 +1,159 @@
+{
+  "name": "memory_recall",
+  "description": "跨会话记忆系统：检索/固化/列出/遗忘历史验证发现与修复模式。基于 .validpilot/memory/ 目录持久化情景记忆、模式记忆、程序记忆三类知识，支持文本相似度+标签+主机多维度召回，实现同类 Bug 第二次自动识别。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "operation": {
+        "type": "string",
+        "enum": ["recall", "consolidate", "list", "forget", "stats"],
+        "description": "操作类型：recall=检索相似记忆；consolidate=固化当前会话发现到长期记忆；list=列出记忆条目；forget=删除过期/指定记忆；stats=统计记忆库状态"
+      },
+      "query": {
+        "type": "string",
+        "description": "检索查询文本（recall 时必填，支持错误消息、URL、症状描述）"
+      },
+      "queryType": {
+        "type": "string",
+        "enum": ["auto", "error", "url", "symptom", "tag"],
+        "description": "查询类型，默认 auto 自动识别"
+      },
+      "episode": {
+        "type": "object",
+        "description": "consolidate 时要固化的情景数据",
+        "properties": {
+          "title": { "type": "string", "description": "情景标题（如 'huokesys settlement_accounts 表缺失'）" },
+          "target": { "type": "string", "description": "目标 URL 或主机" },
+          "symptom": { "type": "string", "description": "症状描述" },
+          "rootCause": { "type": "string", "description": "根因分析" },
+          "fix": { "type": "string", "description": "修复方案" },
+          "tags": { "type": "array", "items": { "type": "string" }, "description": "标签列表" },
+          "evidence": { "type": "array", "items": { "type": "object" }, "description": "证据快照" },
+          "toolFindings": { "type": "object", "description": "工具发现汇总（如 endpoints/forms/issues）" }
+        }
+      },
+      "memoryType": {
+        "type": "string",
+        "enum": ["all", "episodic", "pattern", "procedural"],
+        "description": "记忆类型过滤，默认 all"
+      },
+      "tags": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "按标签过滤（多标签为 AND 关系）"
+      },
+      "host": {
+        "type": "string",
+        "description": "按主机名过滤（如 example.com）"
+      },
+      "since": {
+        "type": "string",
+        "description": "ISO8601 时间戳，仅返回此时间之后的记忆"
+      },
+      "before": {
+        "type": "string",
+        "description": "ISO8601 时间戳，仅返回此时间之前的记忆"
+      },
+      "limit": {
+        "type": "number",
+        "description": "返回数量上限，默认 10"
+      },
+      "minScore": {
+        "type": "number",
+        "description": "recall 时最低相似度分数阈值（0-1），默认 0.3"
+      },
+      "id": {
+        "type": "string",
+        "description": "forget 时指定要删除的记忆 ID"
+      },
+      "forgetStrategy": {
+        "type": "string",
+        "enum": ["byId", "expired", "byTag", "before"],
+        "description": "forget 策略：byId=按ID删除；expired=删除过期记忆；byTag=按标签删除；before=删除 before 时间之前的记忆"
+      },
+      "projectId": {
+        "type": "string",
+        "description": "项目标识（用于项目级记忆隔离），默认自动从 cwd 推断"
+      }
+    },
+    "required": ["operation"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "success": { "type": "boolean" },
+      "operation": { "type": "string" },
+      "projectId": { "type": "string", "description": "实际使用的项目ID" },
+      "matches": {
+        "type": "array",
+        "description": "recall 操作返回的匹配记忆",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": { "type": "string" },
+            "memoryType": { "type": "string" },
+            "title": { "type": "string" },
+            "symptom": { "type": "string" },
+            "rootCause": { "type": "string" },
+            "fix": { "type": "string" },
+            "tags": { "type": "array", "items": { "type": "string" } },
+            "host": { "type": "string" },
+            "createdAt": { "type": "string" },
+            "score": { "type": "number", "description": "相似度分数 0-1" },
+            "matchDetails": { "type": "array", "items": { "type": "string" } }
+          }
+        }
+      },
+      "saved": {
+        "type": "object",
+        "description": "consolidate 操作返回的固化结果",
+        "properties": {
+          "id": { "type": "string" },
+          "memoryType": { "type": "string" },
+          "extractedPatterns": { "type": "number", "description": "提炼的模式数" }
+        }
+      },
+      "items": {
+        "type": "array",
+        "description": "list 操作返回的记忆列表",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": { "type": "string" },
+            "memoryType": { "type": "string" },
+            "title": { "type": "string" },
+            "tags": { "type": "array", "items": { "type": "string" } },
+            "host": { "type": "string" },
+            "createdAt": { "type": "string" },
+            "lastRecalledAt": { "type": "string" },
+            "recallCount": { "type": "number" }
+          }
+        }
+      },
+      "deleted": {
+        "type": "object",
+        "description": "forget 操作返回的删除结果",
+        "properties": {
+          "count": { "type": "number" },
+          "ids": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "stats": {
+        "type": "object",
+        "description": "stats 操作返回的统计",
+        "properties": {
+          "totalMemories": { "type": "number" },
+          "byType": { "type": "object" },
+          "byHost": { "type": "object" },
+          "oldestMemory": { "type": "string" },
+          "newestMemory": { "type": "string" },
+          "totalRecalls": { "type": "number" },
+          "storageBytes": { "type": "number" }
+        }
+      },
+      "summary": { "type": "string", "description": "本次操作摘要" },
+      "nextSteps": { "type": "array", "items": { "type": "string" } }
+    },
+    "required": ["success", "operation"]
+  }
+}

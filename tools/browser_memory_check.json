@@ -1,10 +1,13 @@
 {
   "name": "browser_memory_check",
   "description": "内存泄漏检测：通过 Performance API 检测 detached DOM 节点数量、事件监听器泄漏风险、JS 堆大小（heap size）和 DOM 节点总数，返回泄漏风险评估和优化建议。",
-  "inputSchema": {
+  "arguments": {
     "type": "object",
     "properties": {
-      "sessionName": { "type": "string", "description": "浏览器会话名称，默认当前活跃会话" }
+      "sessionName": {
+        "type": "string",
+        "description": "浏览器会话名称，默认当前活跃会话"
+      }
     }
   }
 }

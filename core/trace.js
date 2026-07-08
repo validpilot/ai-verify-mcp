@@ -1,5 +1,7 @@
 'use strict';
 
+const crypto = require('crypto');
+
 const MAX_TRACE_LOGS = 1500;
 
 class TraceManager {
@@ -13,9 +15,7 @@ class TraceManager {
   }
 
   genHex(bytes) {
-    let s = '';
-    for (let i = 0; i < bytes; i++) s += Math.floor(Math.random() * 16).toString(16);
-    return s;
+    return crypto.randomBytes(Math.ceil(bytes / 2)).toString('hex').slice(0, bytes);
   }
 
   genTraceId() { return this.genHex(32); }

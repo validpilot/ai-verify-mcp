@@ -1,0 +1,92 @@
+{
+  "name": "bypass_login",
+  "description": "开源版认证绕过检测：通过多种方式测试是否可以绕过登录验证直接访问受保护页面/API。包括：无 Cookie 请求、修改用户 ID、移除 Authorization 头、测试常见后门路径等。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "targetUrl": {
+        "type": "string",
+        "description": "目标受保护页面的 URL"
+      },
+      "authApiPath": {
+        "type": "string",
+        "description": "认证 API 路径（如 /api/auth/me），用于验证当前登录状态"
+      },
+      "testCases": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": ["no_cookie", "no_auth_header", "fake_user_id", "direct_api_access", "backdoor_paths", "idor_test", "unauthorized_access"]
+        },
+        "default": ["no_cookie", "no_auth_header", "fake_user_id", "direct_api_access", "backdoor_paths"],
+        "description": "要执行的测试用例列表"
+      },
+      "userIdToTest": {
+        "type": "string",
+        "description": "IDOR 测试时使用的其他用户 ID"
+      },
+      "backdoorPaths": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "自定义后门路径列表，默认使用内置常见路径"
+      },
+      "maxTestCount": {
+        "type": "number",
+        "default": 20,
+        "description": "最大测试次数"
+      }
+    },
+    "required": ["targetUrl"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "success": { "type": "boolean", "description": "执行是否成功" },
+      "targetUrl": { "type": "string", "description": "目标URL" },
+      "vulnerabilities": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string", "description": "漏洞类型" },
+            "severity": { "type": "string", "enum": ["blocking", "major", "warning"], "description": "严重程度" },
+            "description": { "type": "string", "description": "漏洞描述" }
+          }
+        },
+        "description": "发现的安全漏洞"
+      },
+      "testResults": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "test": { "type": "string", "description": "测试名称" },
+            "status": { "type": "number", "description": "HTTP状态码" },
+            "bypassed": { "type": "boolean", "description": "是否绕过成功" },
+            "skipped": { "type": "boolean", "description": "是否跳过" },
+            "reason": { "type": "string", "description": "跳过原因" }
+          }
+        },
+        "description": "各测试用例结果"
+      },
+      "totalTests": { "type": "number", "description": "总测试次数" },
+      "passedTests": { "type": "number", "description": "通过测试数" },
+      "failedTests": { "type": "number", "description": "失败测试数" },
+      "notes": { "type": "array", "items": { "type": "string" }, "description": "备注信息" },
+      "status": { "type": "string", "enum": ["secure", "vulnerable"], "description": "整体安全状态" },
+      "summary": {
+        "type": "object",
+        "properties": {
+          "totalTests": { "type": "number" },
+          "passedTests": { "type": "number" },
+          "failedTests": { "type": "number" },
+          "vulnerabilityCount": { "type": "number" },
+          "noteCount": { "type": "number" }
+        },
+        "description": "统计摘要"
+      },
+      "error": { "type": "string", "description": "错误信息（失败时）" }
+    },
+    "required": ["success", "status", "summary", "vulnerabilities"]
+  }
+}

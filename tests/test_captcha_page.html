@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Captcha Test Page</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 40px; }
+    .captcha-container { margin: 20px 0; }
+    .captcha-img { border: 1px solid #ccc; padding: 10px; }
+    input { padding: 8px; margin: 10px 0; width: 200px; }
+    button { padding: 10px 20px; background: #007bff; color: white; border: none; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h1>Captcha Test Page</h1>
+  
+  <div class="captcha-container">
+    <label>验证码图片:</label><br>
+    <img class="captcha-img" src="http://dummyimage.com/120x50/000/fff&text=A1B2" alt="captcha">
+    <p>验证码: A1B2</p>
+  </div>
+
+  <div class="captcha-container">
+    <label>另一个验证码:</label><br>
+    <img class="captcha-img" src="http://dummyimage.com/120x50/fff/000&text=XY99" alt="captcha">
+    <p>验证码: XY99</p>
+  </div>
+
+  <div class="captcha-container">
+    <label>纯数字验证码:</label><br>
+    <img class="captcha-img" src="http://dummyimage.com/120x50/eee/333&text=1234" alt="captcha">
+    <p>验证码: 1234</p>
+  </div>
+
+  <div>
+    <input type="text" id="captcha-input" placeholder="请输入验证码">
+    <button id="submit-btn">提交</button>
+  </div>
+</body>
+</html>

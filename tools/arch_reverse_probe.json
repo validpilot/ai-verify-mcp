@@ -1,0 +1,120 @@
+{
+  "name": "arch_reverse_probe",
+  "description": "开源版架构逆向探测：通过浏览器可访问的信号逆向识别目标站点的基础架构。包括：1) 技术栈版本指纹（前端框架+版本号）；2) 中间件链推断（Server 头、X-Powered-By、CSP、CORS）；3) 端口旁路探测（同源常见端口 80/443/3000/8080/8000/5000 是否可达）；4) 容器化信号检测（Docker/K8s 元数据泄露、.dockerenv 探测）；5) CVE 初筛（基于识别到的版本号匹配已知 CVE）。不依赖 SSH/DB 权限，纯前端可访问信号。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "target": {
+        "type": "string",
+        "description": "目标站点 URL（必填）"
+      },
+      "probePorts": {
+        "type": "boolean",
+        "default": true,
+        "description": "是否探测同源常见端口（80/443/3000/8080/8000/5000/9000）"
+      },
+      "probeDocker": {
+        "type": "boolean",
+        "default": true,
+        "description": "探测 Docker/K8s 容器化信号"
+      },
+      "probeCVE": {
+        "type": "boolean",
+        "default": true,
+        "description": "基于识别到的版本号匹配 CVE"
+      },
+      "customPorts": {
+        "type": "array",
+        "items": { "type": "number" },
+        "description": "自定义探测端口列表"
+      },
+      "timeout": {
+        "type": "number",
+        "default": 5000,
+        "description": "单个探测超时（毫秒）"
+      }
+    },
+    "required": ["target"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "success": { "type": "boolean" },
+      "target": { "type": "string" },
+      "techStack": {
+        "type": "array",
+        "description": "识别到的技术栈（含版本号）",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "version": { "type": "string" },
+            "confidence": { "type": "number" },
+            "evidence": { "type": "string" }
+          }
+        }
+      },
+      "middleware": {
+        "type": "object",
+        "description": "中间件链推断",
+        "properties": {
+          "server": { "type": "string" },
+          "poweredBy": { "type": "string" },
+          "cdn": { "type": "string" },
+          "waf": { "type": "string" },
+          "loadBalancer": { "type": "string" },
+          "csp": { "type": "string" },
+          "corsPolicy": { "type": "string" }
+        }
+      },
+      "ports": {
+        "type": "array",
+        "description": "端口探测结果",
+        "items": {
+          "type": "object",
+          "properties": {
+            "port": { "type": "number" },
+            "accessible": { "type": "boolean" },
+            "service": { "type": "string" },
+            "responseTime": { "type": "number" }
+          }
+        }
+      },
+      "container": {
+        "type": "object",
+        "description": "容器化信号",
+        "properties": {
+          "docker": { "type": "boolean" },
+          "kubernetes": { "type": "boolean" },
+          "evidence": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "cveMatches": {
+        "type": "array",
+        "description": "CVE 匹配结果（基于版本号）",
+        "items": {
+          "type": "object",
+          "properties": {
+            "cveId": { "type": "string" },
+            "severity": { "type": "string" },
+            "component": { "type": "string" },
+            "description": { "type": "string" }
+          }
+        }
+      },
+      "summary": {
+        "type": "object",
+        "properties": {
+          "techCount": { "type": "number" },
+          "openPorts": { "type": "number" },
+          "cveCount": { "type": "number" },
+          "criticalCves": { "type": "number" },
+          "containerDetected": { "type": "boolean" }
+        }
+      },
+      "nextSteps": { "type": "array", "items": { "type": "string" } },
+      "paidUpgradeHint": { "type": "string" }
+    },
+    "required": ["success", "techStack", "summary"]
+  }
+}

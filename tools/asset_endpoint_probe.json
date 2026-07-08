@@ -1,0 +1,101 @@
+{
+  "name": "asset_endpoint_probe",
+  "description": "开源版端点主动探测：对常见的 20+ 通用端点进行主动 GET/HEAD 请求探测，识别可访问的端点、返回状态码、响应大小等信息。探测列表涵盖认证、用户、订单、配置等常见业务模块。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "basePath": {
+        "type": "string",
+        "default": "/api",
+        "description": "API 基础路径"
+      },
+      "probeCategories": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": ["auth", "user", "order", "config", "admin", "system", "all"]
+        },
+        "default": ["all"],
+        "description": "探测类别：auth=认证相关；user=用户相关；order=订单相关；config=配置相关；admin=管理端；system=系统相关；all=全部"
+      },
+      "customEndpoints": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "自定义探测端点列表"
+      },
+      "method": {
+        "type": "string",
+        "enum": ["GET", "HEAD"],
+        "default": "HEAD",
+        "description": "探测方法：HEAD 更快但可能被拦截；GET 更可靠"
+      },
+      "timeout": {
+        "type": "number",
+        "default": 5000,
+        "description": "单个请求超时时间（毫秒）"
+      },
+      "maxConcurrent": {
+        "type": "number",
+        "default": 5,
+        "description": "最大并发请求数"
+      },
+      "includeHidden": {
+        "type": "boolean",
+        "default": false,
+        "description": "是否包含隐藏端点（如 .env, /admin, /backup 等）"
+      }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "success": { "type": "boolean", "description": "执行是否成功" },
+      "basePath": { "type": "string", "description": "使用的基础路径" },
+      "method": { "type": "string", "description": "使用的HTTP方法" },
+      "totalProbed": { "type": "number", "description": "总探测端点数" },
+      "isSpa": { "type": "boolean", "description": "是否为SPA应用" },
+      "notes": { "type": "array", "items": { "type": "string" }, "description": "备注信息" },
+      "categorized": {
+        "type": "object",
+        "properties": {
+          "accessible": { "type": "array", "items": { "type": "object" }, "description": "可访问的API端点" },
+          "accessibleHtml": { "type": "array", "items": { "type": "object" }, "description": "返回HTML的端点（可能是SPA路由）" },
+          "redirect": { "type": "array", "items": { "type": "object" }, "description": "重定向的端点" },
+          "unauthorized": { "type": "array", "items": { "type": "object" }, "description": "返回401的端点" },
+          "forbidden": { "type": "array", "items": { "type": "object" }, "description": "返回403的端点" },
+          "notFound": { "type": "array", "items": { "type": "object" }, "description": "返回404的端点" },
+          "error": { "type": "array", "items": { "type": "object" }, "description": "返回5xx的端点" },
+          "timeout": { "type": "array", "items": { "type": "object" }, "description": "超时的端点" }
+        },
+        "description": "按状态分类的探测结果"
+      },
+      "summary": {
+        "type": "object",
+        "properties": {
+          "accessible": { "type": "number" },
+          "accessibleHtml": { "type": "number" },
+          "redirect": { "type": "number" },
+          "unauthorized": { "type": "number" },
+          "forbidden": { "type": "number" },
+          "notFound": { "type": "number" },
+          "error": { "type": "number" },
+          "timeout": { "type": "number" }
+        },
+        "description": "统计摘要"
+      },
+      "topFindings": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "endpoint": { "type": "string" },
+            "status": { "type": "number" }
+          }
+        },
+        "description": "可访问端点前10名"
+      },
+      "error": { "type": "string", "description": "错误信息（失败时）" }
+    },
+    "required": ["success", "totalProbed", "summary", "categorized"]
+  }
+}

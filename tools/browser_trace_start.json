@@ -1,18 +1,9 @@
 {
   "name": "browser_trace_start",
   "description": "开始浏览器追踪会话，记录页面加载和交互过程中的性能数据",
-  "inputSchema": {
+  "arguments": {
     "type": "object",
     "properties": {},
     "required": []
-  },
-  "outputSchema": {
-    "type": "object",
-    "properties": {
-      "ok": { "type": "boolean" },
-      "traceId": { "type": "string" },
-      "startedAt": { "type": "string" },
-      "message": { "type": "string" }
-    }
   }
 }

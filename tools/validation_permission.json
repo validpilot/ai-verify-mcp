@@ -1,38 +1,74 @@
 {
   "name": "validation_permission",
   "description": "权限越权检测工具。支持三种模式：horizontal_privilege=水平越权检测（替换API路径中的ID）；vertical_privilege=垂直越权检测（普通用户访问管理API）；role_menu=基于角色的菜单可见性验证",
-  "inputSchema": {
+  "arguments": {
     "type": "object",
     "properties": {
-      "targetUrl": {"type": "string", "description": "目标页面 URL"},
+      "targetUrl": {
+        "type": "string",
+        "description": "目标页面 URL"
+      },
       "action": {
         "type": "string",
-        "enum": ["horizontal_privilege", "vertical_privilege", "role_menu"],
+        "enum": [
+          "horizontal_privilege",
+          "vertical_privilege",
+          "role_menu"
+        ],
         "description": "检测模式：horizontal_privilege=水平越权；vertical_privilege=垂直越权；role_menu=角色菜单"
       },
-      "entity": {"type": "string", "description": "实体名称（如 leads/orders），用于构造 API 路径"},
-      "entityId": {"type": "string", "description": "当前用户的实体 ID（水平越权检测时，将被替换为 otherEntityId）"},
-      "otherEntityId": {"type": "string", "description": "其他用户的实体 ID（水平越权检测时替换为目标值）"},
+      "entity": {
+        "type": "string",
+        "description": "实体名称（如 leads/orders），用于构造 API 路径"
+      },
+      "entityId": {
+        "type": "string",
+        "description": "当前用户的实体 ID（水平越权检测时，将被替换为 otherEntityId）"
+      },
+      "otherEntityId": {
+        "type": "string",
+        "description": "其他用户的实体 ID（水平越权检测时替换为目标值）"
+      },
       "adminApiPaths": {
         "type": "array",
-        "items": {"type": "string"},
+        "items": {
+          "type": "string"
+        },
         "description": "管理端 API 路径数组（垂直越权检测时访问这些路径）"
       },
-      "roleSelector": {"type": "string", "description": "role_menu 模式：角色切换按钮/下拉框的选择器"},
-      "targetRole": {"type": "string", "description": "role_menu 模式：目标角色名称"},
+      "roleSelector": {
+        "type": "string",
+        "description": "role_menu 模式：角色切换按钮/下拉框的选择器"
+      },
+      "targetRole": {
+        "type": "string",
+        "description": "role_menu 模式：目标角色名称"
+      },
       "expectedMenuItems": {
         "type": "array",
-        "items": {"type": "string"},
+        "items": {
+          "type": "string"
+        },
         "description": "role_menu 模式：目标角色应看到的菜单项文本"
       },
       "unexpectedMenuItems": {
         "type": "array",
-        "items": {"type": "string"},
+        "items": {
+          "type": "string"
+        },
         "description": "role_menu 模式：目标角色不应看到的菜单项文本"
       },
-      "name": {"type": "string", "description": "检测名称"},
-      "timeout": {"type": "number", "description": "超时时间（毫秒），默认 15000"}
+      "name": {
+        "type": "string",
+        "description": "检测名称"
+      },
+      "timeout": {
+        "type": "number",
+        "description": "超时时间（毫秒），默认 15000"
+      }
     },
-    "required": ["action"]
+    "required": [
+      "action"
+    ]
   }
 }

@@ -141,7 +141,14 @@ function password(opts = {}) {
     pwd += all[Math.floor(Math.random() * all.length)];
   }
 
-  return pwd.split('').sort(() => Math.random() - 0.5).join('');
+  const arr = pwd.split('');
+  const len = arr.length;
+  const buf = crypto.randomBytes(len * 4);
+  for (let i = len - 1; i > 0; i--) {
+    const j = buf.readUInt32BE(i * 4) % (i + 1);
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr.join('');
 }
 
 const generators = {

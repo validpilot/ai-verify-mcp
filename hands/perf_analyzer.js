@@ -83,6 +83,37 @@ function calculateScore(metrics) {
 }
 
 /**
+ * 检测SPA框架类型
+ */
+function detectSPAFramework(page) {
+  return page.evaluate(() => {
+    if (window.__REACT_DEVTOOLS_GLOBAL_HOOK__ || document.querySelector('[data-reactroot], [data-reactid]')) return 'React';
+    if (window.__VUE__ || window.__VUE_DEVTOOLS_GLOBAL_HOOK__ || document.querySelector('[data-v-app], [data-server-rendered]')) return 'Vue';
+    if (window.ng || document.querySelector('[ng-version], [ng-app], .ng-scope')) return 'Angular';
+    if (document.querySelector('#__next') || window.__NEXT_DATA__) return 'Next.js';
+    if (document.querySelector('#__nuxt') || window.__NUXT__) return 'Nuxt';
+    if (document.querySelector('#app, #root')) return 'SPA (generic)';
+    return null;
+  });
+}
+
+/**
+ * 等待SPA路由稳定（最多等待5秒）
+ */
+async function waitForSPARouteStable(page, timeout = 5000) {
+  const startTime = Date.now();
+  let lastUrl = await page.url();
+  
+  while (Date.now() - startTime < timeout) {
+    await page.waitForTimeout(200);
+    const currentUrl = await page.url();
+    if (currentUrl === lastUrl) return true;
+    lastUrl = currentUrl;
+  }
+  return false;
+}
+
+/**
  * 分析页面性能（兼容 ai-verify-mcp 的 page-based API）
  * @param {import('playwright').Page} page
  * @returns {Promise<object>}
@@ -90,6 +121,13 @@ function calculateScore(metrics) {
 async function analyzePerformance(page) {
   const canEval = typeof page.evaluate === 'function';
   const metrics = { FP: null, FCP: null, LCP: null, TTFB: null, CLS: 0, INP: 0 };
+  const framework = canEval ? await detectSPAFramework(page) : null;
+  const isSPA = framework !== null;
+
+  if (isSPA) {
+    await waitForSPARouteStable(page);
+    await page.waitForTimeout(1000);
+  }
 
   if (canEval) {
     try {
@@ -104,11 +142,25 @@ async function analyzePerformance(page) {
           const nav = performance.getEntriesByType('navigation')[0];
           if (nav) ttfb = Math.round(nav.responseStart);
         } catch (_) { /* ignore */ }
+        
+        const resourceEntries = performance.getEntriesByType('resource');
+        const jsLoadTimes = resourceEntries
+          .filter(e => e.initiatorType === 'script' && e.name.match(/\.(js|jsx|ts|tsx)(\?|$)/))
+          .map(e => Math.round(e.duration));
+        const cssLoadTimes = resourceEntries
+          .filter(e => e.initiatorType === 'link' && e.name.match(/\.css(\?|$)/))
+          .map(e => Math.round(e.duration));
+
         return {
           FP: firstPaint ? Math.round(firstPaint.startTime) : null,
           FCP: fcp ? Math.round(fcp.startTime) : null,
           LCP: lcp ? Math.round(lcp.startTime) : null,
-          TTFB: ttfb
+          TTFB: ttfb,
+          jsLoadCount: jsLoadTimes.length,
+          avgJsLoadTime: jsLoadTimes.length > 0 ? Math.round(jsLoadTimes.reduce((a, b) => a + b, 0) / jsLoadTimes.length) : 0,
+          cssLoadCount: cssLoadTimes.length,
+          avgCssLoadTime: cssLoadTimes.length > 0 ? Math.round(cssLoadTimes.reduce((a, b) => a + b, 0) / cssLoadTimes.length) : 0,
+          resourceCount: resourceEntries.length
         };
       });
       Object.assign(metrics, data);
@@ -137,6 +189,30 @@ async function analyzePerformance(page) {
         return worstInp;
       });
     } catch (_) { /* ignore */ }
+
+    // SPA特定指标
+    if (isSPA) {
+      try {
+        const spaMetrics = await page.evaluate(() => {
+          const routerCheck = {
+            hasReactRouter: typeof window.ReactRouter !== 'undefined' || document.querySelector('[data-router]'),
+            hasVueRouter: typeof window.$router !== 'undefined',
+            hasHashRouter: location.hash !== '' && !location.pathname.includes('.'),
+            hasHistoryAPI: typeof window.history !== 'undefined' && typeof window.history.pushState === 'function'
+          };
+          const domContent = document.body.innerText || '';
+          const renderTime = performance.now();
+          return {
+            routerType: routerCheck.hasHashRouter ? 'hash' : 'history',
+            hasRouterAPI: routerCheck.hasReactRouter || routerCheck.hasVueRouter || routerCheck.hasHistoryAPI,
+            estimatedRenderTime: Math.round(renderTime),
+            domNodeCount: document.querySelectorAll('*').length,
+            textContentLength: domContent.length
+          };
+        });
+        Object.assign(metrics, spaMetrics);
+      } catch (_) { /* ignore */ }
+    }
   }
 
   const opportunities = [];
@@ -157,7 +233,7 @@ async function analyzePerformance(page) {
   const score = calculateScore(metrics);
   const rating = score >= 90 ? 'good' : score >= 50 ? 'needs-improvement' : 'poor';
 
-  return { score, rating, coreWebVitals: cwv, opportunities, metrics };
+  return { score, rating, coreWebVitals: cwv, opportunities, metrics, framework, isSPA };
 }
 
 module.exports = { analyzePerformance, rateLCP, rateFCP, rateTTFB, rateCLS, calculateScore, rateMetric, generateSuggestion, THRESHOLDS };

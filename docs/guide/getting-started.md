@@ -49,28 +49,28 @@ npm install -g @validpilot/ai-verify-mcp
 ## 配置?AI 客户?
 ### Trae
 
-在项目根目录创建 `.trae/mcp.json`?
+在项目根目录创建 `.trae/mcp.json`：
 ```json
 {
   "mcpServers": {
-    "ai-verify-mcp": {
+    "validpilot-ai-verify-mcp": {
       "command": "npx",
-      "args": ["-y", "ai-verify-mcp"]
+      "args": ["-y", "@validpilot/ai-verify-mcp"]
     }
   }
 }
 ```
 
-重启 Trae 会话即可使用?
+重启 Trae 会话即可使用。
 ### Cursor
 
-创建 `.cursor/mcp.json`?
+创建 `.cursor/mcp.json`：
 ```json
 {
   "mcpServers": {
-    "ai-verify-mcp": {
+    "validpilot-ai-verify-mcp": {
       "command": "npx",
-      "args": ["-y", "ai-verify-mcp"]
+      "args": ["-y", "@validpilot/ai-verify-mcp"]
     }
   }
 }
@@ -78,13 +78,13 @@ npm install -g @validpilot/ai-verify-mcp
 
 ### Claude Desktop
 
-编辑 `claude_desktop_config.json`?
+编辑 `claude_desktop_config.json`：
 ```json
 {
   "mcpServers": {
-    "ai-verify-mcp": {
+    "validpilot-ai-verify-mcp": {
       "command": "npx",
-      "args": ["-y", "ai-verify-mcp"]
+      "args": ["-y", "@validpilot/ai-verify-mcp"]
     }
   }
 }
@@ -93,8 +93,20 @@ npm install -g @validpilot/ai-verify-mcp
 - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
 - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
 
-### 其他客户?
-Windsurf / Cline / Roo Code / OpenClaw / Codex CLI / Hermes / CodeArts / CodeBuddy 等，配置方式类似，命令均?`npx -y ai-verify-mcp`?
+### 其他客户端
+
+```json
+{
+  "mcpServers": {
+    "validpilot-ai-verify-mcp": {
+      "command": "npx",
+      "args": ["-y", "@validpilot/ai-verify-mcp"]
+    }
+  }
+}
+```
+
+Windsurf / Cline / Roo Code / OpenClaw / Codex CLI / Hermes / CodeArts / CodeBuddy 等，配置方式类似。
 ## 下一?
 - 查看 [完整安装指南](./installation)
 - 了解 [CLI 命令](./cli)

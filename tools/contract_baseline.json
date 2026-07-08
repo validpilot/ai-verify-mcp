@@ -1,12 +1,18 @@
 {
   "name": "contract_baseline",
   "description": "消费者契约基线管理：保存当前 schema 为基线、加载基线、对比当前 schema 与基线检测漂移、列出所有基线、删除基线。配合 contract_guard 使用，可实现 API 变更版本化守护。",
-  "inputSchema": {
+  "arguments": {
     "type": "object",
     "properties": {
       "action": {
         "type": "string",
-        "enum": ["list", "save", "load", "compare", "delete"],
+        "enum": [
+          "list",
+          "save",
+          "load",
+          "compare",
+          "delete"
+        ],
         "description": "操作类型：list=列出所有基线，save=保存当前 contracts 为基线，load=加载指定基线，compare=对比当前 contracts 与基线，delete=删除基线",
         "default": "list"
       },
@@ -20,10 +26,18 @@
         "items": {
           "type": "object",
           "properties": {
-            "endpoint": { "type": "string" },
-            "method": { "type": "string" },
-            "status": { "type": "number" },
-            "schema": { "type": "object" }
+            "endpoint": {
+              "type": "string"
+            },
+            "method": {
+              "type": "string"
+            },
+            "status": {
+              "type": "number"
+            },
+            "schema": {
+              "type": "object"
+            }
           }
         }
       }

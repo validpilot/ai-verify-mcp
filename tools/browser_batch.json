@@ -1,7 +1,7 @@
 {
   "name": "browser_batch",
   "description": "批量执行多个浏览器操作，每个步骤包含type(操作类型: click/type/hover/scroll/screenshot等)、selector(选择器)、text(输入文本)等参数。支持最多20个操作。",
-  "inputSchema": {
+  "arguments": {
     "type": "object",
     "properties": {
       "steps": {
@@ -12,7 +12,16 @@
           "properties": {
             "type": {
               "type": "string",
-              "enum": ["click", "type", "hover", "scroll", "screenshot", "wait", "press_key", "select"],
+              "enum": [
+                "click",
+                "type",
+                "hover",
+                "scroll",
+                "screenshot",
+                "wait",
+                "press_key",
+                "select"
+              ],
               "description": "操作类型"
             },
             "selector": {
@@ -48,7 +57,9 @@
               "description": "截图名称（screenshot操作时使用）"
             }
           },
-          "required": ["type"]
+          "required": [
+            "type"
+          ]
         }
       },
       "maxSteps": {
@@ -56,6 +67,8 @@
         "description": "最大操作步骤数，默认20"
       }
     },
-    "required": ["steps"]
+    "required": [
+      "steps"
+    ]
   }
 }

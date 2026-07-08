@@ -64,9 +64,9 @@ AI Client ←HTTP→ MCP Server
 ```json
 {
   "mcpServers": {
-    "ai-verify-mcp": {
+    "validpilot-ai-verify-mcp": {
       "command": "npx",
-      "args": ["-y", "ai-verify-mcp"]
+      "args": ["-y", "@validpilot/ai-verify-mcp"]
     }
   }
 }
