@@ -64,3 +64,18 @@ temp/
 
 # OCR trained data
 eng.traineddata
+
+# Temporary test scripts (root level)
+test-captcha-*.js
+test-captcha.js
+test-debug-page.js
+test-direct-playwright.js
+test-cf-output.txt
+test-node-out.txt
+test-real-project-report.json
+test-results/
+scripts/archive/
+scripts/test-captcha-*.js
+scripts/test-captcha.js
+scripts/test-debug-page.js
+scripts/test-direct-playwright.js
