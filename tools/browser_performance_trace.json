@@ -37,22 +37,5 @@
         "description": "是否导出 HAR 格式数据"
       }
     }
-  },
-  "outputSchema": {
-    "type": "object",
-    "properties": {
-      "success": {
-        "type": "boolean"
-      },
-      "metrics": {
-        "type": "object"
-      },
-      "grade": {
-        "type": "string"
-      },
-      "recommendations": {
-        "type": "array"
-      }
-    }
   }
 }

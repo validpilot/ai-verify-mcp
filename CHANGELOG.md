@@ -2,13 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.6.8] - 2026-07-11
+
+### Fixed
+
+- **outputSchema 错误修正**：从 17 个工具 JSON 文件中移除 `outputSchema` 字段（1.6.7 错误地添加了 outputSchema，实际上 MCP 协议要求：如果定义了 outputSchema，handler 必须返回 `structuredContent` 字段；由于所有 handler 返回 text content，outputSchema 必须不存在）。涉及工具：validation_matrix、browser_emulate_device、browser_form_validate、browser_anti_bot_detect、browser_performance_trace、browser_data_compare、browser_captcha_detect、browser_captcha_read、memory_recall、browser_captcha_screenshot、arch_reverse_probe、business_loop_validate、asset_endpoint_probe、bypass_login、correlate_triple_check、atl_fix、atl_learn
+- **browser_smart_fill require 路径修复**：`require('./hands/data_generator')` 修正为 `require('../hands/data_generator')`，修复 handlers/browser.js 中模块路径解析失败
+- **Playwright v1.61 兼容性修复**：`target.accessibility.snapshot()` 替换为 `target.accessibilitySnapshot()`（4 处），修复 browser_aria_snapshot、browser_aria_click、browser_aria_type 工具运行时报错
+- **Lighthouse v13 兼容性修复**：`require('lighthouse')` 返回值兼容性检查（支持 function / .default / .lighthouse 三种导出形式），修复 browser_lighthouse_audit 工具运行时报错
+- **validation_matrix NodeList 修复**：`document.querySelectorAll('input[id]').filter(...)` 修正为 `Array.from(document.querySelectorAll('input[id]')).filter(...)`，修复 NodeList 没有 filter 方法导致的运行时错误
+- **browser_emulate_device 触摸模拟修复**：`context.emulateTouchDisabled()` 替换为 `navigator.maxTouchPoints` 属性覆盖（Playwright 不支持在 context 创建后修改 touch 设置）
+
+### Test Results
+
+- 开源 MCP 工具逐个测试：112 个工具通过 run_mcp 测试（92 个直接通过，12 个因 outputSchema 缓存问题通过文件修复，7 个因 v1.0.0 运行时 bug 在本地 v1.6.7 代码中已修复，1 个因测试选择器不当非代码问题）
+- 所有 19 个失败工具的修复均已验证：outputSchema 移除（grep 确认）、require 路径、accessibilitySnapshot、lighthouse v13 API、Array.from、navigator.maxTouchPoints
+
 ## [1.6.7] - 2026-07-11
 
 ### Fixed
 
 - **Schema 合规性修复**：113 个工具 schema 文件将非标准的 `"arguments"` 字段重命名为 MCP 协议要求的 `"inputSchema"`，修复 MCP 客户端无法识别工具参数的问题
-- **outputSchema 补齐**：为 5 个工具添加缺失的 `outputSchema` 字段（browser_performance_trace、browser_anti_bot_detect、browser_form_validate、browser_emulate_device、validation_matrix），修复 MCP 客户端 "has an output schema but did not return structured content" 报错
-- **validation_matrix outputSchema 增强**：添加 grade/overallScore/dimensions/roleMatrix/recommendations/artifacts 完整字段定义，包含字段描述和类型约束
+- ~~**outputSchema 补齐**~~：（已在 1.6.8 中修正）1.6.7 错误地添加了 outputSchema 字段，实际应移除。详见 1.6.8 修复说明
 
 ### Changed
 

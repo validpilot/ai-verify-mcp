@@ -161,12 +161,18 @@ const name = args.name || args.sessionName;
     // Get context for further emulation
     const context = target.context();
 
-    // Apply touch emulation
-    if (touch) {
-      await context.emulateTouchDisabled(false);
-    } else {
-      await context.emulateTouchDisabled(true);
-    }
+    // Apply touch emulation via navigator property override
+    // (Playwright doesn't support changing touch after context creation;
+    //  hasTouch must be set at newContext time, so we override at JS level)
+    await target.evaluate((touchEnabled) => {
+      Object.defineProperty(navigator, 'maxTouchPoints', {
+        value: touchEnabled ? 5 : 0,
+        configurable: true
+      });
+      if (touchEnabled) {
+        window.ontouchstart = null;
+      }
+    }, touch);
 
     // Apply timezone and locale if needed
     if (args.timezone || args.locale) {

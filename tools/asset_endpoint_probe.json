@@ -45,57 +45,5 @@
         "description": "是否包含隐藏端点（如 .env, /admin, /backup 等）"
       }
     }
-  },
-  "outputSchema": {
-    "type": "object",
-    "properties": {
-      "success": { "type": "boolean", "description": "执行是否成功" },
-      "basePath": { "type": "string", "description": "使用的基础路径" },
-      "method": { "type": "string", "description": "使用的HTTP方法" },
-      "totalProbed": { "type": "number", "description": "总探测端点数" },
-      "isSpa": { "type": "boolean", "description": "是否为SPA应用" },
-      "notes": { "type": "array", "items": { "type": "string" }, "description": "备注信息" },
-      "categorized": {
-        "type": "object",
-        "properties": {
-          "accessible": { "type": "array", "items": { "type": "object" }, "description": "可访问的API端点" },
-          "accessibleHtml": { "type": "array", "items": { "type": "object" }, "description": "返回HTML的端点（可能是SPA路由）" },
-          "redirect": { "type": "array", "items": { "type": "object" }, "description": "重定向的端点" },
-          "unauthorized": { "type": "array", "items": { "type": "object" }, "description": "返回401的端点" },
-          "forbidden": { "type": "array", "items": { "type": "object" }, "description": "返回403的端点" },
-          "notFound": { "type": "array", "items": { "type": "object" }, "description": "返回404的端点" },
-          "error": { "type": "array", "items": { "type": "object" }, "description": "返回5xx的端点" },
-          "timeout": { "type": "array", "items": { "type": "object" }, "description": "超时的端点" }
-        },
-        "description": "按状态分类的探测结果"
-      },
-      "summary": {
-        "type": "object",
-        "properties": {
-          "accessible": { "type": "number" },
-          "accessibleHtml": { "type": "number" },
-          "redirect": { "type": "number" },
-          "unauthorized": { "type": "number" },
-          "forbidden": { "type": "number" },
-          "notFound": { "type": "number" },
-          "error": { "type": "number" },
-          "timeout": { "type": "number" }
-        },
-        "description": "统计摘要"
-      },
-      "topFindings": {
-        "type": "array",
-        "items": {
-          "type": "object",
-          "properties": {
-            "endpoint": { "type": "string" },
-            "status": { "type": "number" }
-          }
-        },
-        "description": "可访问端点前10名"
-      },
-      "error": { "type": "string", "description": "错误信息（失败时）" }
-    },
-    "required": ["success", "totalProbed", "summary", "categorized"]
   }
 }

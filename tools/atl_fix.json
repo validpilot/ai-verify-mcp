@@ -16,30 +16,5 @@
       "dryRun": { "type": "boolean", "description": "是否仅预览不执行，默认false" },
       "backup": { "type": "boolean", "description": "是否备份原始文件，默认true" }
     }
-  },
-  "outputSchema": {
-    "type": "object",
-    "properties": {
-      "success": { "type": "boolean", "description": "修复是否成功" },
-      "dryRun": { "type": "boolean", "description": "是否为预览模式" },
-      "fixType": { "type": "string", "description": "修复类型" },
-      "patternId": { "type": "string", "description": "应用的修复模式ID" },
-      "changes": {
-        "type": "array",
-        "items": {
-          "type": "object",
-          "properties": {
-            "type": { "type": "string", "enum": ["file_modified", "file_created", "file_backup", "sql_executed", "command_executed", "config_changed"] },
-            "path": { "type": "string", "description": "文件路径或命令" },
-            "oldContent": { "type": "string", "description": "修改前的内容（截断）" },
-            "newContent": { "type": "string", "description": "修改后的内容（截断）" },
-            "backupPath": { "type": "string", "description": "备份文件路径" }
-          }
-        }
-      },
-      "message": { "type": "string", "description": "执行结果消息" },
-      "nextSteps": { "type": "array", "items": { "type": "string" }, "description": "验证修复的下一步建议" }
-    },
-    "required": ["success", "fixType", "changes"]
   }
 }

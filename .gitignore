@@ -71,6 +71,7 @@ test-captcha.js
 test-debug-page.js
 test-direct-playwright.js
 test-e2e-real.js
+test-all-tools-v2.js
 test-cf-output.txt
 test-node-out.txt
 test-real-project-report.json
@@ -81,3 +82,6 @@ scripts/test-captcha-*.js
 scripts/test-captcha.js
 scripts/test-debug-page.js
 scripts/test-direct-playwright.js
+
+# Temporary helper scripts
+commit-and-push.bat

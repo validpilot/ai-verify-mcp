@@ -1263,9 +1263,9 @@ const { target } = await ensurePage();
       if (!el) {
         return mcpElementNotFound(args.selector, name);
       }
-      rootNode = await target.accessibility.snapshot({ root: el, interestingOnly: true });
+      rootNode = await target.accessibilitySnapshot({ root: el, interestingOnly: true });
     } else {
-      rootNode = await target.accessibility.snapshot({ interestingOnly: true });
+      rootNode = await target.accessibilitySnapshot({ interestingOnly: true });
     }
     if (!rootNode) {
       return { content: [{ type: 'text', text: JSON.stringify({ role: 'document', name: 'empty', children: [] }, null, 2) }] };
@@ -1314,7 +1314,7 @@ const { target } = await ensurePage();
   if (name === 'browser_aria_click') {
     const { target } = await ensurePage(args);
     if (!args.ref) return mcpParamMissing('ref', name);
-    const snapshot = await target.accessibility.snapshot({ interestingOnly: true });
+    const snapshot = await target.accessibilitySnapshot({ interestingOnly: true });
     if (!snapshot) return mcpError('页面无可访问性信息', { error: 'EXECUTION_ERROR', toolName: name });
     let refCounter = 0;
     (function assign(node, depth) {
@@ -1335,7 +1335,7 @@ const { target } = await ensurePage();
     const { target } = await ensurePage(args);
     if (!args.ref) return mcpParamMissing('ref', name);
     if (typeof args.text !== 'string') return mcpParamMissing('text', name);
-    const snapshot = await target.accessibility.snapshot({ interestingOnly: true });
+    const snapshot = await target.accessibilitySnapshot({ interestingOnly: true });
     if (!snapshot) return mcpError('页面无可访问性信息', { error: 'EXECUTION_ERROR', toolName: name });
     let refCounter = 0;
     (function assign(node, depth) {
@@ -1356,7 +1356,7 @@ const { target } = await ensurePage();
   // ====== browser_smart_fill ======
   if (name === 'browser_smart_fill') {
     const { target } = await ensurePage(args);
-    const dataGen = require('./hands/data_generator');
+    const dataGen = require('../hands/data_generator');
     const fieldType = args.fieldType || 'text';
     if (!dataGen.isSupported(fieldType)) {
       return mcpError(`不支持的字段类型: ${fieldType}。支持: ${dataGen.getSupportedTypes().join(', ')}`, { error: 'EXECUTION_ERROR', toolName: name });

@@ -37,56 +37,5 @@
       }
     },
     "required": ["targetUrl"]
-  },
-  "outputSchema": {
-    "type": "object",
-    "properties": {
-      "success": { "type": "boolean", "description": "执行是否成功" },
-      "targetUrl": { "type": "string", "description": "目标URL" },
-      "vulnerabilities": {
-        "type": "array",
-        "items": {
-          "type": "object",
-          "properties": {
-            "type": { "type": "string", "description": "漏洞类型" },
-            "severity": { "type": "string", "enum": ["blocking", "major", "warning"], "description": "严重程度" },
-            "description": { "type": "string", "description": "漏洞描述" }
-          }
-        },
-        "description": "发现的安全漏洞"
-      },
-      "testResults": {
-        "type": "array",
-        "items": {
-          "type": "object",
-          "properties": {
-            "test": { "type": "string", "description": "测试名称" },
-            "status": { "type": "number", "description": "HTTP状态码" },
-            "bypassed": { "type": "boolean", "description": "是否绕过成功" },
-            "skipped": { "type": "boolean", "description": "是否跳过" },
-            "reason": { "type": "string", "description": "跳过原因" }
-          }
-        },
-        "description": "各测试用例结果"
-      },
-      "totalTests": { "type": "number", "description": "总测试次数" },
-      "passedTests": { "type": "number", "description": "通过测试数" },
-      "failedTests": { "type": "number", "description": "失败测试数" },
-      "notes": { "type": "array", "items": { "type": "string" }, "description": "备注信息" },
-      "status": { "type": "string", "enum": ["secure", "vulnerable"], "description": "整体安全状态" },
-      "summary": {
-        "type": "object",
-        "properties": {
-          "totalTests": { "type": "number" },
-          "passedTests": { "type": "number" },
-          "failedTests": { "type": "number" },
-          "vulnerabilityCount": { "type": "number" },
-          "noteCount": { "type": "number" }
-        },
-        "description": "统计摘要"
-      },
-      "error": { "type": "string", "description": "错误信息（失败时）" }
-    },
-    "required": ["success", "status", "summary", "vulnerabilities"]
   }
 }

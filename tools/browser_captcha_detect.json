@@ -9,49 +9,5 @@
       "detectMode": { "type": "string", "description": "检测模式：auto（自动检测）、image（仅图片验证码）、slider（仅滑块验证码）、click（仅点选验证码）", "default": "auto" }
     },
     "required": []
-  },
-  "outputSchema": {
-    "type": "object",
-    "properties": {
-      "success": { "type": "boolean" },
-      "hasCaptcha": { "type": "boolean", "description": "是否检测到验证码" },
-      "captchaType": { "type": "string", "description": "验证码类型：image（图片验证码）、canvas（Canvas验证码）、slider（滑块验证码）、click（点选验证码）、unknown（未知类型）" },
-      "requiresHumanInteraction": { "type": "boolean", "description": "是否需要人工处理（滑块/点选验证码无法自动识别）" },
-      "complexityLevel": { "type": "string", "description": "复杂度等级：low（简单，可自动识别）、medium（中等，可能需要人工确认）、high（复杂，必须人工处理）" },
-      "elements": {
-        "type": "array",
-        "description": "检测到的验证码相关元素列表",
-        "items": {
-          "type": "object",
-          "properties": {
-            "selector": { "type": "string", "description": "元素CSS选择器" },
-            "tagName": { "type": "string", "description": "元素标签名" },
-            "src": { "type": "string", "description": "图片URL（如果是img元素）" },
-            "alt": { "type": "string", "description": "图片alt属性" },
-            "className": { "type": "string", "description": "元素class" },
-            "boundingBox": {
-              "type": "object",
-              "properties": {
-                "x": { "type": "number" },
-                "y": { "type": "number" },
-                "width": { "type": "number" },
-                "height": { "type": "number" }
-              }
-            },
-            "isVisible": { "type": "boolean", "description": "元素是否可见" },
-            "confidence": { "type": "number", "description": "置信度 0-1" },
-            "matchReason": { "type": "string", "description": "匹配原因" }
-          }
-        }
-      },
-      "captchaUrl": { "type": "string", "description": "验证码图片URL（主图）" },
-      "suggestedSelector": { "type": "string", "description": "建议用于截图的CSS选择器" },
-      "nextSteps": {
-        "type": "array",
-        "items": { "type": "string" },
-        "description": "下一步建议操作"
-      },
-      "tips": { "type": "string", "description": "使用提示和建议" }
-    }
   }
 }

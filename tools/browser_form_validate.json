@@ -33,22 +33,5 @@
         "description": "是否检测长度限制"
       }
     }
-  },
-  "outputSchema": {
-    "type": "object",
-    "properties": {
-      "success": {
-        "type": "boolean"
-      },
-      "fields": {
-        "type": "array"
-      },
-      "validationResults": {
-        "type": "object"
-      },
-      "summary": {
-        "type": "object"
-      }
-    }
   }
 }

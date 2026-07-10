@@ -29,22 +29,5 @@
         "description": "是否检测浏览器指纹"
       }
     }
-  },
-  "outputSchema": {
-    "type": "object",
-    "properties": {
-      "success": {
-        "type": "boolean"
-      },
-      "detected": {
-        "type": "object"
-      },
-      "riskLevel": {
-        "type": "string"
-      },
-      "recommendations": {
-        "type": "array"
-      }
-    }
   }
 }

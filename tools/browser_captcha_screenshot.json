@@ -12,38 +12,5 @@
       "minSize": { "type": "number", "description": "最小截图尺寸（像素），低于此值认为截图失败", "default": 100 }
     },
     "required": []
-  },
-  "outputSchema": {
-    "type": "object",
-    "properties": {
-      "success": { "type": "boolean" },
-      "image": { "type": "string", "description": "截图文件路径" },
-      "captchaUrl": { "type": "string", "description": "验证码图片URL" },
-      "elementSize": {
-        "type": "object",
-        "properties": {
-          "width": { "type": "number" },
-          "height": { "type": "number" }
-        }
-      },
-      "screenshotSize": {
-        "type": "object",
-        "properties": {
-          "width": { "type": "number" },
-          "height": { "type": "number" }
-        }
-      },
-      "padding": { "type": "number", "description": "实际使用的padding值" },
-      "selector": { "type": "string", "description": "使用的元素选择器" },
-      "refreshed": { "type": "boolean", "description": "是否自动刷新过验证码" },
-      "hash": { "type": "string", "description": "截图文件MD5哈希值，用于校验截图一致性" },
-      "fileSize": { "type": "number", "description": "截图文件大小（字节）" },
-      "nextSteps": {
-        "type": "array",
-        "items": { "type": "string" },
-        "description": "下一步建议操作"
-      },
-      "tips": { "type": "string", "description": "使用提示" }
-    }
   }
 }

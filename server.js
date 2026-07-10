@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿try { require('dotenv').config({ quiet: true }); } catch(e) { console.warn('[ValidPilot] dotenv not loaded:', e.message); }
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿try { require('dotenv').config({ quiet: true }); } catch(e) { console.warn('[ValidPilot] dotenv not loaded:', e.message); }
 // 修复 Windows 终端中文编码
 require('./core/win-encoding');
 const fs = require('fs');
@@ -1973,7 +1973,13 @@ async function runLighthouseAudit(args = {}) {
     const chromePath = chromium.executablePath();
 
     const chromeLauncher = require('chrome-launcher');
-    const lighthouse = require('lighthouse');
+    const lighthouseModule = require('lighthouse');
+    const lighthouse = typeof lighthouseModule === 'function'
+      ? lighthouseModule
+      : (lighthouseModule.default || lighthouseModule.lighthouse);
+    if (typeof lighthouse !== 'function') {
+      throw new Error('lighthouse 模块已加载但未导出函数，请检查 lighthouse 版本兼容性');
+    }
 
     const chrome = await chromeLauncher.launch({
       chromePath,

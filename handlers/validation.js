@@ -1388,7 +1388,7 @@ const { target } = await ensurePage(args);
 
         // Check form labels
         const inputsWithoutLabel = document.querySelectorAll('input:not([type="hidden"]):not([id]), input:not([type="hidden"])[id]:not([aria-label])').length;
-        const inputsWithLabel = document.querySelectorAll('input[id]').filter(i => document.querySelector(`label[for="${i.id}"]`)).length;
+        const inputsWithLabel = Array.from(document.querySelectorAll('input[id]')).filter(i => document.querySelector(`label[for="${i.id}"]`)).length;
         checks.push({ name: 'formLabels', passed: inputsWithoutLabel < 5, failed: inputsWithoutLabel, weight: 25 });
 
         // Check heading structure

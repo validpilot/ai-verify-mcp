@@ -84,22 +84,5 @@
         "description": "颜色方案偏好"
       }
     }
-  },
-  "outputSchema": {
-    "type": "object",
-    "properties": {
-      "success": {
-        "type": "boolean"
-      },
-      "applied": {
-        "type": "object"
-      },
-      "pageInfo": {
-        "type": "object"
-      },
-      "verification": {
-        "type": "object"
-      }
-    }
   }
 }
