@@ -1,7 +1,7 @@
 {
   "name": "browser_trace_stop",
   "description": "停止浏览器追踪会话，返回收集到的追踪数据",
-  "arguments": {
+  "inputSchema": {
     "type": "object",
     "properties": {},
     "required": []

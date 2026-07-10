@@ -1,7 +1,7 @@
 {
   "name": "browser_verify_fix",
   "description": "修复验证闭环工具。记录修复前状态（错误数、元素状态），执行修复操作（browser_click/type/wait等），验证修复后状态，对比前后差异，确认修复是否生效。返回 before/after 对比、fixStatus、verificationResult、nextAction。",
-  "arguments": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "selector": {

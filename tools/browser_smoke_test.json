@@ -1,7 +1,7 @@
 {
   "name": "browser_smoke_test",
   "description": "一键冒烟测试 - 自动执行页面加载、JS错误、HTTP错误、无障碍、控制台警告等5项快速检查，返回综合评分和详细结果",
-  "arguments": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "url": {

@@ -1,7 +1,7 @@
 {
   "name": "browser_aria_snapshot",
   "description": "获取当前页面的可访问性树（Accessibility Tree）快照。每个元素包含 role、name、ref 稳定标识符、bounds 坐标和子节点。ref 基于 role+name+index 哈希生成，CSS 重构后仍保持稳定，适合用于 AI 驱动的元素定位。",
-  "arguments": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "selector": {

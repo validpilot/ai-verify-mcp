@@ -1,7 +1,7 @@
 {
   "name": "validation_element",
   "description": "验证特定DOM元素",
-  "arguments": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "targetUrl": {

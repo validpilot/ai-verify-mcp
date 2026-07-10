@@ -1,7 +1,7 @@
 {
   "name": "chain_spec_run",
   "description": "按链路规格执行简化版业务链路验证：支持打开页面、点击、输入、等待、断言、状态采集/对比，并汇总每步 Console、PageError、Network、状态 diff 和证据。先做进现有 MCP，后续再剥离为独立链路验证引擎。",
-  "arguments": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "runId": {

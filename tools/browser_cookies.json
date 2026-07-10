@@ -1,7 +1,7 @@
 {
   "name": "browser_cookies",
   "description": "查看和管理浏览器Cookie。支持获取所有Cookie、按域名筛选、设置Cookie、清除Cookie。返回Cookie总数、每个Cookie的详细信息（名称、值、域名、路径、过期时间、安全标志等）。调试时可快速查看登录态、Token等认证信息。",
-  "arguments": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "action": {

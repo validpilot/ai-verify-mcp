@@ -1,7 +1,7 @@
 {
   "name": "browser_session_close",
   "description": "关闭并删除指定浏览器会话。",
-  "arguments": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "name": {

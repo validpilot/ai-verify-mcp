@@ -1,7 +1,7 @@
 {
   "name": "chain_score_report",
   "description": "对 chain_spec_run 结果输出 5 维评分报告：功能链路（步骤通过率）、技术链路（API/网络成功率）、一致性（状态 diff 通过率）、契约（API schema 校验）、可观测性（错误采集质量）。输出加权总分和等级。先做进现有 MCP，后续再剥离。",
-  "arguments": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "chainResult": {

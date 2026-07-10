@@ -1,7 +1,7 @@
 {
   "name": "browser_scroll",
   "description": "滚动页面或元素到指定位置，支持 scrollIntoView 和像素滚动",
-  "arguments": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "selector": {

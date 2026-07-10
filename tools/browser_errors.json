@@ -1,7 +1,7 @@
 {
   "name": "browser_errors",
   "description": "统一查看本轮错误：Console Error、PageError、HTTP 4xx/5xx、静默失败（200响应体含SQL错误）。默认只统计当前checkpoint之后的新错误。",
-  "arguments": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "includeWarnings": {

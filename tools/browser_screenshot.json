@@ -1,7 +1,7 @@
 {
   "name": "browser_screenshot",
   "description": "对真实浏览器当前页面截图并保存到 MCP 服务目录。默认遮挡密码、token、apiKey 等敏感输入框。",
-  "arguments": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "name": {

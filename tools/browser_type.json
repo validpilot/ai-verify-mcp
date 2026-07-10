@@ -1,7 +1,7 @@
 {
   "name": "browser_type",
   "description": "在真实浏览器中向指定 CSS 选择器输入文本",
-  "arguments": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "selector": {

@@ -1,7 +1,7 @@
 {
   "name": "validation_flow",
   "description": "多步流程验证工具，按步骤依次执行 navigate/click/type/wait/eval/screenshot 等操作，支持失败可配置继续执行。",
-  "arguments": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "steps": {

@@ -1,7 +1,7 @@
 {
   "name": "validation_decision",
   "description": "快速止损决策系统 - 基于页面初始错误状态，1 秒内判断是否值得继续验证，避免浪费 Token。返回决策建议（STOP/WARN/CONTINUE）、置信度、预计节省 Token 比例和估算的浪费 Token 数量。",
-  "arguments": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "browserErrors": {

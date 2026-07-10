@@ -1,7 +1,7 @@
 {
   "name": "browser_errors_aggregate",
   "description": "收集或接收浏览器 Console/Network/PageError/DOM 摘要，去重聚合并返回 Top errors；默认不返回完整日志。",
-  "arguments": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "limit": {

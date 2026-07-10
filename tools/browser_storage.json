@@ -1,7 +1,7 @@
 {
   "name": "browser_storage",
   "description": "查看当前页面 localStorage、sessionStorage 或 cookie，辅助定位登录态和状态问题",
-  "arguments": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "scope": {

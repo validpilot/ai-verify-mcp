@@ -1,7 +1,7 @@
 {
   "name": "browser_har_export",
   "description": "将当前采集的网络记录导出为简化 HAR JSON 文件，包含请求/响应头、请求/响应体摘要、状态码和耗时。输出自动脱敏。",
-  "arguments": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "name": {

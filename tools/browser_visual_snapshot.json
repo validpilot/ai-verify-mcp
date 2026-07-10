@@ -1,7 +1,7 @@
 {
   "name": "browser_visual_snapshot",
   "description": "三级快照：一次性获取截图 + DOM 状态快照 + CSS 计算属性，自动检测 L1+L2 级别 UI 问题（文字不可见、元素重叠、空白区域过大、z-index 遮挡、点击区域过小、overflow 溢出）。",
-  "arguments": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "selector": {

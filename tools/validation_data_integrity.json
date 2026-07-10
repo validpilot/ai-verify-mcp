@@ -1,7 +1,7 @@
 {
   "name": "validation_data_integrity",
   "description": "验证 CRUD 全链路数据一致性。通过 browser_eval 调用 API 并拦截响应，对比 Create/Read/Update/Delete 各阶段的数据是否一致。支持三种验证模式：check_create_read、check_update_read、check_delete_read",
-  "arguments": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "targetUrl": {

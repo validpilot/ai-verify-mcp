@@ -1,7 +1,7 @@
 {
   "name": "state_diff_assert",
   "description": "捕获并对比操作前后的页面/API/存储状态，用于验证 UI、API、数据状态是否真的发生预期变化。先做进现有 MCP，后续可剥离为独立双链路验证模块。",
-  "arguments": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "action": {

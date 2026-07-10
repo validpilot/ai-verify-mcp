@@ -1,7 +1,7 @@
 {
   "name": "browser_matrix_test",
   "description": "跨浏览器矩阵测试。在指定的多个浏览器引擎上依次执行相同的操作序列，返回各浏览器的执行结果对比。支持 chromium / firefox / webkit 任意组合。自动管理浏览器的创建和关闭，每个浏览器独立隔离。符合产品定位 v2.0 能力补齐方案 §P0-6。",
-  "arguments": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "browsers": {

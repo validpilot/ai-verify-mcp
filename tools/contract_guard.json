@@ -1,7 +1,7 @@
 {
   "name": "contract_guard",
   "description": "从前端实际消费的 API 响应中自动提取字段结构，生成 consumer contract（消费者契约），防止后端 API 漂移。支持两种来源：直接调用指定端点，或从已捕获的 network 日志中提取。先做进现有 MCP，后续再剥离。",
-  "arguments": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "endpoints": {

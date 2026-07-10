@@ -1,7 +1,7 @@
 {
   "name": "browser_visual_baseline",
   "description": "为当前页面或指定元素创建视觉回归基线 PNG，默认全页截图并遮挡密码、token、apiKey 等敏感输入。",
-  "arguments": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "name": {

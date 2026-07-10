@@ -1,7 +1,7 @@
 {
   "name": "browser_chain",
   "description": "链式执行多个浏览器操作，每步操作后自动检查控制台错误和网络错误。发现错误可立即终止并返回失败步骤。支持强制执行模式，开启时强制进行错误检查且不可关闭。",
-  "arguments": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "actions": {

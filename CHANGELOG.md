@@ -2,6 +2,32 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.6.7] - 2026-07-11
+
+### Fixed
+
+- **Schema 合规性修复**：113 个工具 schema 文件将非标准的 `"arguments"` 字段重命名为 MCP 协议要求的 `"inputSchema"`，修复 MCP 客户端无法识别工具参数的问题
+- **outputSchema 补齐**：为 5 个工具添加缺失的 `outputSchema` 字段（browser_performance_trace、browser_anti_bot_detect、browser_form_validate、browser_emulate_device、validation_matrix），修复 MCP 客户端 "has an output schema but did not return structured content" 报错
+- **validation_matrix outputSchema 增强**：添加 grade/overallScore/dimensions/roleMatrix/recommendations/artifacts 完整字段定义，包含字段描述和类型约束
+
+### Changed
+
+- **Trace 模块重构**：server.js 中 50 行旧 trace 函数（genHex/genTraceId/genSpanId/buildTraceparent/parseTraceparent/findTraceId/trimTraceLogs）替换为 `core/trace.js` TraceManager 类的委托别名，trimTraceLogs 改为原地修改数组保持引用一致
+- **死代码清理**：移除 core/state.js 中 `input_schema` → `inputSchema` 兼容 shim；简化 server.js 工具校验逻辑
+- **README.md 工具数更新**：4 处过时工具数（78/84）更新为 128，并新增代表性工具名
+- **test/tools.test.js**：工具数上限断言从 120 调整为 140，适配工具集扩展
+- **.gitignore**：新增 test-e2e-real.js、test-output.txt 过滤规则
+
+### Test Results
+
+- 单元测试通过率从 72.4%（571/789）提升至 98.7%（771/781），剩余 10 个失败均为浏览器环境依赖型测试（browser_form_fill/ATL/getFormValues）
+- E2E 真实项目测试：50/50 通过（100%），覆盖 3 个真实互联网域名（vue-element-admin、bing.com、github.com）和 7 大工具类别（系统/浏览器基础/审计/检查/定位器/验证/证据）
+- trace.test.js 9/9 通过（零回归）
+- visual.test.js 16/16 通过（修复前全失败）
+- new_tools.test.js 25/25 通过
+- validation_matrix_function.test.js 19/19 通过
+- tools.test.js 19/19 通过（修复工具数上限断言）
+
 ## [1.6.2] - 2026-07-03
 
 ### Fixed

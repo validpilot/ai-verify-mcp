@@ -1,7 +1,7 @@
 {
   "name": "browser_network_detail",
   "description": "查看本轮网络请求详情，包括请求头、响应头、请求体、响应体摘要、耗时和失败原因。输出自动脱敏。",
-  "arguments": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "contains": {

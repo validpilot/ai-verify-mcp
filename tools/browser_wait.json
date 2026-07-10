@@ -1,7 +1,7 @@
 {
   "name": "browser_wait",
   "description": "等待真实浏览器达到指定状态：元素出现/隐藏、文本出现、URL 包含、加载状态或固定时间。用于稳定异步流程。",
-  "arguments": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "selector": {

@@ -1,7 +1,7 @@
 {
   "name": "validation_matrix",
   "description": "执行多维度验证矩阵（功能/视觉/性能/a11y），输出综合评分报告。支持角色×功能权限矩阵验证，每个角色使用独立 session。",
-  "arguments": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "name": {
@@ -87,5 +87,47 @@
       "roles",
       "features"
     ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "success": {
+        "type": "boolean",
+        "description": "验证矩阵是否成功执行"
+      },
+      "overallScore": {
+        "type": "number",
+        "description": "综合评分 0-100"
+      },
+      "grade": {
+        "type": "string",
+        "description": "评分等级 A/B/C/D/F"
+      },
+      "dimensions": {
+        "type": "object",
+        "description": "各维度评分详情",
+        "properties": {
+          "functional": { "type": "object", "description": "功能维度评分" },
+          "visual": { "type": "object", "description": "视觉维度评分" },
+          "performance": { "type": "object", "description": "性能维度评分" },
+          "a11y": { "type": "object", "description": "无障碍维度评分" }
+        }
+      },
+      "roleMatrix": {
+        "type": "array",
+        "description": "角色×功能权限矩阵验证结果",
+        "items": { "type": "object" }
+      },
+      "recommendations": {
+        "type": "array",
+        "description": "改进建议列表",
+        "items": { "type": "string" }
+      },
+      "artifacts": {
+        "type": "array",
+        "description": "证据产物列表",
+        "items": { "type": "object" }
+      }
+    }
   }
 }

@@ -1,7 +1,7 @@
 {
   "name": "browser_a11y_check",
   "description": "使用 axe-core 对当前页面执行可访问性检查，支持限定扫描范围、排除区域和规则标签过滤，返回 violations 摘要。",
-  "arguments": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "selector": {

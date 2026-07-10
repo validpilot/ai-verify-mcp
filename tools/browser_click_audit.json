@@ -1,7 +1,7 @@
 {
   "name": "browser_click_audit",
   "description": "Audit a single click: screenshot before→click→wait→screenshot after→image diff→error collection→return. One call replaces 6+ individual tool calls for click-through validation loops. Returns navigation status, visual diff ratio, console/network errors, silentFail errors (HTTP 2xx with error body), and screenshot paths.",
-  "arguments": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "selector": {

@@ -1,7 +1,7 @@
 {
   "name": "browser_counterfactual_analyze",
   "description": "反事实根因分析 - 当测试失败时，分析\"如果消除因素X（遮挡物/JS错误/HTTP错误/加载问题），测试是否还会失败\"，自动生成根因假设并按置信度排序，给出验证工具建议",
-  "arguments": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "failureContext": {

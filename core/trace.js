@@ -60,7 +60,9 @@ class TraceManager {
 
   trimTraceLogs() {
     if (this.traceLogs.length > MAX_TRACE_LOGS) {
-      this.traceLogs = this.traceLogs.slice(-Math.floor(MAX_TRACE_LOGS / 2));
+      const keep = this.traceLogs.slice(-Math.floor(MAX_TRACE_LOGS / 2));
+      this.traceLogs.length = 0;
+      this.traceLogs.push(...keep);
     }
   }
 }

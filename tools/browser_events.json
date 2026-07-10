@@ -1,7 +1,7 @@
 {
   "name": "browser_events",
   "description": "查看 browser_instrument 捕获的运行时事件流，支持按事件类型、URL、方法、状态码过滤。输出会自动脱敏。",
-  "arguments": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "type": {

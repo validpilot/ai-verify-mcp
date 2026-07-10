@@ -1,7 +1,7 @@
 {
   "name": "trace_correlation_check",
   "description": "校验浏览器请求和后端日志是否共享同一 traceId/runId。读取 MCP 采集的 network 日志中的 traceparent/traceId，可选读取后端日志文件或通过 SSH 抓取后端容器日志，输出 trace 覆盖率和前后端关联性评分。先做进现有 MCP，后续再剥离。",
-  "arguments": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "since": {

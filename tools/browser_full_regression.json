@@ -1,7 +1,7 @@
 {
   "name": "browser_full_regression",
   "description": "强制执行的浏览器全功能闭环回归验证。自动发现页面上所有可交互功能（链接和按钮），逐个点击验证功能正常工作，检查 Console/Network 错误，验证每个功能的闭环完整性（可进入、可返回）。默认目标 URL: http://localhost:5173",
-  "arguments": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "url": {

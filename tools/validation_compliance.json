@@ -1,7 +1,7 @@
 {
   "name": "validation_compliance",
   "description": "验证当前会话中各功能的链路验证合规性，检查是否完成了完整的5步链路验证（入口可达→操作可行→请求正确→响应正常→状态更新），未完成的功能标记为 NON-COMPLIANT。",
-  "arguments": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "functions": {

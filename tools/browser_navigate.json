@@ -1,7 +1,7 @@
 {
   "name": "browser_navigate",
   "description": "浏览器导航操作。支持前进(forward)、后退(back)、刷新(refresh)、重新加载(reload)操作。",
-  "arguments": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "action": {

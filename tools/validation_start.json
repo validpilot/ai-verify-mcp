@@ -1,7 +1,7 @@
 {
   "name": "validation_start",
   "description": "启动端到端验证流程",
-  "arguments": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "targetUrl": {

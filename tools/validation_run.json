@@ -1,7 +1,7 @@
 {
   "name": "validation_run",
   "description": "执行完整浏览器验收计划：自动清空错误、注入探针、录制 trace、按用例执行 browser_flow、断言、失败调查、导出 HAR，并保存证据产物。",
-  "arguments": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "name": {

@@ -1,7 +1,7 @@
 {
   "name": "browser_diagnose",
   "description": "自动诊断浏览器错误根因。分析控制台错误、页面错误、网络错误、元素状态、JS执行状态，定位问题根源（如元素未加载、JS未执行、网络超时、权限不足等）。返回诊断报告含 rootCause、confidence、suggestedFixes、affectedElements。",
-  "arguments": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "selector": {

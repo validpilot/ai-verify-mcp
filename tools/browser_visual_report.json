@@ -1,7 +1,7 @@
 {
   "name": "browser_visual_report",
   "description": "列出视觉回归基线、actual、diff 产物和最近比较结果。",
-  "arguments": {
+  "inputSchema": {
     "type": "object",
     "properties": {}
   }

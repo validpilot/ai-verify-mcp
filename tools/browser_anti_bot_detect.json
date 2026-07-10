@@ -1,7 +1,7 @@
 {
   "name": "browser_anti_bot_detect",
   "description": "检测页面反爬机制（Cloudflare/JS Challenge/验证码/CAPTCHA等），提供绕过建议和缓解方案。支持检测主流反爬服务并给出风险评估。",
-  "arguments": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "url": {
@@ -27,6 +27,23 @@
         "type": "boolean",
         "default": true,
         "description": "是否检测浏览器指纹"
+      }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "success": {
+        "type": "boolean"
+      },
+      "detected": {
+        "type": "object"
+      },
+      "riskLevel": {
+        "type": "string"
+      },
+      "recommendations": {
+        "type": "array"
       }
     }
   }

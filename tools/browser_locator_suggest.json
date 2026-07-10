@@ -1,7 +1,7 @@
 {
   "name": "browser_locator_suggest",
   "description": "基于已有 selector 命中的元素或 target 文本查找可见元素，按可访问属性生成更稳定的推荐选择器、评分、风险和 fallback 列表。",
-  "arguments": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "selector": {

@@ -1,7 +1,7 @@
 {
   "name": "browser_visual_component",
   "description": "组件级视觉对比：一次调用完成截取指定 CSS 选择器的组件截图 → 与同名基线对比 → 返回 diffPixels、diffRatio、passed。如果基线不存在则自动创建基线，返回 baseline_created 标记。",
-  "arguments": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "name": {

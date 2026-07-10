@@ -1,8 +1,9 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿try { require('dotenv').config({ quiet: true }); } catch(e) { console.warn('[ValidPilot] dotenv not loaded:', e.message); }
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿try { require('dotenv').config({ quiet: true }); } catch(e) { console.warn('[ValidPilot] dotenv not loaded:', e.message); }
 // 修复 Windows 终端中文编码
 require('./core/win-encoding');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const { execSync } = require('child_process');
 const { chromium, firefox, webkit } = require('playwright');
 const { Server } = require('@modelcontextprotocol/sdk/server/index.js');
@@ -142,7 +143,7 @@ let currentRunVisualDiffDir = null;
 function generateRunId() {
   const now = new Date();
   const ts = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
-  const rand = Math.random().toString(36).slice(2, 8);
+  const rand = crypto.randomBytes(4).toString('base64url').slice(0, 8);
   return 'run-' + ts + '-' + rand;
 }
 
@@ -231,58 +232,17 @@ let lastImageErrorCheckpoint = new Date().toISOString();
 // Ref: https://www.w3.org/TR/trace-context/
 // traceparent 格式: {version}-{trace-id}-{parent-id}-{trace-flags}
 //                  00-{32hex}-{16hex}-{2hex}
-let traceLogs = []; // [{ traceId, spanId, url, status, method, timestamp, errorType, source: 'browser'|'server' }]
-const TRACE_HEADER_NAMES = ['traceparent', 'x-trace-id', 'x-request-id', 'x-correlation-id', 'trace-id', 'request-id', 'x-amzn-trace-id'];
+// 实现已抽取至 core/trace.js (TraceManager 类,实例见文件顶部 traceManager)
+const traceLogs = traceManager.traceLogs; // [{ traceId, spanId, url, status, method, timestamp, errorType, source }]
 
-// W3C TraceContext helpers
-function genHex(bytes) {
-  let s = '';
-  for (let i = 0; i < bytes; i++) s += Math.floor(Math.random() * 16).toString(16);
-  return s;
-}
-function genTraceId() { return genHex(32); } // 32 hex chars
-function genSpanId() { return genHex(16); } // 16 hex chars
-function buildTraceparent(traceId, spanId, sampled = true) {
-  // 格式: 00-{traceId}-{spanId}-{flags}, flags 01 = sampled
-  return `00-${traceId || genTraceId()}-${spanId || genSpanId()}-${sampled ? '01' : '00'}`;
-}
-function parseTraceparent(h) {
-  if (!h) return null;
-  const v = String(h).trim();
-  const m = v.match(/^([0-9a-f]{2})-([0-9a-f]{32})-([0-9a-f]{16})-([0-9a-f]{2})$/i);
-  if (m) return { version: m[1], traceId: m[2], spanId: m[3], flags: m[4], sampled: m[4] === '01' };
-  const parts = v.split('-');
-  if (parts.length === 1 && /^[0-9a-f]{32}$/i.test(parts[0])) return { traceId: parts[0], flags: '01', sampled: true };
-  return null;
-}
-
-function findTraceId(headers) {
-  if (!headers) return null;
-  // 优先 W3C traceparent
-  for (const key of ['traceparent']) {
-    const val = headers[key] || headers[key.toLowerCase()];
-    if (val) {
-      const parsed = parseTraceparent(val);
-      if (parsed) return { traceId: parsed.traceId, spanId: parsed.spanId, source: 'w3c-traceparent' };
-    }
-  }
-  // 退化: 单独字段
-  for (const key of TRACE_HEADER_NAMES) {
-    if (key === 'traceparent') continue;
-    const val = headers[key] || headers[key.toLowerCase()];
-    if (val) return { traceId: val, spanId: null, source: `header:${key}` };
-  }
-  for (const key of TRACE_HEADER_NAMES) {
-    if (key === 'traceparent') continue;
-    const underscoreKey = key.replace(/-/g, '_');
-    const val = headers[underscoreKey] || headers[underscoreKey.toLowerCase()];
-    if (val) return { traceId: val, spanId: null, source: `header:${underscoreKey}` };
-  }
-  return null;
-}
-function trimTraceLogs() {
-  if (traceLogs.length > 1500) traceLogs = traceLogs.slice(-800);
-}
+// W3C TraceContext helpers — 委托至 TraceManager,保持函数名向后兼容
+const genHex = (bytes) => traceManager.genHex(bytes);
+const genTraceId = () => traceManager.genTraceId();
+const genSpanId = () => traceManager.genSpanId();
+const buildTraceparent = (traceId, spanId, sampled) => traceManager.buildTraceparent(traceId, spanId, sampled);
+const parseTraceparent = (h) => traceManager.parseTraceparent(h);
+const findTraceId = (headers) => traceManager.findTraceId(headers);
+const trimTraceLogs = () => traceManager.trimTraceLogs();
 
 // ===== 浏览器池管理 =====
 const BROWSER_POOL_SIZE = 2; // 最多保留2个实例
@@ -3736,7 +3696,7 @@ function collectUnknowns(run) {
 function buildValidationReportContract(run, rows, failedRows, artifacts, generatedAt) {
   const visualArtifacts = artifacts.visual || {};
   const findings = failedRows.map(row => ({
-    id: 'F-' + Math.random().toString(36).slice(2, 8).toUpperCase(),
+    id: 'F-' + crypto.randomBytes(4).toString('base64url').slice(0, 6).toUpperCase(),
     name: row.name,
     type: row.type || 'unknown',
     severity: classifySeverity(row),
@@ -3842,7 +3802,7 @@ function validateToolSchemas() {
   ];
   const registered = new Set(tools.map(tool => tool.name));
   const missing = requiredTools.filter(name => !registered.has(name));
-  const invalid = tools.filter(tool => !tool.name || !tool.description || !(tool.inputSchema || tool.input_schema || tool.arguments)).map(tool => tool.name || '<unnamed>');
+  const invalid = tools.filter(tool => !tool.name || !tool.description || !tool.inputSchema).map(tool => tool.name || '<unnamed>');
   return { requiredCount: requiredTools.length, registeredCount: tools.length, missing, invalid };
 }
 

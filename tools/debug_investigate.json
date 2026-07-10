@@ -1,7 +1,7 @@
 {
   "name": "debug_investigate",
   "description": "输入问题症状，自动汇总本轮 errors、events、network_detail、DOM 可见错误、storage、artifacts，并输出假设、证据链和下一步修复/复测建议。",
-  "arguments": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "symptom": {

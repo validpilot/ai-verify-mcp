@@ -1,7 +1,7 @@
 {
   "name": "css_var_check",
   "description": "分析 CSS 文件中缺失的变量定义，并提供修复建议。扫描 CSS 内容，检测在 :root 或其他选择器中引用但未定义的 CSS 自定义属性（变量），为每个缺失变量生成 suggestedFix（建议值和插入位置）。",
-  "arguments": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "css": {

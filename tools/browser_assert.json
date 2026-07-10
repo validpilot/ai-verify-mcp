@@ -1,7 +1,7 @@
 {
   "name": "browser_assert",
   "description": "对当前真实浏览器页面执行标准断言：URL、文本、元素可见/隐藏、本轮无错误。返回每条断言的通过/失败详情。",
-  "arguments": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "urlContains": {

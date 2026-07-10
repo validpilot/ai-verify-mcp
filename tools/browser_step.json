@@ -1,7 +1,7 @@
 {
   "name": "browser_step",
   "description": "记录当前验证步骤证据：截图、DOM 简要快照、本轮统一错误摘要。用于形成可追溯证据链。",
-  "arguments": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "label": {

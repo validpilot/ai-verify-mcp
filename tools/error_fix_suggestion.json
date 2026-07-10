@@ -1,7 +1,7 @@
 {
   "name": "error_fix_suggestion",
   "description": "基于 errorSummary 和 contextFiles 返回最多 3 个最小修复建议；不自动改码。",
-  "arguments": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "errorSummary": {

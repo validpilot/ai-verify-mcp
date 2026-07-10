@@ -1,7 +1,7 @@
 {
   "name": "validation_check",
   "description": "执行单项浏览器健康检查：可打开 URL、等待条件、执行断言、截图留证，并统计本轮错误。支持 deploy_verify 类型执行部署验证（API端点检查、Console错误检查、CSS变量检查、静态资源检查）。",
-  "arguments": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "name": {

@@ -70,9 +70,11 @@ test-captcha-*.js
 test-captcha.js
 test-debug-page.js
 test-direct-playwright.js
+test-e2e-real.js
 test-cf-output.txt
 test-node-out.txt
 test-real-project-report.json
+test-output.txt
 test-results/
 scripts/archive/
 scripts/test-captcha-*.js

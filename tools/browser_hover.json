@@ -1,7 +1,7 @@
 {
   "name": "browser_hover",
   "description": "鼠标悬浮到指定元素上，用于触发 hover 效果、tooltip、下拉菜单等",
-  "arguments": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "selector": {

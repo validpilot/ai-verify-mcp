@@ -1,7 +1,7 @@
 {
   "name": "browser_visual_check",
   "description": "自动UI问题扫描：无需基线，直接在当前页面扫描常见的UI问题（文字不可见、元素重叠、z-index遮挡、点击区域过小、空白区域、溢出、图片alt缺失、对比度不足、响应式断点等）。输出自然语言描述的问题清单。",
-  "arguments": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "includeAccessibility": {

@@ -1,7 +1,7 @@
 {
   "name": "browser_open",
   "description": "打开真实可视化浏览器并导航到目标 URL。支持多种浏览器引擎。符合产品定位 v2.0 能力补齐方案 §P0-6。",
-  "arguments": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "url": {

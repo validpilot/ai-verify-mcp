@@ -1,7 +1,7 @@
 {
   "name": "browser_performance_trace",
   "description": "记录完整的性能轨迹（Paint/Timing/Resource），输出 HAR 格式和结构化性能数据。支持 W3C Performance Timeline API，获取 FP/FCP/LCP/CLS 等核心指标。",
-  "arguments": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "url": {
@@ -35,6 +35,23 @@
         "type": "boolean",
         "default": true,
         "description": "是否导出 HAR 格式数据"
+      }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "success": {
+        "type": "boolean"
+      },
+      "metrics": {
+        "type": "object"
+      },
+      "grade": {
+        "type": "string"
+      },
+      "recommendations": {
+        "type": "array"
       }
     }
   }

@@ -20,10 +20,6 @@ class StateManager {
       for (const file of fs.readdirSync(TOOLS_DIR)) {
         if (!file.endsWith('.json')) continue;
         const tool = JSON.parse(fs.readFileSync(path.join(TOOLS_DIR, file), 'utf8'));
-        if (tool.input_schema && !tool.inputSchema) {
-          tool.inputSchema = tool.input_schema;
-          delete tool.input_schema;
-        }
         tools.push(tool);
       }
     } catch (error) {

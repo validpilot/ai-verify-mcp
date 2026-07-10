@@ -1,7 +1,7 @@
 {
   "name": "browser_form_fill",
   "description": "批量填充表单字段并可选提交检测。自动识别表单input/select/textarea，根据类型生成mock数据，支持手动覆盖字段值，提交后检测成功/失败状态。",
-  "arguments": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "url": {

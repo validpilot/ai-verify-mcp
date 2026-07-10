@@ -1,7 +1,7 @@
 {
   "name": "evidence_index",
   "description": "证据包索引：扫描 reports 目录所有 evidence.json 文件，按 runId 串联多个证据包生成完整验证时间线。支持跨步骤、跨 runId 检索，汇总 traceId、错误数、API 响应数、数据 diff 数等关键指标。",
-  "arguments": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "runId": {

@@ -1,7 +1,7 @@
 {
   "name": "browser_quick_fix",
   "description": "快速修复验证闭环。自动尝试常见修复策略（等待加载、滚动到元素、强制可见、移除遮挡、注入JS等），每步验证是否修复成功。返回修复尝试记录、最终状态、建议的下一步操作。支持批量传入多个 problem。",
-  "arguments": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "selector": {

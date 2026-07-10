@@ -4,7 +4,7 @@
 
 ## 项目概述
 
-**ai-verify-mcp** 是一个 MCP（模型上下文协议）服务器，为 AI 代理提供 78 个浏览器验证工具。它使 AI 代理能够通过标准化的 MCP 接口执行端到端的 Web 验证、调试和自动化修复。
+**ai-verify-mcp** 是一个 MCP（模型上下文协议）服务器，为 AI 代理提供 128 个浏览器验证工具。它使 AI 代理能够通过标准化的 MCP 接口执行端到端的 Web 验证、调试和自动化修复。
 
 **核心技术栈**：Node.js + Playwright + @modelcontextprotocol/sdk
 
@@ -12,7 +12,7 @@
 
 ```
 server.js                    # 主 MCP 服务器（所有工具处理器位于 switch 语句中）
-tools/                       # 78 个 JSON schema 文件（每个工具一个）
+tools/                       # 128 个 JSON schema 文件（每个工具一个）
 engines/                     # Playwright / Chrome 适配器引擎
 core/                        # 核心工具（产物、配置、安全、脱敏、报告）
 hands/                       # 高级操作器（browser_operator、evidence_collector、verification_runner）

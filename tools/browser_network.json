@@ -1,7 +1,7 @@
 {
   "name": "browser_network",
   "description": "获取真实浏览器运行过程中采集到的网络请求记录，支持按 URL、方法、状态码和 checkpoint 过滤。",
-  "arguments": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "contains": {

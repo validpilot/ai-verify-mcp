@@ -1,7 +1,7 @@
 {
   "name": "browser_overlay_detect",
   "description": "遮挡物检测 - 在 DOM 层面自动检测页面上的遮挡元素（弹窗、Cookie横幅、浮层、色块遮挡等），分析 z-index、position、覆盖面积等属性，返回遮挡物列表和建议",
-  "arguments": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "format": {

@@ -1,7 +1,7 @@
 {
   "name": "validation_permission",
   "description": "权限越权检测工具。支持三种模式：horizontal_privilege=水平越权检测（替换API路径中的ID）；vertical_privilege=垂直越权检测（普通用户访问管理API）；role_menu=基于角色的菜单可见性验证",
-  "arguments": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "targetUrl": {
