@@ -4084,14 +4084,36 @@ async function projectAudit(args = {}) {
 }
 
 async function mcpSelfTest(args = {}) {
+  const perf = { phases: {}, total: { start: Date.now() } };
+
   const { target } = await ensurePage({ headless: args.headless });
+  perf.phases.setup = Date.now() - perf.total.start;
+
   clearArtifacts({ includeLogs: false });
   resetRuntimeLogs();
   await installInstrumentation(target).catch(() => {});
   await clearBrowserEvents(target).catch(() => {});
-  const dataUrl = 'data:text/html;charset=utf-8,' + encodeURIComponent('<!doctype html><html><head><title>MCP Self Test</title></head><body><h1 id="title">MCP Self Test</h1><input id="name" /><button id="btn" onclick="document.body.dataset.clicked=\'yes\';document.getElementById(\'result\').textContent=\'clicked\'">Click</button><div id="result"></div></body></html>');
+
+  const dataUrl = 'data:text/html;charset=utf-8,' + encodeURIComponent(
+    '<!doctype html><html><head><title>MCP Self Test</title></head><body>' +
+    '<h1 id="title">MCP Self Test</h1>' +
+    '<nav><a href="#" id="link1">Test Link</a><a href="#" id="link2">Another Link</a></nav>' +
+    '<form id="test-form">' +
+    '<input id="name" placeholder="Name" />' +
+    '<input id="email" type="email" placeholder="Email" />' +
+    '<select id="role"><option value="">Select</option><option value="admin">Admin</option><option value="user">User</option></select>' +
+    '<button type="button" id="btn" onclick="document.body.dataset.clicked=\'yes\';document.getElementById(\'result\').textContent=\'clicked\'">Click</button>' +
+    '</form>' +
+    '<div id="result"></div>' +
+    '<ul id="list"><li>Item 1</li><li>Item 2</li><li>Item 3</li></ul>' +
+    '</body></html>'
+  );
   await target.goto(dataUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+  perf.phases.navigate = Date.now() - perf.total.start - perf.phases.setup;
+
   const trace = args.trace === false ? null : await startTrace(target, { name: 'mcp-self-test', screenshots: true, snapshots: true }).catch(error => ({ error: error.message }));
+
+  const flowStart = Date.now();
   const flow = await runFlow(target, {
     clearErrors: false,
     steps: [
@@ -4102,6 +4124,88 @@ async function mcpSelfTest(args = {}) {
       { type: 'assert', selectorVisible: '#result', textContains: 'clicked', noErrors: true, name: 'assert-result' }
     ]
   });
+  perf.phases.flow = Date.now() - flowStart;
+
+  // ===== MCP 工具执行测试 =====
+  const toolTestsStart = Date.now();
+  const toolTests = { total: 0, passed: 0, failed: 0, results: [] };
+
+  const testTool = async (name, fn) => {
+    toolTests.total++;
+    const t = Date.now();
+    try {
+      const result = await fn();
+      const passed = result && result.ok !== false && !result.error;
+      toolTests.results.push({ name, passed, duration: Date.now() - t, ...result });
+      if (passed) toolTests.passed++; else toolTests.failed++;
+    } catch (e) {
+      toolTests.results.push({ name, passed: false, duration: Date.now() - t, error: e.message });
+      toolTests.failed++;
+    }
+  };
+
+  await testTool('browser_eval', async () => {
+    const val = await target.evaluate(() => 1 + 1);
+    return { ok: val === 2, actual: val };
+  });
+
+  await testTool('browser_find_element', async () => {
+    const el = await target.$('#btn');
+    const visible = el ? await el.isVisible().catch(() => false) : false;
+    return { ok: !!el && visible, found: !!el, visible };
+  });
+
+  await testTool('browser_snapshot', async () => {
+    const snapshot = await target.evaluate(() => ({
+      title: document.title,
+      elementCount: document.querySelectorAll('*').length,
+      hasForm: !!document.querySelector('form'),
+      hasNav: !!document.querySelector('nav'),
+      listItems: document.querySelectorAll('#list li').length
+    }));
+    return { ok: snapshot.elementCount > 5 && snapshot.hasForm && snapshot.hasNav, snapshot };
+  });
+
+  await testTool('browser_links', async () => {
+    const links = await target.evaluate(() =>
+      Array.from(document.querySelectorAll('a')).map(a => ({ href: a.href, text: a.textContent.trim() }))
+    );
+    return { ok: links.length >= 2, count: links.length };
+  });
+
+  await testTool('browser_form_fill', async () => {
+    await target.locator('#email').fill('test@example.com');
+    const val = await target.locator('#email').inputValue();
+    return { ok: val === 'test@example.com', value: val };
+  });
+
+  await testTool('browser_select_option', async () => {
+    await target.locator('#role').selectOption('admin');
+    const val = await target.locator('#role').inputValue();
+    return { ok: val === 'admin', value: val };
+  });
+
+  await testTool('browser_errors', async () => {
+    const errors = getUnifiedErrors({ currentOnly: true });
+    return { ok: errors.summary.total === 0, errorCount: errors.summary.total };
+  });
+
+  await testTool('browser_console', async () => {
+    await target.evaluate(() => console.log('self-test-log'));
+    const events = await getBrowserEvents(target, { limit: 50 }).catch(() => ({ events: [] }));
+    const evts = events.events || [];
+    const hasLog = evts.some(e => e.type === 'console' && (e.text || '').includes('self-test-log'));
+    return { ok: true, eventCount: evts.length, hasLog };
+  });
+
+  await testTool('browser_scroll', async () => {
+    await target.evaluate(() => window.scrollTo(0, 100));
+    const scrollY = await target.evaluate(() => window.scrollY);
+    return { ok: scrollY === 0 || scrollY === 100, scrollY };
+  });
+
+  perf.phases.toolTests = Date.now() - toolTestsStart;
+
   const step = await captureStepEvidence(target, 'mcp-self-test-final', { screenshot: true, snapshot: true }).catch(error => ({ error: error.message }));
   const events = await getBrowserEvents(target, { limit: 20 }).catch(error => ({ error: error.message }));
   const errors = getUnifiedErrors({ currentOnly: true });
@@ -4150,10 +4254,14 @@ async function mcpSelfTest(args = {}) {
     skillConsistency.error = e.message;
   }
 
+  perf.total.duration = Date.now() - perf.total.start;
+
   return redact({
-    ok: health.ok && flow.passed && errors.summary.total === 0,
+    ok: health.ok && flow.passed && errors.summary.total === 0 && toolTests.failed === 0,
     health,
     flow,
+    toolTests: { ...toolTests, summary: { total: toolTests.total, passed: toolTests.passed, failed: toolTests.failed, passRate: toolTests.total > 0 ? Math.round(toolTests.passed / toolTests.total * 100) + '%' : 'N/A' } },
+    perf,
     step,
     events,
     errors,
@@ -6595,6 +6703,7 @@ const deps = {
   MAX_SESSIONS, SCREENSHOT_DIR, HAR_DIR, VISUAL_DIR,
   VISUAL_BASELINE_DIR, VISUAL_ACTUAL_DIR, VISUAL_DIFF_DIR,
   VALIDATIONS_DIR, REPORT_DIR, LOG_FILE, PROJECT_ROOT,
+  TOOLS_DIR, logger,
 
   // === Core functions ===
   ensurePage, text, log, resetRuntimeLogs,

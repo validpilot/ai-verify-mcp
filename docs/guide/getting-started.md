@@ -17,33 +17,34 @@ npm install -g @validpilot/ai-verify-mcp
 
 ```bash
 # 查看版本
-@validpilot/ai-verify-mcp --version
+ai-verify-mcp --version
 
-# 健康检?@validpilot/ai-verify-mcp health
+# 健康检查
+ai-verify-mcp health
 ```
 
 健康检查通过会输出：
 
 ```json
-{"ok":true,"name":"ai-verify-mcp","version":"1.1.0","message":"Playwright browser is available"}
+{"ok":true,"name":"@validpilot/ai-verify-mcp","version":"1.6.9","message":"Playwright browser is available"}
 ```
 
 ## 快速体?
 ### 一键验?URL
 
 ```bash
-@validpilot/ai-verify-mcp validate --url https://example.com
+ai-verify-mcp validate --url https://example.com
 ```
 
 自动执行 7 项核心检查：页面加载、白屏检测、Console 错误、CSS/JS 加载、图片资源、可用性?
 ### 启动 MCP Server
 
 ```bash
-# stdio 模式（默认，?AI 客户端连接）
-@validpilot/ai-verify-mcp start
+# stdio 模式（默认，供 AI 客户端连接）
+ai-verify-mcp start
 
 # HTTP 模式
-@validpilot/ai-verify-mcp start --http --port 3456
+ai-verify-mcp start --http --port 3456
 ```
 
 ## 配置?AI 客户?

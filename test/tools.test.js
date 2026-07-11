@@ -125,13 +125,14 @@ describe('tools schema 目录结构', () => {
     }
   });
 
-  test('部分 tool schema 有 outputSchema', () => {
+  // v1.6.8 移除 outputSchema：handler 返回 text content 而非 structuredContent，MCP 协议要求 outputSchema 必须不存在
+  test('所有 tool schema 均无 outputSchema', () => {
     const files = fs.readdirSync(TOOLS_DIR).filter(f => f.endsWith('.json'));
     const withOutput = files.filter(f => {
       const schema = JSON.parse(fs.readFileSync(path.join(TOOLS_DIR, f), 'utf8'));
       return schema.outputSchema;
     });
-    assert.ok(withOutput.length > 0, '应有部分工具包含 outputSchema');
+    assert.equal(withOutput.length, 0, `不应有任何工具包含 outputSchema，但发现: ${withOutput.join(', ')}`);
   });
 
   test('tool schema 文件编码为 UTF-8', () => {

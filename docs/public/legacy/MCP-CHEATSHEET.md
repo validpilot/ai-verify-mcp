@@ -38,7 +38,7 @@ AI Client (Host)  ?JSON-RPC 协议 ? MCP Server
 
 | 方式 | 场景 | 特点 |
 |------|------|------|
-| stdio | 本地 CLI 启动 | `npx -y ai-verify-mcp`，进程间通过标准输入输出通信 |
+| stdio | 本地 CLI 启动 | `npx -y @validpilot/ai-verify-mcp`，进程间通过标准输入输出通信 |
 | SSE | 远程?HTTP | 适合分布式部署，服务端推送事?|
 
 ---
@@ -111,10 +111,10 @@ npx -y @validpilot/ai-verify-mcp validate --url http://localhost:5173
 
 ```bash
 # stdio 模式（默认，适合 Cursor / Claude Desktop / Trae 等）
-npx -y ai-verify-mcp
+npx -y @validpilot/ai-verify-mcp
 
 # HTTP 模式（端?3456?
-npx -y ai-verify-mcp --http --port 3456
+npx -y @validpilot/ai-verify-mcp --http --port 3456
 ```
 
 ### 自启动配?
@@ -183,7 +183,7 @@ WantedBy=default.target
 - [MCP 官方文档](https://modelcontextprotocol.io)
 - [Anthropic MCP 公告](https://www.anthropic.com/news/model-context-protocol)
 - [ai-verify-mcp GitHub](https://github.com/validpilot/ai-verify-mcp)
-- [ai-verify-mcp npm](https://www.npmjs.com/package/ai-verify-mcp)
+- [ai-verify-mcp npm](https://www.npmjs.com/package/@validpilot/ai-verify-mcp)
 
 ---
 
@@ -229,7 +229,7 @@ AI Client (Host)  ?JSON-RPC Protocol ? MCP Server
 
 | Method | Use Case | Characteristics |
 |--------|----------|-----------------|
-| stdio | Local CLI startup | `npx -y ai-verify-mcp`, inter-process communication via standard input/output |
+| stdio | Local CLI startup | `npx -y @validpilot/ai-verify-mcp`, inter-process communication via standard input/output |
 | SSE | Remote or HTTP | Suitable for distributed deployment, server-side event push |
 
 ---
@@ -302,10 +302,10 @@ npx -y @validpilot/ai-verify-mcp validate --url http://localhost:5173
 
 ```bash
 # stdio mode (default, suitable for Cursor / Claude Desktop / Trae, etc.)
-npx -y ai-verify-mcp
+npx -y @validpilot/ai-verify-mcp
 
 # HTTP mode (port 3456)
-npx -y ai-verify-mcp --http --port 3456
+npx -y @validpilot/ai-verify-mcp --http --port 3456
 ```
 
 ### Auto-Startup Configuration
@@ -374,4 +374,4 @@ WantedBy=default.target
 - [MCP Official Documentation](https://modelcontextprotocol.io)
 - [Anthropic MCP Announcement](https://www.anthropic.com/news/model-context-protocol)
 - [ai-verify-mcp GitHub](https://github.com/validpilot/ai-verify-mcp)
-- [ai-verify-mcp npm](https://www.npmjs.com/package/ai-verify-mcp)
+- [ai-verify-mcp npm](https://www.npmjs.com/package/@validpilot/ai-verify-mcp)

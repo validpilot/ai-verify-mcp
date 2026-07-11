@@ -108,7 +108,8 @@ async function run() {
     // 验证 schema 完整性
     const memTool = listResult.tools.find(t => t.name === 'memory_recall');
     assert(memTool && memTool.inputSchema && memTool.inputSchema.properties.operation, 'memory_recall inputSchema.operation 存在');
-    assert(memTool && memTool.outputSchema && memTool.outputSchema.properties.matches, 'memory_recall outputSchema.matches 存在');
+    // v1.6.8 移除 outputSchema：handler 返回 text content 而非 structuredContent，MCP 协议要求 outputSchema 必须不存在
+    assert(!memTool.outputSchema, 'memory_recall 不应定义 outputSchema');
 
     const bizTool = listResult.tools.find(t => t.name === 'business_loop_validate');
     assert(bizTool && bizTool.inputSchema && bizTool.inputSchema.properties.loop, 'business_loop_validate inputSchema.loop 存在');

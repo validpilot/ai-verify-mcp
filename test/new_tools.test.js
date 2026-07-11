@@ -36,12 +36,10 @@ describe('新增工具 schema 验证', () => {
       assert.ok(props.exportHar);
     });
 
-    test('outputSchema 包含 metrics/grade/recommendations', () => {
+    // v1.6.8 移除 outputSchema：handler 返回 text content 而非 structuredContent，MCP 协议要求 outputSchema 必须不存在
+    test('outputSchema 不存在（MCP 协议合规）', () => {
       const schema = JSON.parse(fs.readFileSync(path.join(TOOLS_DIR, 'browser_performance_trace.json'), 'utf8'));
-      const outProps = schema.outputSchema.properties;
-      assert.ok(outProps.metrics);
-      assert.ok(outProps.grade);
-      assert.ok(outProps.recommendations);
+      assert.equal(schema.outputSchema, undefined, '不应定义 outputSchema');
     });
 
     test('toolNames 中包含 browser_performance_trace', () => {
@@ -66,12 +64,10 @@ describe('新增工具 schema 验证', () => {
       assert.ok(props.checkCaptcha);
     });
 
-    test('outputSchema 包含 detected/riskLevel/recommendations', () => {
+    // v1.6.8 移除 outputSchema：handler 返回 text content 而非 structuredContent，MCP 协议要求 outputSchema 必须不存在
+    test('outputSchema 不存在（MCP 协议合规）', () => {
       const schema = JSON.parse(fs.readFileSync(path.join(TOOLS_DIR, 'browser_anti_bot_detect.json'), 'utf8'));
-      const outProps = schema.outputSchema.properties;
-      assert.ok(outProps.detected);
-      assert.ok(outProps.riskLevel);
-      assert.ok(outProps.recommendations);
+      assert.equal(schema.outputSchema, undefined, '不应定义 outputSchema');
     });
 
     test('toolNames 中包含 browser_anti_bot_detect', () => {
@@ -96,12 +92,10 @@ describe('新增工具 schema 验证', () => {
       assert.ok(props.validateSubmit);
     });
 
-    test('outputSchema 包含 fields/validationResults/summary', () => {
+    // v1.6.8 移除 outputSchema：handler 返回 text content 而非 structuredContent，MCP 协议要求 outputSchema 必须不存在
+    test('outputSchema 不存在（MCP 协议合规）', () => {
       const schema = JSON.parse(fs.readFileSync(path.join(TOOLS_DIR, 'browser_form_validate.json'), 'utf8'));
-      const outProps = schema.outputSchema.properties;
-      assert.ok(outProps.fields);
-      assert.ok(outProps.validationResults);
-      assert.ok(outProps.summary);
+      assert.equal(schema.outputSchema, undefined, '不应定义 outputSchema');
     });
 
     test('toolNames 中包含 browser_form_validate', () => {
@@ -127,12 +121,10 @@ describe('新增工具 schema 验证', () => {
       assert.ok(props.userAgent);
     });
 
-    test('outputSchema 包含 applied/pageInfo/verification', () => {
+    // v1.6.8 移除 outputSchema：handler 返回 text content 而非 structuredContent，MCP 协议要求 outputSchema 必须不存在
+    test('outputSchema 不存在（MCP 协议合规）', () => {
       const schema = JSON.parse(fs.readFileSync(path.join(TOOLS_DIR, 'browser_emulate_device.json'), 'utf8'));
-      const outProps = schema.outputSchema.properties;
-      assert.ok(outProps.applied);
-      assert.ok(outProps.pageInfo);
-      assert.ok(outProps.verification);
+      assert.equal(schema.outputSchema, undefined, '不应定义 outputSchema');
     });
 
     test('toolNames 中包含 browser_emulate_device', () => {
@@ -203,13 +195,10 @@ describe('validation_matrix 增强', () => {
     assert.ok(schema.inputSchema.required.includes('features'), 'features 应为必填');
   });
 
-  test('outputSchema 包含 overallScore/grade/dimensions', () => {
+  // v1.6.8 移除 outputSchema：handler 返回 text content 而非 structuredContent，MCP 协议要求 outputSchema 必须不存在
+  test('outputSchema 不存在（MCP 协议合规）', () => {
     const TOOLS_DIR = path.join(__dirname, '..', 'tools');
     const schema = JSON.parse(fs.readFileSync(path.join(TOOLS_DIR, 'validation_matrix.json'), 'utf8'));
-    const outProps = schema.outputSchema.properties;
-    assert.ok(outProps.overallScore, '应有 overallScore');
-    assert.ok(outProps.grade, '应有 grade');
-    assert.ok(outProps.dimensions, '应有 dimensions');
-    assert.ok(outProps.recommendations, '应有 recommendations');
+    assert.equal(schema.outputSchema, undefined, '不应定义 outputSchema');
   });
 });

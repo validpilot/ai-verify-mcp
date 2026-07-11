@@ -4,11 +4,11 @@
 >
 > Make AI code generation verifiable and trustworthy. Evidence-driven MCP verification platform.
 
-[![npm version](https://img.shields.io/npm/v/ai-verify-mcp.svg?style=flat-square)](https://www.npmjs.com/package/ai-verify-mcp)
-[![npm downloads](https://img.shields.io/npm/dm/ai-verify-mcp.svg?style=flat-square)](https://www.npmjs.com/package/ai-verify-mcp)
+[![npm version](https://img.shields.io/npm/v/@validpilot/ai-verify-mcp.svg?style=flat-square)](https://www.npmjs.com/package/@validpilot/ai-verify-mcp)
+[![npm downloads](https://img.shields.io/npm/dm/@validpilot/ai-verify-mcp.svg?style=flat-square)](https://www.npmjs.com/package/@validpilot/ai-verify-mcp)
 [![CI](https://img.shields.io/github/actions/workflow/status/validpilot/ai-verify-mcp/ci.yml?style=flat-square&label=CI)](https://github.com/validpilot/ai-verify-mcp/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](LICENSE)
-[![MCP Protocol](https://img.shields.io/badge/MCP-84%20tools-brightgreen.svg?style=flat-square)](https://modelcontextprotocol.io/)
+[![MCP Protocol](https://img.shields.io/badge/MCP-128%20tools-brightgreen.svg?style=flat-square)](https://modelcontextprotocol.io/)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D18-green.svg?style=flat-square)](https://nodejs.org/)
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg?style=flat-square)](CODE_OF_CONDUCT.md)
 [![中文](https://img.shields.io/badge/%E4%B8%AD%E6%96%87-red?style=flat-square)](README.md)
@@ -121,6 +121,80 @@ npx @validpilot/ai-verify-mcp screenshot --url https://example.com --name eviden
 npx @validpilot/ai-verify-mcp quick-check --url https://example.com
 ```
 
+### 📦 Update to Latest Version
+
+Check current version:
+
+```bash
+# Check latest version on npm
+npm view @validpilot/ai-verify-mcp version
+
+# Check locally installed version (global install)
+npm list -g @validpilot/ai-verify-mcp
+```
+
+**Choose the update method based on your usage**:
+
+#### Scenario A: Using `npx` in MCP Config (Recommended)
+
+If your MCP config looks like this:
+
+```json
+"validpilot-ai-verify-mcp": {
+  "command": "npx",
+  "args": ["-y", "@validpilot/ai-verify-mcp@1.6.2"]
+}
+```
+
+**Update method**: Change the version number to the latest (currently `1.6.9`), or use `@latest` to auto-follow:
+
+```json
+// Option 1: Pin specific version (recommended for stability)
+"args": ["-y", "@validpilot/ai-verify-mcp@1.6.9"]
+
+// Option 2: Use latest tag (auto-fetch latest on each start)
+"args": ["-y", "@validpilot/ai-verify-mcp@latest"]
+```
+
+After changing, **restart IDE** or **reload MCP Server**. `npx` will auto-download the new version.
+
+> 💡 **Tip**: If you previously used an older version, `npx` cache may retain it. If issues occur, run `npx clear-npx-cache` to clear cache and retry.
+
+#### Scenario B: Global Install
+
+If your MCP config looks like this:
+
+```json
+"validpilot-ai-verify-mcp": {
+  "command": "ai-verify-mcp",
+  "args": []
+}
+```
+
+**Update method**:
+
+```bash
+# Update to latest version
+npm install -g @validpilot/ai-verify-mcp@latest
+
+# Verify update
+ai-verify-mcp --version
+```
+
+Restart IDE after update. No MCP config changes needed.
+
+#### Scenario C: Project Local Install
+
+If installed via `npm install @validpilot/ai-verify-mcp` in a project:
+
+```bash
+# Update to latest version
+npm install @validpilot/ai-verify-mcp@latest
+
+# Or modify version in package.json then run
+npm update @validpilot/ai-verify-mcp
+```
+
 ---
 
 ## 🔧 Configure MCP Server
@@ -136,7 +210,7 @@ Add to the IDE's MCP configuration file (project-level `.cursor/mcp.json` or use
 {
   "ai-verify-mcp": {
     "command": "npx",
-    "args": ["-y", "ai-verify-mcp"],
+    "args": ["-y", "@validpilot/ai-verify-mcp"],
     "env": {
       "MCP_MODE": "http",
       "MCP_HTTP_PORT": "3456"
@@ -154,7 +228,7 @@ Create `.mcp.json` in the project root directory:
   "mcpServers": {
     "ai-verify-mcp": {
       "command": "npx",
-      "args": ["-y", "ai-verify-mcp"],
+      "args": ["-y", "@validpilot/ai-verify-mcp"],
       "env": {
         "MCP_MODE": "http",
         "MCP_HTTP_PORT": "3456"
@@ -172,7 +246,7 @@ Settings ?MCP Servers ?Add:
 {
   "ai-verify-mcp": {
     "command": "npx",
-    "args": ["-y", "ai-verify-mcp"]
+    "args": ["-y", "@validpilot/ai-verify-mcp"]
   }
 }
 ```
@@ -358,6 +432,14 @@ All MCP protocol-compatible AI assistants are supported: Cursor, Claude Code, Wi
 
 By default in the `./artifacts` directory, including screenshots, HAR files, verification reports, etc.
 
+### Q: How to update to the latest version?
+
+See [📦 Update to Latest Version](#-update-to-latest-version) section above. Quick summary:
+
+- **npx**: Change version in MCP config to `@latest` or specific new version (e.g., `@1.6.9`), restart IDE
+- **Global install**: Run `npm install -g @validpilot/ai-verify-mcp@latest`
+- **Check latest version**: Run `npm view @validpilot/ai-verify-mcp version`
+
 ### Q: Startup failure ?`Error: Playwright browser failed to launch`
 
 - **Cause A**: Playwright browser binary not installed
@@ -368,7 +450,7 @@ By default in the `./artifacts` directory, including screenshots, HAR files, ver
 ### Q: MCP connection failure ?`MCP error -32000: Connection closed`
 
 - **Cause**: `node` executable path not found in MCP Host
-- **Solution**: Use `command: "npx" args: ["-y", "ai-verify-mcp"]` in MCP config instead of `node .../start-http.js`
+- **Solution**: Use `command: "npx" args: ["-y", "@validpilot/ai-verify-mcp"]` in MCP config instead of `node .../start-http.js`
 
 ### Q: Port 3456 is already in use
 
@@ -395,7 +477,7 @@ By default in the `./artifacts` directory, including screenshots, HAR files, ver
   "mcpServers": {
     "ai-verify-mcp": {
       "command": "npx",
-      "args": ["-y", "ai-verify-mcp"],
+      "args": ["-y", "@validpilot/ai-verify-mcp"],
       "env": {
         "MCP_HTTP_PORT": "3456"
       }
@@ -413,7 +495,7 @@ Edit `%APPDATA%/Claude/claude_desktop_config.json` (Windows) or `~/Library/Appli
   "mcpServers": {
     "ai-verify-mcp": {
       "command": "npx",
-      "args": ["-y", "ai-verify-mcp"],
+      "args": ["-y", "@validpilot/ai-verify-mcp"],
       "env": {
         "MCP_HTTP_PORT": "3456"
       }
@@ -433,7 +515,7 @@ Edit `%APPDATA%/Claude/claude_desktop_config.json` (Windows) or `~/Library/Appli
   "mcpServers": {
     "ai-verify-mcp": {
       "command": "npx",
-      "args": ["-y", "ai-verify-mcp"],
+      "args": ["-y", "@validpilot/ai-verify-mcp"],
       "env": {
         "MCP_HTTP_PORT": "3456"
       }
@@ -451,7 +533,7 @@ Edit `%APPDATA%/Claude/claude_desktop_config.json` (Windows) or `~/Library/Appli
   "mcpServers": {
     "ai-verify-mcp": {
       "command": "npx",
-      "args": ["-y", "ai-verify-mcp"]
+      "args": ["-y", "@validpilot/ai-verify-mcp"]
     }
   }
 }
@@ -463,7 +545,7 @@ Edit `%APPDATA%/Claude/claude_desktop_config.json` (Windows) or `~/Library/Appli
 {
   "name": "ai-verify-mcp",
   "command": "npx",
-  "args": ["-y", "ai-verify-mcp"]
+  "args": ["-y", "@validpilot/ai-verify-mcp"]
 }
 ```
 
@@ -480,7 +562,7 @@ Create `.trae/mcp.json` in the project root directory:
   "mcpServers": {
     "ai-verify-mcp": {
       "command": "npx",
-      "args": ["-y", "ai-verify-mcp"],
+      "args": ["-y", "@validpilot/ai-verify-mcp"],
       "env": {
         "MCP_HTTP_PORT": "3456"
       }
@@ -498,7 +580,7 @@ Create `.trae/mcp.json` in the project root directory:
   "mcpServers": {
     "ai-verify-mcp": {
       "command": "npx",
-      "args": ["-y", "ai-verify-mcp"],
+      "args": ["-y", "@validpilot/ai-verify-mcp"],
       "env": {
         "MCP_HTTP_PORT": "3456"
       }
@@ -529,7 +611,7 @@ After stacking many MCPs, you may experience "`list tools failed`" or incomplete
 ```toml
 [mcp_servers.ai-verify-mcp]
 command = "npx"
-args = ["-y", "ai-verify-mcp"]
+args = ["-y", "@validpilot/ai-verify-mcp"]
 
 [mcp_servers.ai-verify-mcp.env]
 MCP_HTTP_PORT = "3456"
@@ -538,7 +620,7 @@ MCP_HTTP_PORT = "3456"
 Or add via CLI one-time:
 
 ```bash
-codex mcp add ai-verify-mcp -- npx -y ai-verify-mcp
+codex mcp add ai-verify-mcp -- npx -y @validpilot/ai-verify-mcp
 ```
 
 > 💡 Codex CLI defaults to stdio, HTTP port is only used when `MCP_MODE=http`; if you need HTTP for browser debugging, start `start-http.js` and let Codex connect via SSE/HTTP (Codex 0.40+ supported).
@@ -553,7 +635,7 @@ codex mcp add ai-verify-mcp -- npx -y ai-verify-mcp
     "servers": {
       "ai-verify-mcp": {
         "command": "npx",
-        "args": ["-y", "ai-verify-mcp"],
+        "args": ["-y", "@validpilot/ai-verify-mcp"],
         "env": {
           "MCP_HTTP_PORT": "3456"
         }
@@ -573,7 +655,7 @@ codex mcp add ai-verify-mcp -- npx -y ai-verify-mcp
 mcp_servers:
   ai-verify-mcp:
     command: "npx"
-    args: ["-y", "ai-verify-mcp"]
+    args: ["-y", "@validpilot/ai-verify-mcp"]
     env:
       MCP_HTTP_PORT: "3456"
 ```
@@ -597,7 +679,7 @@ Settings ?MCP Tools ?"Configure MCP" ?Edit `mcp_settings.json`:
   "mcpServers": {
     "ai-verify-mcp": {
       "command": "npx",
-      "args": ["-y", "ai-verify-mcp"],
+      "args": ["-y", "@validpilot/ai-verify-mcp"],
       "env": {
         "MCP_HTTP_PORT": "3456"
       }
@@ -625,7 +707,7 @@ Or execute in IDE command palette:
   "mcpServers": {
     "ai-verify-mcp": {
       "command": "npx",
-      "args": ["-y", "ai-verify-mcp"],
+      "args": ["-y", "@validpilot/ai-verify-mcp"],
       "env": {
         "MCP_HTTP_PORT": "3456"
       }
@@ -643,7 +725,7 @@ Settings ?"Add MCP" ?automatically opens `settings.json`, append:
   "mcpServers": {
     "ai-verify-mcp": {
       "command": "npx",
-      "args": ["-y", "ai-verify-mcp"]
+      "args": ["-y", "@validpilot/ai-verify-mcp"]
     }
   }
 }
@@ -712,13 +794,13 @@ Health checks are automatically executed when publishing to npm:
 Execution flow:
 ```bash
 $ npm publish
-> ai-verify-mcp@1.0.0 prepublishOnly
+> @validpilot/ai-verify-mcp@1.6.9 prepublishOnly
 > node bin/validpilot.js health && npm pack --dry-run
 
-{ "ok": true, "name": "ai-verify-mcp", "version": "1.0.0", ... }
-npm notice package size: 102.4 kB
-npm notice total files: 101
-+ npm publish ?upload to npm registry
+{ "ok": true, "name": "@validpilot/ai-verify-mcp", "version": "1.6.9", ... }
+npm notice package size: 649.9 kB
+npm notice total files: 220
++ @validpilot/ai-verify-mcp@1.6.9 → upload to npm registry
 ```
 
 Manual verification before publishing:

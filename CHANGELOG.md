@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.7.0] - 2026-07-12
+
+### Added
+
+- **captcha_detect 现代验证码检测增强**：新增 Cloudflare Turnstile、GeeTest（极验）、腾讯验证码、AWS WAF Captcha、reCAPTCHA v3（隐形）、hCaptcha、阿里云滑块验证码的自动检测。新增 `scripts` 字段检测页面加载的验证码脚本，新增 `provider` 字段标识验证码供应商，新增 `sitekey` 信息提取。检测选择器从 15 种扩展到 30+ 种，覆盖国内外主流验证码服务
+- **captcha_screenshot autoRefresh 实现补全**：实现 schema 中声明但未实现的 `autoRefresh` 参数。截图尺寸过小时自动查找并点击刷新按钮（支持 13 种刷新按钮选择器），重新获取验证码并重试截图，最多 3 次重试。返回 `autoRefresh.attempts` 详细记录每次重试的结果
+- **captcha_read OCR 预处理 + iframe 支持**：新增 canvas 灰度化+二值化（threshold=128）图像预处理，在 ddddocr 首次识别失败时自动尝试预处理后的图片。新增 iframe 验证码自动搜索支持，当主页面未找到验证码时自动遍历 captcha/recaptcha/hcaptcha/geetest/turnstile 相关 iframe 框架进行搜索。返回 `preprocessing` 和 `iframe` 字段记录使用的增强手段
+- **correlate_triple_check API 推导增强**：API 端点推导从单一模式（`/api/${mode}`）扩展到 5 种模式自动探测（`/api/`、`/api/v1/`、`/api/v2/`、`/v1/`、`/{resource}`）。新增 GraphQL 端点探测（`/graphql` introspection）。新增 Next.js SSR 数据提取（`__NEXT_DATA__.props.pageProps`）。新增 SPA 框架感知（Next.js/Nuxt/Vue 检测）。新增 `apiDerivation` 字段记录推导过程（resource、patterns、tried、resolved、spaFramework）
+- **mcp_self_test 工具执行测试增强**：自测从 5 步浏览器基础流程扩展到包含 9 项 MCP 工具执行测试（browser_eval、browser_find_element、browser_snapshot、browser_links、browser_form_fill、browser_select_option、browser_errors、browser_console、browser_scroll）。新增 `toolTests` 字段记录每项测试的结果和耗时。新增 `perf` 字段记录各阶段性能指标（setup/navigate/flow/toolTests/total）。自测 HTML 页面增强：新增 nav 链接、form 表单（含 email 和 select）、ul 列表，覆盖更多测试场景
+
+### Fixed
+
+- **globalThis 桥接模式彻底替换为 deps 解构**（关键修复）：9 个 handler 文件（browser.js、evidence.js、locator.js、network.js、system.js、session.js、visual.js、diagnose.js、validation.js）使用 `globalThis[k] = deps[k]` 桥接模式将 deps 注入作用域，该模式在多次工具调用后会出现 globalThis 被污染/恢复失败的问题，导致 `ensurePage is not a function`、`getArtifacts is not a function`、`filterNetworkDetails is not a function`、`resetRuntimeLogs is not a function`、`findPage is not a function`、`traverseMenu is not a function`、`exportHar is not a function` 等 12+ 个工具运行时错误。现已替换为直接 `const { ... } = deps;` 解构模式，在 `finally` 块中使用 `Object.assign(deps, {...})` 回写可变状态，彻底消除 globalThis 污染问题
+- **deps 对象补充缺失变量**：新增 `TOOLS_DIR` 和 `logger` 到 deps 对象，修复 system.js 中 `skill_mcp_validate` 工具无法访问 `TOOLS_DIR` 的问题
+- **browser_select index 参数修复**：原代码使用 `args.value || args.label || args.index` 导致 `index: 0` 被视为 falsy 而报错；且未按 Playwright API 要求将 index 包装为 `{ index: n }` 对象。现已分别检查三个参数并使用正确的 Playwright `selectOption` 调用语法
+- **文档修复**（从 v1.6.9 待定变更合并）：修复 8 个文件中 80+ 处错误的 npm 包名引用（`ai-verify-mcp` → `@validpilot/ai-verify-mcp`），修复命令名错误（npm 包名误用为 shell 命令 → 正确的 bin 命令 `ai-verify-mcp`），新增「如何更新到最新版本」文档章节（3 种场景：npx/全局安装/项目本地），更新 FAQ 条目
+- **测试断言更新**（从 v1.6.9 待定变更合并）：更新 13 个过时的 outputSchema 断言（v1.6.8 已移除 outputSchema 但测试仍期望其存在），涉及 4 个测试文件
+
+### Test Results
+
+- 增强功能测试：32/32 通过（100%），覆盖 6 个增强工具的所有新增字段和功能点
+- mcp_self_test 工具执行测试：9/9 通过（100%），总耗时 6.9 秒
+- 既有测试回归：58/58 通过（100%），无回归
+- 测试站点：https://panjiachen.github.io/vue-element-admin/
+
 ## [1.6.9] - 2026-07-12
 
 ### Fixed

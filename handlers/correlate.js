@@ -39,20 +39,99 @@ async function correlateTripleCheck(args, deps) {
   };
 
   try {
-    const origin = await target.evaluate(() => window.location.origin);
-    const apiUrl = apiEndpoint || `${origin}/api/${mode || 'users'}`;
+    const pageContext = await target.evaluate(() => {
+      const origin = window.location.origin;
+      const pathname = window.location.pathname;
+      const nextData = window.__NEXT_DATA__;
+      const nuxtData = window.__NUXT__;
+      const vueApp = window.__VUE_APP__ || window.__vue_app__;
+      const axiosDefaults = window.axios && window.axios.defaults ? window.axios.defaults.baseURL : null;
+      const scripts = Array.from(document.querySelectorAll('script[src]')).map(s => s.src).filter(s => s.includes('/api/') || s.includes('graphql'));
+      const metaApiBase = document.querySelector('meta[name="api-base"], meta[name="api-url"], meta[property="api-base"]')?.content || null;
+      return { origin, pathname, nextData, nuxtData, hasVue: !!vueApp, axiosBaseURL: axiosDefaults, metaApiBase, scripts };
+    });
 
-    const apiResult = await target.evaluate(async ({ url, method, payload }) => {
-      const opts = { method, headers: { 'Content-Type': 'application/json' } };
-      if (payload) opts.body = JSON.stringify(payload);
-      const res = await fetch(url, opts).catch(() => null);
-      if (!res) return { ok: false, status: 0, data: null, error: 'fetch failed' };
-      let data;
-      try { data = await res.json(); } catch (e) { data = null; }
-      return { ok: res.ok, status: res.status, data };
-    }, { url: apiUrl, method: apiMethod, payload: apiPayload });
+    const deriveResource = () => {
+      if (mode && mode !== 'list' && mode !== 'detail') return mode;
+      const pathSegments = pageContext.pathname.split('/').filter(s => s && !s.startsWith('#') && !s.startsWith('?'));
+      const adminIdx = pathSegments.findIndex(s => s === 'admin' || s === 'manage' || s === 'dashboard');
+      const resourceSegment = adminIdx >= 0 && pathSegments[adminIdx + 1] ? pathSegments[adminIdx + 1] : (pathSegments[pathSegments.length - 1] || 'users');
+      if (/^\d+$/.test(resourceSegment) && pathSegments.length >= 2) return pathSegments[pathSegments.length - 2];
+      return resourceSegment.replace(/[^a-zA-Z0-9_-]/g, '');
+    };
 
-    result.apiResponse = { status: apiResult.status, hasData: !!apiResult.data };
+    const resource = deriveResource();
+    const baseUrls = [];
+    if (pageContext.metaApiBase) baseUrls.push(pageContext.metaApiBase);
+    if (pageContext.axiosBaseURL) baseUrls.push(pageContext.axiosBaseURL);
+    baseUrls.push(pageContext.origin);
+
+    const apiPatterns = [
+      `${baseUrls[0]}/api/${resource}`,
+      `${baseUrls[0]}/api/v1/${resource}`,
+      `${baseUrls[0]}/api/v2/${resource}`,
+      `${baseUrls[0]}/v1/${resource}`,
+      `${baseUrls[0]}/${resource}`
+    ];
+
+    if (apiEndpoint) {
+      apiPatterns.length = 0;
+      apiPatterns.push(apiEndpoint);
+    }
+
+    result.apiDerivation = { resource, patterns: apiPatterns, source: apiEndpoint ? 'manual' : 'auto', spaFramework: pageContext.nextData ? 'nextjs' : pageContext.nuxtData ? 'nuxt' : pageContext.hasVue ? 'vue' : 'unknown' };
+
+    let apiResult = null;
+    let triedPattern = null;
+
+    for (const pattern of apiPatterns) {
+      apiResult = await target.evaluate(async ({ url, method, payload }) => {
+        const opts = { method, headers: { 'Content-Type': 'application/json' } };
+        if (payload) opts.body = JSON.stringify(payload);
+        const res = await fetch(url, opts).catch(() => null);
+        if (!res) return { ok: false, status: 0, data: null, error: 'fetch failed' };
+        let data;
+        try { data = await res.json(); } catch (e) { data = null; }
+        return { ok: res.ok, status: res.status, data };
+      }, { url: pattern, method: apiMethod, payload: apiPayload });
+      triedPattern = pattern;
+      if (apiResult.ok && apiResult.data) break;
+    }
+
+    if ((!apiResult || !apiResult.ok) && !apiEndpoint) {
+      const graphqlResult = await target.evaluate(async ({ origin }) => {
+        const query = '{ __schema { queryType { name } mutationType { name } } }';
+        const res = await fetch(`${origin}/graphql`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query })
+        }).catch(() => null);
+        if (!res) return { ok: false };
+        let data;
+        try { data = await res.json(); } catch (e) { return { ok: false, status: res.status }; }
+        return { ok: res.ok && !!data?.data?.__schema, status: res.status, isGraphQL: true, data };
+      }, { origin: pageContext.origin });
+      if (graphqlResult.ok) {
+        apiResult = { ok: true, status: 200, data: graphqlResult.data, isGraphQL: true };
+        triedPattern = `${pageContext.origin}/graphql`;
+        result.apiDerivation.graphql = true;
+      }
+    }
+
+    if (pageContext.nextData) {
+      const nextPageData = pageContext.nextData;
+      const props = nextPageData.props?.pageProps || nextPageData.props || {};
+      const apiFromNext = props.initialData || props.data || props.items || props.list;
+      if (apiFromNext && Array.isArray(apiFromNext)) {
+        apiResult = { ok: true, status: 200, data: apiFromNext, source: 'nextjs-ssr' };
+        triedPattern = '__NEXT_DATA__.props.pageProps';
+        result.apiDerivation.spaSource = 'nextjs-ssr';
+      }
+    }
+
+    result.apiDerivation.tried = triedPattern;
+    result.apiDerivation.resolved = apiResult?.ok || false;
+    result.apiResponse = { status: apiResult?.status || 0, hasData: !!(apiResult?.data), source: apiResult?.source || (apiResult?.isGraphQL ? 'graphql' : 'fetch') };
 
     const pageStructure = await target.evaluate(() => {
       const tables = document.querySelectorAll('table, .table, [role="grid"]');
@@ -63,7 +142,7 @@ async function correlateTripleCheck(args, deps) {
     });
     result.pageStructure = pageStructure;
 
-    if (apiResult.ok && apiResult.data) {
+    if (apiResult?.ok && apiResult?.data) {
       const apiData = apiResult.data;
       const rows = Array.isArray(apiData) ? apiData : (apiData.data || apiData.items || []);
       result.totalApiRecords = rows.length;
@@ -198,8 +277,8 @@ async function correlateTripleCheck(args, deps) {
         result.message = '未检测到表格或卡片结构，跳过数据比对';
       }
     } else {
-      if (!apiResult.ok) {
-        result.message = `API 请求失败：${apiResult.status}，使用 DOM 结构分析`;
+      if (!apiResult?.ok) {
+        result.message = `API 请求失败：${apiResult?.status || 'N/A'}（尝试 ${result.apiDerivation?.tried || '未知'}），使用 DOM 结构分析`;
       } else {
         result.message = 'API 返回为空，使用 DOM 结构分析';
       }

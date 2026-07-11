@@ -82,17 +82,17 @@ npm install --save-dev @validpilot/ai-verify-mcp
 ### 2.3 验证安装
 
 ```bash
-@validpilot/ai-verify-mcp --version
-# 输出: 1.0.0
+ai-verify-mcp --version
+# 输出: 1.6.9
 
-@validpilot/ai-verify-mcp health
-# 输出: {"ok":true,"name":"ai-verify-mcp","version":"1.0.0","message":"Playwright browser is available"}
+ai-verify-mcp health
+# 输出: {"ok":true,"name":"@validpilot/ai-verify-mcp","version":"1.6.9","message":"Playwright browser is available"}
 ```
 
 ### 2.4 卸载
 
 ```bash
-npm uninstall -g ai-verify-mcp
+npm uninstall -g @validpilot/ai-verify-mcp
 ```
 
 ---
@@ -354,7 +354,7 @@ Windsurf ?Settings ?MCP Servers ?Add?
 ### 4.5 Claude Code
 
 ```bash
-claude mcp add ai-verify-mcp npx -y ai-verify-mcp
+claude mcp add ai-verify-mcp npx -y @validpilot/ai-verify-mcp
 ```
 
 ### 4.6 Cline / Roo Code / OpenClaw
@@ -375,7 +375,7 @@ claude mcp add ai-verify-mcp npx -y ai-verify-mcp
 ### 4.7 Codex CLI
 
 ```bash
-codex mcp add ai-verify-mcp -- npx -y ai-verify-mcp
+codex mcp add ai-verify-mcp -- npx -y @validpilot/ai-verify-mcp
 ```
 
 或写?`~/.codex/config.toml`?
@@ -389,7 +389,7 @@ args = ["-y", "ai-verify-mcp"]
 ### 4.8 Hermes
 
 ```bash
-hermes mcp add ai-verify-mcp npx -y ai-verify-mcp
+hermes mcp add ai-verify-mcp npx -y @validpilot/ai-verify-mcp
 ```
 
 或写?`~/.hermes/config.yaml`?
@@ -898,17 +898,17 @@ Suitable for use in project CI pipelines, or add scripts to `package.json`:
 ### 2.3 Verify Installation
 
 ```bash
-@validpilot/ai-verify-mcp --version
-# Output: 1.0.0
+ai-verify-mcp --version
+# Output: 1.6.9
 
-@validpilot/ai-verify-mcp health
-# Output: {"ok":true,"name":"ai-verify-mcp","version":"1.0.0","message":"Playwright browser is available"}
+ai-verify-mcp health
+# Output: {"ok":true,"name":"@validpilot/ai-verify-mcp","version":"1.6.9","message":"Playwright browser is available"}
 ```
 
 ### 2.4 Uninstallation
 
 ```bash
-npm uninstall -g ai-verify-mcp
+npm uninstall -g @validpilot/ai-verify-mcp
 ```
 
 ---
@@ -1170,7 +1170,7 @@ Windsurf ?Settings ?MCP Servers ?Add:
 ### 4.5 Claude Code
 
 ```bash
-claude mcp add ai-verify-mcp npx -y ai-verify-mcp
+claude mcp add ai-verify-mcp npx -y @validpilot/ai-verify-mcp
 ```
 
 ### 4.6 Cline / Roo Code / OpenClaw
@@ -1191,7 +1191,7 @@ See each client's documentation for configuration file locations.
 ### 4.7 Codex CLI
 
 ```bash
-codex mcp add ai-verify-mcp -- npx -y ai-verify-mcp
+codex mcp add ai-verify-mcp -- npx -y @validpilot/ai-verify-mcp
 ```
 
 Or write to `~/.codex/config.toml`:
@@ -1205,7 +1205,7 @@ args = ["-y", "ai-verify-mcp"]
 ### 4.8 Hermes
 
 ```bash
-hermes mcp add ai-verify-mcp npx -y ai-verify-mcp
+hermes mcp add ai-verify-mcp npx -y @validpilot/ai-verify-mcp
 ```
 
 Or write to `~/.hermes/config.yaml`:

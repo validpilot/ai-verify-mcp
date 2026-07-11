@@ -18,14 +18,10 @@ describe('validation_matrix handler 功能', () => {
     assert.ok(fs.existsSync(filePath));
   });
 
-  test('validation_matrix schema 包含完整的 outputSchema', () => {
+  // v1.6.8 移除 outputSchema：handler 返回 text content 而非 structuredContent，MCP 协议要求 outputSchema 必须不存在
+  test('validation_matrix schema 不包含 outputSchema', () => {
     const schema = JSON.parse(fs.readFileSync(path.join(TOOLS_DIR, 'validation_matrix.json'), 'utf8'));
-    assert.ok(schema.outputSchema, '应有 outputSchema');
-    assert.ok(schema.outputSchema.properties, 'outputSchema 应有 properties');
-    assert.ok(schema.outputSchema.properties.success, 'outputSchema 应包含 success');
-    assert.ok(schema.outputSchema.properties.overallScore, 'outputSchema 应包含 overallScore');
-    assert.ok(schema.outputSchema.properties.grade, 'outputSchema 应包含 grade');
-    assert.ok(schema.outputSchema.properties.dimensions, 'outputSchema 应包含 dimensions');
+    assert.equal(schema.outputSchema, undefined, '不应定义 outputSchema');
   });
 
   test('validation_matrix schema dimensions 包含4个维度', () => {
@@ -93,46 +89,10 @@ describe('validation_matrix handler 功能', () => {
     assert.ok(typeof validation.handle === 'function', 'handle 应为函数');
   });
 
-  test('validation_matrix outputSchema grade 字段描述正确', () => {
+  // v1.6.8 移除 outputSchema：以下用例原检查 outputSchema 字段结构，现统一合并为"不应存在 outputSchema"
+  test('validation_matrix outputSchema 不存在（grade/overallScore/dimensions/roleMatrix/recommendations/artifacts 均已移除）', () => {
     const schema = JSON.parse(fs.readFileSync(path.join(TOOLS_DIR, 'validation_matrix.json'), 'utf8'));
-    const grade = schema.outputSchema.properties.grade;
-    assert.ok(grade.description.includes('A/B/C/D/F'), 'grade 描述应包含等级说明');
-  });
-
-  test('validation_matrix outputSchema overallScore 描述正确', () => {
-    const schema = JSON.parse(fs.readFileSync(path.join(TOOLS_DIR, 'validation_matrix.json'), 'utf8'));
-    const score = schema.outputSchema.properties.overallScore;
-    assert.ok(score.description.includes('0-100'), 'overallScore 描述应包含评分范围');
-  });
-
-  test('validation_matrix outputSchema dimensions 结构正确', () => {
-    const schema = JSON.parse(fs.readFileSync(path.join(TOOLS_DIR, 'validation_matrix.json'), 'utf8'));
-    const dims = schema.outputSchema.properties.dimensions;
-    assert.ok(dims.properties.functional, 'dimensions 应包含 functional');
-    assert.ok(dims.properties.visual, 'dimensions 应包含 visual');
-    assert.ok(dims.properties.performance, 'dimensions 应包含 performance');
-    assert.ok(dims.properties.a11y, 'dimensions 应包含 a11y');
-  });
-
-  test('validation_matrix outputSchema 包含 roleMatrix', () => {
-    const schema = JSON.parse(fs.readFileSync(path.join(TOOLS_DIR, 'validation_matrix.json'), 'utf8'));
-    assert.ok(schema.outputSchema.properties.roleMatrix, 'outputSchema 应包含 roleMatrix');
-    assert.equal(schema.outputSchema.properties.roleMatrix.type, 'array', 'roleMatrix 应为 array 类型');
-    assert.ok(schema.outputSchema.properties.roleMatrix.description, 'roleMatrix 应有描述');
-  });
-
-  test('validation_matrix outputSchema 包含 recommendations', () => {
-    const schema = JSON.parse(fs.readFileSync(path.join(TOOLS_DIR, 'validation_matrix.json'), 'utf8'));
-    assert.ok(schema.outputSchema.properties.recommendations, 'outputSchema 应包含 recommendations');
-    assert.equal(schema.outputSchema.properties.recommendations.type, 'array', 'recommendations 应为 array 类型');
-    assert.ok(schema.outputSchema.properties.recommendations.items, 'recommendations 应有 items 定义');
-    assert.equal(schema.outputSchema.properties.recommendations.items.type, 'string', 'recommendations items 应为 string 类型');
-  });
-
-  test('validation_matrix outputSchema 包含 artifacts', () => {
-    const schema = JSON.parse(fs.readFileSync(path.join(TOOLS_DIR, 'validation_matrix.json'), 'utf8'));
-    assert.ok(schema.outputSchema.properties.artifacts, 'outputSchema 应包含 artifacts');
-    assert.equal(schema.outputSchema.properties.artifacts.type, 'array', 'artifacts 应为 array 类型');
+    assert.equal(schema.outputSchema, undefined, '不应定义 outputSchema（v1.6.8 移除：handler 返回 text content 而非 structuredContent）');
   });
 
   test('validation_matrix schema 包含 visualBaseline 可选参数', () => {

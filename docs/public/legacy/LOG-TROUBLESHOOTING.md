@@ -40,7 +40,7 @@
   ├─ 先试?CLI 子命令能否独立运行？
   ?  ├─ @validpilot/ai-verify-mcp --version       ?看版本号（验证包安装正常?
   ?  ├─ @validpilot/ai-verify-mcp health           ??Playwright 可用性（不依?MCP Server?
-  ?  └─ @validpilot/ai-verify-mcp validate --url <url> ?看能不能直接验证一个页?
+  ?  └─ ai-verify-mcp validate --url <url> ?看能不能直接验证一个页?
   ├─ 端口 3456 被占用？（HTTP 模式?
   ?  └─ netstat -ano | findstr :3456 ?换端口或关冲突进?
   ├─ npm 包损坏？
@@ -192,7 +192,7 @@ set VALIDPILOT_REDACTION=false   # 关闭敏感信息脱敏，看到完整内?
 set VALIDPILOT_HEADLESS=false    # 关闭无头模式，看到浏览器界面
 
 # 保存 stderr 到文?
-npx -y ai-verify-mcp 2> mcp-error.log
+npx -y @validpilot/ai-verify-mcp 2> mcp-error.log
 ```
 
 ### 验证 MCP 协议握手
@@ -305,7 +305,7 @@ Unable to start
   ├─ Try running CLI subcommands independently first?
   ?  ├─ @validpilot/ai-verify-mcp --version       ?Check version (verifies package installation)
   ?  ├─ @validpilot/ai-verify-mcp health           ?Check Playwright availability (independent of MCP Server)
-  ?  └─ @validpilot/ai-verify-mcp validate --url <url> ?Test if a page can be validated directly
+  ?  └─ ai-verify-mcp validate --url <url> ?Test if a page can be validated directly
   ├─ Port 3456 occupied? (HTTP mode)
   ?  └─ netstat -ano | findstr :3456 ?Change port or terminate conflicting process
   ├─ npm package corrupted?
@@ -457,7 +457,7 @@ set VALIDPILOT_REDACTION=false   # Disable sensitive data redaction, see full co
 set VALIDPILOT_HEADLESS=false    # Disable headless mode, see browser UI
 
 # Save stderr to file
-npx -y ai-verify-mcp 2> mcp-error.log
+npx -y @validpilot/ai-verify-mcp 2> mcp-error.log
 ```
 
 ### Verify MCP Protocol Handshake

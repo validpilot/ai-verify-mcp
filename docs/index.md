@@ -260,7 +260,12 @@ ai-verify-mcp http --port 3000
 </details>
 <details class="faq-item">
   <summary class="faq-question">如何更新工具库？</summary>
-  <div class="faq-answer">全局安装用户运行 <code>npm update -g ai-verify-mcp</code> 即可更新到最新版本。项目活跃开发中，建议关注 GitHub Releases 了解更新动态。</div>
+  <div class="faq-answer">
+    <p><strong>npx 方式</strong>（推荐）：将 MCP 配置中的版本号改为 <code>@latest</code> 或具体新版本号（如 <code>@1.6.9</code>），重启 IDE 即可。</p>
+    <p><strong>全局安装</strong>：运行 <code>npm install -g @validpilot/ai-verify-mcp@latest</code> 更新到最新版本。</p>
+    <p><strong>查看最新版本</strong>：运行 <code>npm view @validpilot/ai-verify-mcp version</code>。</p>
+    <p>项目活跃开发中，建议关注 GitHub Releases 了解更新动态。</p>
+  </div>
 </details>
 <details class="faq-item">
   <summary class="faq-question">遇到问题怎么办？</summary>

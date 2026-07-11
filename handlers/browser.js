@@ -4,6 +4,67 @@
 // Extracted from server.js callTool switch statements
 const { mcpError, mcpParamMissing, mcpPageNotFound, mcpElementNotFound } = require('../core/mcp-error');
 
+// CDP-based accessibility snapshot helper (replaces removed page.accessibility.snapshot API)
+async function getA11ySnapshot(target, options = {}) {
+  const ctx = target.context();
+  const session = await ctx.newCDPSession(target);
+  try {
+    await session.send('Accessibility.enable');
+    const result = await session.send('Accessibility.getFullAXTree');
+    const nodes = result.nodes || [];
+    const nodeMap = new Map();
+    for (const node of nodes) {
+      nodeMap.set(node.nodeId, {
+        role: node.role ? node.role.value : 'unknown',
+        name: node.name ? node.name.value : '',
+        value: node.value ? node.value.value : undefined,
+        bounds: node.bounds ? {
+          x: Math.round(node.bounds.left || 0),
+          y: Math.round(node.bounds.top || 0),
+          width: Math.round(node.bounds.width || 0),
+          height: Math.round(node.bounds.height || 0)
+        } : null,
+        disabled: node.properties && node.properties.disabled ? node.properties.disabled.value : undefined,
+        focused: node.properties && node.properties.focused ? node.properties.focused.value : undefined,
+        children: []
+      });
+    }
+    let root = null;
+    for (const node of nodes) {
+      const transformed = nodeMap.get(node.nodeId);
+      if (node.parentId && nodeMap.has(node.parentId)) {
+        nodeMap.get(node.parentId).children.push(transformed);
+      } else if (!root) {
+        root = transformed;
+      }
+    }
+    if (options.root && root) {
+      const elBounds = await options.root.boundingBox();
+      if (elBounds) {
+        function findSubtree(node) {
+          if (!node || !node.bounds) return null;
+          if (Math.abs(node.bounds.x - elBounds.x) < 5 && Math.abs(node.bounds.y - elBounds.y) < 5 &&
+              Math.abs(node.bounds.width - elBounds.width) < 5 && Math.abs(node.bounds.height - elBounds.height) < 5) {
+            return node;
+          }
+          if (node.children) {
+            for (const child of node.children) {
+              const found = findSubtree(child);
+              if (found) return found;
+            }
+          }
+          return null;
+        }
+        const subtree = findSubtree(root);
+        if (subtree) return subtree;
+      }
+    }
+    return root;
+  } finally {
+    await session.detach();
+  }
+}
+
 const tools = [
   "browser_open",
   "browser_click",
@@ -40,10 +101,9 @@ const tools = [
 
 async function handle(name, args, deps) {
 
-  // === Bridge deps into scope via globalThis ===
-  const _depsKeys = Object.keys(deps);
-  const _depsPrev = {};
-  for (const k of _depsKeys) { _depsPrev[k] = globalThis[k]; globalThis[k] = deps[k]; }
+  // === Destructure deps into local scope (replacing globalThis bridge) ===
+  let { page, browser, browserSessionId, consoleLogs, networkLogs, pageErrors, currentCheckpoint, eventCheckpoint, lastAction, sessions, activeSessionName, sessionCounter, traceLogs, traceActive, currentTraceName, backendProbeResults, instrumentationEnabled, imageErrors, lastImageErrorCheckpoint, validationResults, lastQualityChecks, lastValidationRun, requestStartTimes, stateManager } = deps;
+  const { MAX_SESSIONS, SCREENSHOT_DIR, HAR_DIR, VISUAL_DIR, VISUAL_BASELINE_DIR, VISUAL_ACTUAL_DIR, VISUAL_DIFF_DIR, VALIDATIONS_DIR, REPORT_DIR, LOG_FILE, PROJECT_ROOT, TOOLS_DIR, logger, ensurePage, text, log, resetRuntimeLogs, getPageLinks, postActionErrorCheck, probeKnownEndpoints, getUnifiedErrors, closeBrowserSession, listBrowserSessions, filterNetwork, filterNetworkDetails, getStorageSnapshot, buildDebugReport, captureStepEvidence, waitForCondition, assertPage, runFlow, installInstrumentation, getBrowserEvents, clearBrowserEvents, startTrace, stopTrace, getArtifacts, clearArtifacts, ensureArtifactsDir, getBackendProbeEndpoints, isCloudApiProbeTarget, screenshotWithRedaction, safeArtifactName, analyzeScreenshotForErrors, exportHar, runFullAudit, visualBaseline, visualCompare, visualReport, runA11yCheck, runPerformanceCheck, runLighthouseAudit, findElement, findPage, suggestLocator, validateLocator, mcpHealthCheck, projectAudit, mcpSelfTest, runValidationCheck, runValidationPlan, runValidationElement, runValidationFlow, buildValidationReport, exportValidationReport, runValidationQuickRun, runDeployVerify, investigateDebug, runBrowserFullRegression, traverseMenu, fetchBackendLogs, buildTraceChain, detectSilentFailures, redact, redactString, isSensitiveKey, trimTraceLogs, genSpanId, genTraceId, browserOperator, evidenceCollector, deepInteractor, errorAggregator, path, fs, execSync, callTool } = deps;
   try {
   // ====== browser_open ======
   if (name === 'browser_open') {
@@ -756,8 +816,19 @@ const { target } = await ensurePage();
   // ====== browser_select ======
   if (name === 'browser_select') {
 const { target } = await ensurePage();
-    const selectValue = args.value || args.label || args.index;
-    if (!selectValue) {
+    let selectArg = null;
+    let selectDesc = '';
+    if (args.value !== undefined && args.value !== null) {
+      selectArg = args.value;
+      selectDesc = `value="${args.value}"`;
+    } else if (args.label !== undefined && args.label !== null) {
+      selectArg = { label: args.label };
+      selectDesc = `label="${args.label}"`;
+    } else if (args.index !== undefined && args.index !== null) {
+      selectArg = { index: args.index };
+      selectDesc = `index=${args.index}`;
+    }
+    if (selectArg === null) {
       return text(`错误：browser_select 需要提供 value 或 label 或 index 参数，当前参数：${JSON.stringify(args)}`);
     }
     const selectEl = await target.$(args.selector);
@@ -765,18 +836,18 @@ const { target } = await ensurePage();
       return text(`browser_select: 未找到选择器 "${args.selector}" 对应的 select 元素，请确认页面包含该元素`);
     }
     try {
-      await target.selectOption(args.selector, selectValue, { timeout: 5000 });
+      await target.selectOption(args.selector, selectArg, { timeout: 5000 });
     } catch (e) {
-      return text(`browser_select: 操作失败：${e.message}，选择器：${args.selector}，值：${selectValue}`);
+      return text(`browser_select: 操作失败：${e.message}，选择器：${args.selector}，${selectDesc}`);
     }
-    
+
     // 操作后快速错误捕获
     const postErrors = await postActionErrorCheck(target, 'select', args.selector);
-    
+
     return text(JSON.stringify({
       action: 'select',
       selector: args.selector,
-      value: selectValue,
+      selection: selectDesc,
       success: true,
       errors: { count: postErrors.count, detected: postErrors.detected },
       nextSteps: [
@@ -1266,9 +1337,9 @@ const { target } = await ensurePage();
       if (!el) {
         return mcpElementNotFound(args.selector, name);
       }
-      rootNode = await target.accessibilitySnapshot({ root: el, interestingOnly: true });
+      rootNode = await getA11ySnapshot(target, { root: el });
     } else {
-      rootNode = await target.accessibilitySnapshot({ interestingOnly: true });
+      rootNode = await getA11ySnapshot(target);
     }
     if (!rootNode) {
       return { content: [{ type: 'text', text: JSON.stringify({ role: 'document', name: 'empty', children: [] }, null, 2) }] };
@@ -1317,7 +1388,7 @@ const { target } = await ensurePage();
   if (name === 'browser_aria_click') {
     const { target } = await ensurePage(args);
     if (!args.ref) return mcpParamMissing('ref', name);
-    const snapshot = await target.accessibilitySnapshot({ interestingOnly: true });
+    const snapshot = await getA11ySnapshot(target);
     if (!snapshot) return mcpError('页面无可访问性信息', { error: 'EXECUTION_ERROR', toolName: name });
     let refCounter = 0;
     (function assign(node, depth) {
@@ -1338,7 +1409,7 @@ const { target } = await ensurePage();
     const { target } = await ensurePage(args);
     if (!args.ref) return mcpParamMissing('ref', name);
     if (typeof args.text !== 'string') return mcpParamMissing('text', name);
-    const snapshot = await target.accessibilitySnapshot({ interestingOnly: true });
+    const snapshot = await getA11ySnapshot(target);
     if (!snapshot) return mcpError('页面无可访问性信息', { error: 'EXECUTION_ERROR', toolName: name });
     let refCounter = 0;
     (function assign(node, depth) {
@@ -1777,9 +1848,11 @@ const { target } = await ensurePage();
       const result = {
         found: false,
         type: 'unknown',
+        provider: 'unknown',
         complexity: 'unknown',
         needsHuman: false,
         elements: [],
+        scripts: [],
         suggestions: []
       };
 
@@ -1792,61 +1865,110 @@ const { target } = await ensurePage();
             '[class*="captcha"]', '[id*="captcha"]',
             '[class*="verify-code"]', '[id*="verify-code"]',
             '[class*="slider"]', '[class*="slide-verify"]',
-            'iframe[src*="captcha"]', 'iframe[src*="recaptcha"]', 'iframe[src*="hcaptcha"]'
+            'iframe[src*="captcha"]', 'iframe[src*="recaptcha"]', 'iframe[src*="hcaptcha"]',
+            'iframe[src*="geetest"]', 'iframe[src*="captcha.tencent"]',
+            'iframe[src*="captcha.awswaf"]', 'iframe[src*="challenges.cloudflare.com"]',
+            '.cf-turnstile', '.h-captcha', '.g-recaptcha', '.grecaptcha-badge',
+            '[data-sitekey]', '.geetest_widget', '.geetest_panel',
+            '#tcaptcha_iframe', '[class*="tcaptcha"]',
+            '[class*="nc_iconfont"]', '[class*="nc_lang"]',
+            '[class*="J_slideBlock"]', '[id*="aliyunCaptcha"]'
           ];
+
+      const scriptPatterns = [
+        { pattern: /recaptcha\/api\.js|recaptcha\/releases/i, provider: 'recaptcha', type: 'recaptcha' },
+        { pattern: /hcaptcha\.com\/1\/api\.js/i, provider: 'hcaptcha', type: 'hcaptcha' },
+        { pattern: /challenges\.cloudflare\.com\/turnstile/i, provider: 'turnstile', type: 'turnstile' },
+        { pattern: /geetest\.com\/static\/tools|geetest\.com\/api/i, provider: 'geetest', type: 'geetest' },
+        { pattern: /captcha\.tencent/i, provider: 'tencent', type: 'tencent' },
+        { pattern: /captcha\.awswaf\.com/i, provider: 'awswaf', type: 'awswaf' },
+        { pattern: /aliyunCaptcha|captcha\.aliyun/i, provider: 'aliyun', type: 'aliyun-slider' }
+      ];
+
+      document.querySelectorAll('script[src]').forEach(s => {
+        const src = s.src || '';
+        for (const { pattern, provider, type } of scriptPatterns) {
+          if (pattern.test(src)) {
+            result.scripts.push({ provider, type, src: src.slice(0, 200) });
+            if (result.provider === 'unknown') result.provider = provider;
+            if (result.type === 'unknown') result.type = type;
+            result.found = true;
+            break;
+          }
+        }
+      });
+
+      const typeMap = [
+        { match: (src, cls, tag) => src.includes('challenges.cloudflare.com') || cls.includes('cf-turnstile') || cls.includes('turnstile'), type: 'turnstile', provider: 'cloudflare', complexity: 'high' },
+        { match: (src, cls, tag) => src.includes('geetest') || cls.includes('geetest'), type: 'geetest', provider: 'geetest', complexity: 'high' },
+        { match: (src, cls, tag) => src.includes('captcha.tencent') || cls.includes('tcaptcha'), type: 'tencent', provider: 'tencent', complexity: 'high' },
+        { match: (src, cls, tag) => src.includes('captcha.awswaf') || cls.includes('awswaf'), type: 'awswaf', provider: 'aws', complexity: 'high' },
+        { match: (src, cls, tag) => src.includes('recaptcha') || cls.includes('g-recaptcha') || cls.includes('grecaptcha'), type: 'recaptcha', provider: 'google', complexity: 'high' },
+        { match: (src, cls, tag) => cls.includes('grecaptcha-badge'), type: 'recaptcha-v3', provider: 'google', complexity: 'high' },
+        { match: (src, cls, tag) => src.includes('hcaptcha') || cls.includes('h-captcha'), type: 'hcaptcha', provider: 'hcaptcha', complexity: 'high' },
+        { match: (src, cls, tag) => cls.includes('slider') || cls.includes('slide'), type: 'slider', provider: 'unknown', complexity: 'high' },
+        { match: (src, cls, tag) => cls.includes('nc_iconfont') || cls.includes('nc_lang') || cls.includes('aliyunCaptcha'), type: 'aliyun-slider', provider: 'aliyun', complexity: 'high' },
+        { match: (src, cls, tag) => tag === 'canvas', type: 'canvas', provider: 'unknown', complexity: 'medium' },
+        { match: (src, cls, tag) => tag === 'iframe', type: 'iframe', provider: 'unknown', complexity: 'medium' }
+      ];
+
+      const detectType = (src, cls, tag) => {
+        for (const t of typeMap) {
+          if (t.match(src, cls, tag)) return t;
+        }
+        return { type: 'image', provider: 'unknown', complexity: 'low' };
+      };
 
       for (const sel of selectors) {
         const els = document.querySelectorAll(sel);
         for (const el of els) {
           const rect = el.getBoundingClientRect();
-          if (rect.width === 0 || rect.height === 0) continue;
+          if (rect.width === 0 && rect.height === 0) continue;
           const tagName = el.tagName.toLowerCase();
           const src = el.src || el.getAttribute('data-src') || '';
           const cls = (typeof el.className === 'string' ? el.className : '').toLowerCase();
-
-          let type = 'image';
-          if (tagName === 'canvas') type = 'canvas';
-          else if (cls.includes('slider') || cls.includes('slide')) type = 'slider';
-          else if (src.includes('recaptcha') || src.includes('hcaptcha')) type = 'recaptcha';
-          else if (tagName === 'iframe') type = 'iframe';
-
-          let complexity = 'low';
-          if (type === 'slider' || type === 'recaptcha') complexity = 'high';
-          else if (type === 'canvas') complexity = 'medium';
+          const detected = detectType(src, cls, tagName);
 
           result.elements.push({
-            type,
+            type: detected.type,
+            provider: detected.provider,
             tagName,
             selector: sel,
             src: src.slice(0, 200),
             width: Math.round(rect.width),
             height: Math.round(rect.height),
-            visible: rect.width > 0 && rect.height > 0
+            visible: rect.width > 0 || rect.height > 0,
+            sitekey: el.getAttribute('data-sitekey') || undefined
           });
           result.found = true;
-          if (result.type === 'unknown') result.type = type;
-          if (complexity === 'high' || (complexity === 'medium' && result.complexity === 'low')) {
-            result.complexity = complexity;
+          if (result.type === 'unknown' || result.type === 'image') {
+            result.type = detected.type;
+            result.provider = detected.provider;
           }
+          const complexityRank = { low: 0, medium: 1, high: 2 };
+          const currentRank = complexityRank[result.complexity] ?? -1;
+          const newRank = complexityRank[detected.complexity] ?? 0;
+          if (newRank > currentRank) result.complexity = detected.complexity;
         }
       }
 
       if (mode !== 'auto') {
-        result.elements = result.elements.filter(e => e.type === mode);
-        result.found = result.elements.length > 0;
-        result.type = result.found ? mode : 'unknown';
+        result.elements = result.elements.filter(e => e.type === mode || e.type === 'iframe');
+        result.found = result.elements.length > 0 || result.scripts.length > 0;
+        result.type = result.found ? mode : (result.scripts.length > 0 ? result.scripts[0].type : 'unknown');
       }
 
-      result.needsHuman = result.complexity === 'high' || result.type === 'recaptcha';
+      result.needsHuman = result.complexity === 'high';
       if (!result.found) {
         result.suggestions = [
           '未检测到验证码元素，可能原因：页面未加载验证码、验证码在 iframe 中、或使用非标准选择器',
           '尝试使用 captchaSelector 参数手动指定验证码元素选择器',
-          '使用 browser_snapshot 查看页面 DOM 结构以定位验证码元素'
+          '使用 browser_snapshot 查看页面 DOM 结构以定位验证码元素',
+          '某些现代验证码（Turnstile/reCAPTCHA v3）可能为隐形，检查 scripts 字段是否检测到验证码脚本'
         ];
       } else {
         result.suggestions = result.needsHuman
-          ? ['验证码复杂度较高，建议人工处理或使用 browser_captcha_screenshot 截图后人工识别']
+          ? [`检测到 ${result.provider} ${result.type} 验证码，复杂度较高，建议人工处理或使用 browser_captcha_screenshot 截图后人工识别`]
           : ['可以使用 browser_captcha_read 尝试自动识别验证码文本'];
       }
 
@@ -1863,21 +1985,48 @@ const { target } = await ensurePage();
     const padding = args.padding || 4;
     const savePath = args.savePath;
     const minSize = args.minSize || 100;
+    const autoRefresh = args.autoRefresh !== false;
 
-    let captchaEl = null;
-    if (captchaSelector) {
-      captchaEl = await target.$(captchaSelector).catch(() => null);
-    }
-    if (!captchaEl) {
+    const findCaptchaEl = async () => {
+      if (captchaSelector) {
+        const el = await target.$(captchaSelector).catch(() => null);
+        if (el) return el;
+      }
       const autoSelectors = [
         'img[src*="captcha"]', 'img[src*="verify"]', 'img[class*="captcha"]',
         'canvas[class*="captcha"]', '[class*="captcha"] img', '[class*="verify-code"] img'
       ];
       for (const sel of autoSelectors) {
-        captchaEl = await target.$(sel).catch(() => null);
-        if (captchaEl) break;
+        const el = await target.$(sel).catch(() => null);
+        if (el) return el;
       }
-    }
+      return null;
+    };
+
+    const refreshSelectors = [
+      '[class*="refresh"]', '[class*="reload"]', '[class*="change-captcha"]',
+      '[onclick*="refresh"]', '[onclick*="reload"]', '[onclick*="changeCode"]',
+      'img[src*="refresh"]', 'img[src*="reload"]', 'img[alt*="refresh"]',
+      '[aria-label*="refresh"]', '[title*="刷新"]', '[title*="refresh"]',
+      'a[class*="refresh"]', 'button[class*="refresh"]', 'span[class*="refresh"]'
+    ];
+
+    const tryRefreshCaptcha = async () => {
+      for (const sel of refreshSelectors) {
+        const btn = await target.$(sel).catch(() => null);
+        if (btn) {
+          const btnBox = await btn.boundingBox().catch(() => null);
+          if (btnBox && btnBox.width > 0 && btnBox.height > 0) {
+            await btn.click().catch(() => {});
+            await target.waitForTimeout(600);
+            return sel;
+          }
+        }
+      }
+      return null;
+    };
+
+    let captchaEl = await findCaptchaEl();
 
     if (!captchaEl) {
       return text(JSON.stringify({
@@ -1890,7 +2039,15 @@ const { target } = await ensurePage();
       }, null, 2));
     }
 
-    const box = await captchaEl.boundingBox();
+    const fs = require('fs');
+    const path = require('path');
+    const screenshotDir = path.join(__dirname, '..', 'screenshots');
+    if (!fs.existsSync(screenshotDir)) fs.mkdirSync(screenshotDir, { recursive: true });
+
+    const filename = `captcha-${Date.now()}.png`;
+    const filepath = savePath || path.join(screenshotDir, filename);
+
+    let box = await captchaEl.boundingBox();
     if (!box || box.width < 10 || box.height < 10) {
       return text(JSON.stringify({
         success: false,
@@ -1900,18 +2057,35 @@ const { target } = await ensurePage();
       }, null, 2));
     }
 
-    const fs = require('fs');
-    const path = require('path');
-    const screenshotDir = path.join(__dirname, '..', 'screenshots');
-    if (!fs.existsSync(screenshotDir)) fs.mkdirSync(screenshotDir, { recursive: true });
-
-    const filename = `captcha-${Date.now()}.png`;
-    const filepath = savePath || path.join(screenshotDir, filename);
-
     await captchaEl.screenshot({ path: filepath, omitBackground: false });
+    let tooSmall = box.width < minSize || box.height < minSize;
+    const refreshAttempts = [];
+
+    if (tooSmall && autoRefresh && !savePath) {
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        const refreshSel = await tryRefreshCaptcha();
+        if (!refreshSel) {
+          refreshAttempts.push({ attempt, refreshed: false, reason: '未找到刷新按钮' });
+          break;
+        }
+        captchaEl = await findCaptchaEl();
+        if (!captchaEl) {
+          refreshAttempts.push({ attempt, refreshed: true, selector: refreshSel, reason: '刷新后验证码元素消失' });
+          break;
+        }
+        box = await captchaEl.boundingBox();
+        if (!box || box.width < 10 || box.height < 10) {
+          refreshAttempts.push({ attempt, refreshed: true, selector: refreshSel, reason: '刷新后元素尺寸仍过小' });
+          continue;
+        }
+        await captchaEl.screenshot({ path: filepath, omitBackground: false });
+        tooSmall = box.width < minSize || box.height < minSize;
+        refreshAttempts.push({ attempt, refreshed: true, selector: refreshSel, width: Math.round(box.width), height: Math.round(box.height), stillSmall: tooSmall });
+        if (!tooSmall) break;
+      }
+    }
 
     const stats = fs.statSync(filepath);
-    const tooSmall = box.width < minSize || box.height < minSize;
 
     return text(JSON.stringify({
       success: !tooSmall,
@@ -1920,8 +2094,13 @@ const { target } = await ensurePage();
       width: Math.round(box.width),
       height: Math.round(box.height),
       warning: tooSmall ? `截图尺寸小于 minSize(${minSize})，验证码可能无效` : undefined,
+      autoRefresh: autoRefresh && refreshAttempts.length > 0 ? {
+        attempted: refreshAttempts.length,
+        attempts: refreshAttempts,
+        resolved: !tooSmall
+      } : undefined,
       nextSteps: tooSmall
-        ? ['验证码图片尺寸过小，可能需要刷新验证码后重新截图']
+        ? ['验证码图片尺寸过小，可能需要手动刷新验证码后重新截图', '尝试使用 captchaSelector 精确指定验证码元素']
         : ['使用 browser_captcha_read 对截图进行 OCR 识别']
     }, null, 2));
   }
@@ -1933,6 +2112,9 @@ const { target } = await ensurePage();
     const captchaIndex = args.captchaIndex || 0;
 
     let captchaEl = null;
+    let searchContext = target;
+    let iframeUsed = null;
+
     if (captchaSelector) {
       captchaEl = await target.$(captchaSelector).catch(() => null);
     } else {
@@ -1947,6 +2129,26 @@ const { target } = await ensurePage();
           break;
         }
       }
+
+      if (!captchaEl) {
+        const frames = target.frames();
+        for (const frame of frames) {
+          if (frame === target) continue;
+          const frameUrl = frame.url();
+          if (frameUrl.includes('captcha') || frameUrl.includes('recaptcha') || frameUrl.includes('hcaptcha') || frameUrl.includes('geetest') || frameUrl.includes('turnstile')) {
+            for (const sel of autoSelectors) {
+              const els = await frame.$$(sel).catch(() => []);
+              if (els.length > captchaIndex) {
+                captchaEl = els[captchaIndex];
+                searchContext = frame;
+                iframeUsed = frameUrl.slice(0, 200);
+                break;
+              }
+            }
+            if (captchaEl) break;
+          }
+        }
+      }
     }
 
     if (!captchaEl) {
@@ -1955,7 +2157,8 @@ const { target } = await ensurePage();
         error: '未找到验证码元素',
         suggestions: [
           '使用 captchaSelector 参数手动指定验证码选择器',
-          '使用 browser_captcha_detect 先检测验证码位置'
+          '使用 browser_captcha_detect 先检测验证码位置',
+          '验证码可能在 iframe 中，已尝试自动搜索 iframe 但未找到'
         ]
       }, null, 2));
     }
@@ -1963,18 +2166,59 @@ const { target } = await ensurePage();
     const src = await captchaEl.getAttribute('src').catch(() => '');
     const tagName = await captchaEl.evaluate(el => el.tagName.toLowerCase()).catch(() => 'img');
 
+    const preprocessImage = async (dataUrl) => {
+      if (!dataUrl) return null;
+      return await searchContext.evaluate(async (url) => {
+        return new Promise((resolve) => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+            for (let i = 0; i < data.length; i += 4) {
+              const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+              const binary = gray > 128 ? 255 : 0;
+              data[i] = binary;
+              data[i + 1] = binary;
+              data[i + 2] = binary;
+            }
+            ctx.putImageData(imageData, 0, 0);
+            resolve(canvas.toDataURL('image/png'));
+          };
+          img.onerror = () => resolve(null);
+          img.src = url;
+        });
+      }, dataUrl);
+    };
+
     let recognizedText = '';
     let confidence = 0;
     let ocrMethod = 'none';
+    let preprocessingApplied = false;
+
+    const tryDdddocr = async (imageBuffer) => {
+      const ddddocr = require('ddddocr-node');
+      const ocrResult = await ddddocr.classification(imageBuffer);
+      return {
+        text: ocrResult.text || ocrResult.result || '',
+        confidence: ocrResult.confidence || 0
+      };
+    };
+
+    let rawDataUrl = null;
 
     if (src && src.startsWith('data:image')) {
       ocrMethod = 'data-url';
+      rawDataUrl = src;
       try {
-        const ddddocr = require('ddddocr-node');
         const base64Data = src.split(',')[1];
         const imageBuffer = Buffer.from(base64Data, 'base64');
-        const ocrResult = await ddddocr.classification(imageBuffer);
-        recognizedText = ocrResult.text || ocrResult.result || '';
+        const ocrResult = await tryDdddocr(imageBuffer);
+        recognizedText = ocrResult.text;
         confidence = ocrResult.confidence || (recognizedText ? 0.8 : 0);
       } catch (e) {
         ocrMethod = 'data-url-failed';
@@ -1982,13 +2226,13 @@ const { target } = await ensurePage();
     } else if (src && (src.startsWith('http') || src.startsWith('/'))) {
       ocrMethod = 'url-fetch';
       try {
-        const ddddocr = require('ddddocr-node');
         const url = src.startsWith('/') ? await target.evaluate(() => window.location.origin) + src : src;
         const response = await fetch(url);
         const arrayBuffer = await response.arrayBuffer();
         const imageBuffer = Buffer.from(arrayBuffer);
-        const ocrResult = await ddddocr.classification(imageBuffer);
-        recognizedText = ocrResult.text || ocrResult.result || '';
+        rawDataUrl = `data:image/png;base64,${Buffer.from(imageBuffer).toString('base64')}`;
+        const ocrResult = await tryDdddocr(imageBuffer);
+        recognizedText = ocrResult.text;
         confidence = ocrResult.confidence || (recognizedText ? 0.8 : 0);
       } catch (e) {
         ocrMethod = 'url-fetch-failed';
@@ -1996,7 +2240,6 @@ const { target } = await ensurePage();
     } else if (tagName === 'canvas') {
       ocrMethod = 'canvas';
       try {
-        const ddddocr = require('ddddocr-node');
         const dataUrl = await captchaEl.evaluate(el => {
           if (el.tagName.toLowerCase() === 'canvas') {
             return el.toDataURL('image/png');
@@ -2004,14 +2247,34 @@ const { target } = await ensurePage();
           return null;
         });
         if (dataUrl) {
+          rawDataUrl = dataUrl;
           const base64Data = dataUrl.split(',')[1];
           const imageBuffer = Buffer.from(base64Data, 'base64');
-          const ocrResult = await ddddocr.classification(imageBuffer);
-          recognizedText = ocrResult.text || ocrResult.result || '';
+          const ocrResult = await tryDdddocr(imageBuffer);
+          recognizedText = ocrResult.text;
           confidence = ocrResult.confidence || (recognizedText ? 0.8 : 0);
         }
       } catch (e) {
         ocrMethod = 'canvas-failed';
+      }
+    }
+
+    if (!recognizedText && rawDataUrl) {
+      try {
+        const processedDataUrl = await preprocessImage(rawDataUrl);
+        if (processedDataUrl && processedDataUrl !== rawDataUrl) {
+          const base64Data = processedDataUrl.split(',')[1];
+          const imageBuffer = Buffer.from(base64Data, 'base64');
+          const ocrResult = await tryDdddocr(imageBuffer);
+          if (ocrResult.text) {
+            recognizedText = ocrResult.text;
+            confidence = ocrResult.confidence || 0.7;
+            ocrMethod = ocrMethod + '-preprocessed';
+            preprocessingApplied = true;
+          }
+        }
+      } catch (e) {
+        // preprocessing failed, continue to tesseract fallback
       }
     }
 
@@ -2039,6 +2302,8 @@ const { target } = await ensurePage();
       text: recognizedText,
       confidence: Number(confidence.toFixed(2)),
       method: ocrMethod,
+      preprocessing: preprocessingApplied ? { grayscale: true, binaryThreshold: 128 } : undefined,
+      iframe: iframeUsed ? { used: true, url: iframeUsed } : undefined,
       elementInfo: {
         tag: tagName,
         src: (src || '').slice(0, 100),
@@ -2053,8 +2318,7 @@ const { target } = await ensurePage();
 
   return mcpError(`未知工具（browser）: ${name}`, { error: 'UNKNOWN_TOOL', toolName: name });
   } finally {
-    for (const k of _depsKeys) { deps[k] = globalThis[k]; }
-    for (const k of _depsKeys) { if (k in _depsPrev) globalThis[k] = _depsPrev[k]; else delete globalThis[k]; }
+    Object.assign(deps, { page, browser, browserSessionId, consoleLogs, networkLogs, pageErrors, currentCheckpoint, eventCheckpoint, lastAction, sessions, activeSessionName, sessionCounter, traceLogs, traceActive, currentTraceName, backendProbeResults, instrumentationEnabled, imageErrors, lastImageErrorCheckpoint, validationResults, lastQualityChecks, lastValidationRun, requestStartTimes, stateManager });
   }
 
 }

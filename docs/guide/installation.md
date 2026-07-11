@@ -44,14 +44,57 @@ npm install --save-dev @validpilot/ai-verify-mcp
 ## 验证安装
 
 ```bash
-@validpilot/ai-verify-mcp --version
-@validpilot/ai-verify-mcp health
+ai-verify-mcp --version
+ai-verify-mcp health
+```
+
+## 更新到最新版本
+
+查看当前版本和 npm 上的最新版本：
+
+```bash
+# 查看本地已安装版本
+ai-verify-mcp --version
+
+# 查看 npm 上的最新版本
+npm view @validpilot/ai-verify-mcp version
+```
+
+根据安装方式选择更新方法：
+
+### npx 方式（MCP 配置中使用）
+
+将 MCP 配置中的版本号改为最新版本或 `@latest`：
+
+```json
+// 方式 1：指定具体版本（推荐，确保稳定性）
+"args": ["-y", "@validpilot/ai-verify-mcp@1.6.9", "stdio"]
+
+// 方式 2：使用 latest 标签（自动跟随最新）
+"args": ["-y", "@validpilot/ai-verify-mcp@latest", "stdio"]
+```
+
+改完后重启 IDE。如遇缓存问题，执行 `npx clear-npx-cache` 清除后重试。
+
+### 全局安装方式
+
+```bash
+npm install -g @validpilot/ai-verify-mcp@latest
+ai-verify-mcp --version  # 验证更新成功
+```
+
+### 项目本地安装方式
+
+```bash
+npm install @validpilot/ai-verify-mcp@latest
+# 或修改 package.json 中的版本号后执行
+npm update @validpilot/ai-verify-mcp
 ```
 
 ## 卸载
 
 ```bash
-npm uninstall -g ai-verify-mcp
+npm uninstall -g @validpilot/ai-verify-mcp
 ```
 
 ## 环境变量

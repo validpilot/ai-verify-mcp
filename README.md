@@ -4,8 +4,8 @@
 >
 > 让 AI 代码生成结果可验证、可信赖。证据驱动的 MCP 验证平台。
 
-[![npm version](https://img.shields.io/npm/v/ai-verify-mcp.svg?style=flat-square)](https://www.npmjs.com/package/ai-verify-mcp)
-[![npm downloads](https://img.shields.io/npm/dm/ai-verify-mcp.svg?style=flat-square)](https://www.npmjs.com/package/ai-verify-mcp)
+[![npm version](https://img.shields.io/npm/v/@validpilot/ai-verify-mcp.svg?style=flat-square)](https://www.npmjs.com/package/@validpilot/ai-verify-mcp)
+[![npm downloads](https://img.shields.io/npm/dm/@validpilot/ai-verify-mcp.svg?style=flat-square)](https://www.npmjs.com/package/@validpilot/ai-verify-mcp)
 [![CI](https://img.shields.io/github/actions/workflow/status/validpilot/ai-verify-mcp/ci.yml?style=flat-square&label=CI)](https://github.com/validpilot/ai-verify-mcp/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](LICENSE)
 [![MCP Protocol](https://img.shields.io/badge/MCP-128%20tools-brightgreen.svg?style=flat-square)](https://modelcontextprotocol.io/)
@@ -119,6 +119,83 @@ npx @validpilot/ai-verify-mcp screenshot --url https://example.com --name eviden
 npx @validpilot/ai-verify-mcp quick-check --url https://example.com
 ```
 
+### 📦 更新到最新版本
+
+查看当前版本：
+
+```bash
+# 查看 npm 上的最新版本
+npm view @validpilot/ai-verify-mcp version
+
+# 查看本地已安装版本（全局安装方式）
+npm list -g @validpilot/ai-verify-mcp
+```
+
+**根据您的使用方式选择对应的更新方法**：
+
+#### 场景 A：MCP 配置中使用 `npx`（推荐，多数用户）
+
+如果您的 MCP 配置是这种形式：
+
+```json
+"validpilot-ai-verify-mcp": {
+  "command": "npx",
+  "args": ["-y", "@validpilot/ai-verify-mcp@1.6.2"]
+}
+```
+
+**更新方法**：将版本号改为最新版本（当前为 `1.6.9`），或使用 `@latest` 自动跟随最新：
+
+```json
+// 方式 1：指定具体版本（推荐，确保稳定性）
+"args": ["-y", "@validpilot/ai-verify-mcp@1.6.9"]
+
+// 方式 2：使用 latest 标签（每次启动自动拉取最新）
+"args": ["-y", "@validpilot/ai-verify-mcp@latest"]
+```
+
+改完后**重启 IDE** 或**重载 MCP Server** 即可生效。`npx` 会自动下载新版本到缓存。
+
+> 💡 **提示**：如果之前用过旧版本，`npx` 缓存可能残留旧包。如遇异常，执行 `npx clear-npx-cache` 清除缓存后重试。
+
+#### 场景 B：全局安装方式
+
+如果您的 MCP 配置是这种形式：
+
+```json
+"validpilot-ai-verify-mcp": {
+  "command": "ai-verify-mcp",
+  "args": []
+}
+```
+
+**更新方法**：
+
+```bash
+# 更新到最新版本
+npm install -g @validpilot/ai-verify-mcp@latest
+
+# 或指定具体版本
+npm install -g @validpilot/ai-verify-mcp@1.6.9
+
+# 验证更新成功
+ai-verify-mcp --version
+```
+
+更新后重启 IDE 即可生效，无需修改 MCP 配置。
+
+#### 场景 C：项目本地安装方式
+
+如果是在项目中 `npm install @validpilot/ai-verify-mcp` 安装的：
+
+```bash
+# 更新到最新版本
+npm install @validpilot/ai-verify-mcp@latest
+
+# 或在 package.json 中修改版本号后执行
+npm update @validpilot/ai-verify-mcp
+```
+
 ---
 
 ## 🔧 配置 MCP Server
@@ -134,7 +211,7 @@ npx @validpilot/ai-verify-mcp quick-check --url https://example.com
 {
   "ai-verify-mcp": {
     "command": "npx",
-    "args": ["-y", "ai-verify-mcp"],
+    "args": ["-y", "@validpilot/ai-verify-mcp"],
     "env": {
       "MCP_MODE": "http",
       "MCP_HTTP_PORT": "3456"
@@ -152,7 +229,7 @@ npx @validpilot/ai-verify-mcp quick-check --url https://example.com
   "mcpServers": {
     "ai-verify-mcp": {
       "command": "npx",
-      "args": ["-y", "ai-verify-mcp"],
+      "args": ["-y", "@validpilot/ai-verify-mcp"],
       "env": {
         "MCP_MODE": "http",
         "MCP_HTTP_PORT": "3456"
@@ -170,7 +247,7 @@ Settings → MCP Servers → Add：
 {
   "ai-verify-mcp": {
     "command": "npx",
-    "args": ["-y", "ai-verify-mcp"]
+    "args": ["-y", "@validpilot/ai-verify-mcp"]
   }
 }
 ```
@@ -372,6 +449,14 @@ artifacts/
 
 默认存放在 `./artifacts` 目录，包含截图、HAR 文件、验证报告等。
 
+### Q: 如何更新到最新版本？
+
+详见上方 [📦 更新到最新版本](#-更新到最新版本) 章节。简要说明：
+
+- **npx 方式**：将 MCP 配置中的版本号改为 `@latest` 或具体新版本号（如 `@1.6.9`），重启 IDE
+- **全局安装**：执行 `npm install -g @validpilot/ai-verify-mcp@latest`
+- **查看最新版本**：执行 `npm view @validpilot/ai-verify-mcp version`
+
 ### Q: 启动失败，`Error: Playwright browser failed to launch`
 
 - **原因 A**: Playwright 浏览器二进制未安装
@@ -382,7 +467,7 @@ artifacts/
 ### Q: MCP 连接失败，`MCP error -32000: Connection closed`
 
 - **原因**: `node` 可执行文件路径在 MCP Host 里找不到
-- **解决**: 在 MCP config 中使用 `command: "npx" args: ["-y", "ai-verify-mcp"]` 而非 `node .../start-http.js`
+- **解决**: 在 MCP config 中使用 `command: "npx" args: ["-y", "@validpilot/ai-verify-mcp"]` 而非 `node .../start-http.js`
 
 ### Q: 端口 3456 已被占用
 
@@ -409,7 +494,7 @@ artifacts/
   "mcpServers": {
     "ai-verify-mcp": {
       "command": "npx",
-      "args": ["-y", "ai-verify-mcp"],
+      "args": ["-y", "@validpilot/ai-verify-mcp"],
       "env": {
         "MCP_HTTP_PORT": "3456"
       }
@@ -427,7 +512,7 @@ artifacts/
   "mcpServers": {
     "ai-verify-mcp": {
       "command": "npx",
-      "args": ["-y", "ai-verify-mcp"],
+      "args": ["-y", "@validpilot/ai-verify-mcp"],
       "env": {
         "MCP_HTTP_PORT": "3456"
       }
@@ -447,7 +532,7 @@ artifacts/
   "mcpServers": {
     "ai-verify-mcp": {
       "command": "npx",
-      "args": ["-y", "ai-verify-mcp"],
+      "args": ["-y", "@validpilot/ai-verify-mcp"],
       "env": {
         "MCP_HTTP_PORT": "3456"
       }
@@ -465,7 +550,7 @@ artifacts/
   "mcpServers": {
     "ai-verify-mcp": {
       "command": "npx",
-      "args": ["-y", "ai-verify-mcp"]
+      "args": ["-y", "@validpilot/ai-verify-mcp"]
     }
   }
 }
@@ -477,7 +562,7 @@ artifacts/
 {
   "name": "ai-verify-mcp",
   "command": "npx",
-  "args": ["-y", "ai-verify-mcp"]
+  "args": ["-y", "@validpilot/ai-verify-mcp"]
 }
 ```
 
@@ -494,7 +579,7 @@ artifacts/
   "mcpServers": {
     "ai-verify-mcp": {
       "command": "npx",
-      "args": ["-y", "ai-verify-mcp"],
+      "args": ["-y", "@validpilot/ai-verify-mcp"],
       "env": {
         "MCP_HTTP_PORT": "3456"
       }
@@ -512,7 +597,7 @@ artifacts/
   "mcpServers": {
     "ai-verify-mcp": {
       "command": "npx",
-      "args": ["-y", "ai-verify-mcp"],
+      "args": ["-y", "@validpilot/ai-verify-mcp"],
       "env": {
         "MCP_HTTP_PORT": "3456"
       }
@@ -543,7 +628,7 @@ Trae 因模型上下文窗口有限，对 MCP 引入的**两道硬性上限**：
 ```toml
 [mcp_servers.ai-verify-mcp]
 command = "npx"
-args = ["-y", "ai-verify-mcp"]
+args = ["-y", "@validpilot/ai-verify-mcp"]
 
 [mcp_servers.ai-verify-mcp.env]
 MCP_HTTP_PORT = "3456"
@@ -552,7 +637,7 @@ MCP_HTTP_PORT = "3456"
 或使用 CLI 一次性添加：
 
 ```bash
-codex mcp add ai-verify-mcp -- npx -y ai-verify-mcp
+codex mcp add ai-verify-mcp -- npx -y @validpilot/ai-verify-mcp
 ```
 
 > 💡 Codex CLI 默认用 stdio，HTTP 端口仅在 `MCP_MODE=http` 时使用；如需用 HTTP 暴露给浏览器调试，需用 `start-http.js` 启动后让 Codex 通过 SSE/HTTP 连接（Codex 0.40+ 支持）。
@@ -567,7 +652,7 @@ codex mcp add ai-verify-mcp -- npx -y ai-verify-mcp
     "servers": {
       "ai-verify-mcp": {
         "command": "npx",
-        "args": ["-y", "ai-verify-mcp"],
+        "args": ["-y", "@validpilot/ai-verify-mcp"],
         "env": {
           "MCP_HTTP_PORT": "3456"
         }
@@ -587,7 +672,7 @@ codex mcp add ai-verify-mcp -- npx -y ai-verify-mcp
 mcp_servers:
   ai-verify-mcp:
     command: "npx"
-    args: ["-y", "ai-verify-mcp"]
+    args: ["-y", "@validpilot/ai-verify-mcp"]
     env:
       MCP_HTTP_PORT: "3456"
 ```
@@ -611,7 +696,7 @@ hermes mcp add ai-verify-mcp \
   "mcpServers": {
     "ai-verify-mcp": {
       "command": "npx",
-      "args": ["-y", "ai-verify-mcp"],
+      "args": ["-y", "@validpilot/ai-verify-mcp"],
       "env": {
         "MCP_HTTP_PORT": "3456"
       }
@@ -639,7 +724,7 @@ hermes mcp add ai-verify-mcp \
   "mcpServers": {
     "ai-verify-mcp": {
       "command": "npx",
-      "args": ["-y", "ai-verify-mcp"],
+      "args": ["-y", "@validpilot/ai-verify-mcp"],
       "env": {
         "MCP_HTTP_PORT": "3456"
       }
@@ -657,7 +742,7 @@ hermes mcp add ai-verify-mcp \
   "mcpServers": {
     "ai-verify-mcp": {
       "command": "npx",
-      "args": ["-y", "ai-verify-mcp"]
+      "args": ["-y", "@validpilot/ai-verify-mcp"]
     }
   }
 }
@@ -726,13 +811,13 @@ artifacts/
 执行流程：
 ```bash
 $ npm publish
-> ai-verify-mcp@1.0.0 prepublishOnly
+> @validpilot/ai-verify-mcp@1.6.9 prepublishOnly
 > node bin/validpilot.js health && npm pack --dry-run
 
-{ "ok": true, "name": "ai-verify-mcp", "version": "1.0.0", ... }
-npm notice package size: 102.4 kB
-npm notice total files: 101
-+ npm publish → 上传 npm registry
+{ "ok": true, "name": "@validpilot/ai-verify-mcp", "version": "1.6.9", ... }
+npm notice package size: 649.9 kB
+npm notice total files: 220
++ @validpilot/ai-verify-mcp@1.6.9 → 上传 npm registry
 ```
 
 发布前可手动验证：

@@ -4,6 +4,8 @@
 // Extracted from server.js callTool switch statements
 
 const { mcpError, mcpParamMissing, mcpPageNotFound, mcpElementNotFound } = require('../core/mcp-error');
+const fs = require('fs');
+const path = require('path');
 
 const tools = [
   "browser_screenshot",
@@ -122,7 +124,8 @@ function aggregateErrors(errors) {
   return { totalErrors, byType, byStatus, topPatterns };
 }
 
-async function buildEvidencePack(target, args = {}) {
+async function buildEvidencePack(target, args = {}, ctx = {}) {
+  const { ensureArtifactsDir, captureStepEvidence, exportHar, filterNetwork, getUnifiedErrors, redact, getArtifacts, REPORT_DIR, consoleLogs, networkLogs, pageErrors } = ctx;
   ensureArtifactsDir();
   const runId = args.runId || `vp-run-${Date.now()}`;
   const stepId = args.stepId || args.label || 'manual';
@@ -183,7 +186,7 @@ async function buildEvidencePack(target, args = {}) {
   return Object.assign({ success: true, filePath }, pack);
 }
 
-function buildEvidenceIndex(args = {}) {
+function buildEvidenceIndex(args = {}, REPORT_DIR = '.') {
   if (!fs.existsSync(REPORT_DIR)) {
     return { tool: 'evidence_index', runId: args.runId || null, timeline: [], totalPacks: 0, message: 'reports 目录不存在' };
   }
@@ -257,7 +260,8 @@ function detectBackendLogPath() {
   return null;
 }
 
-async function traceCorrelate(args = {}) {
+async function traceCorrelate(args = {}, ctx = {}) {
+  const { REPORT_DIR = '.', fetchBackendLogs = null, buildTraceChain = null } = ctx;
   const traceIds = Array.isArray(args.traceIds) ? args.traceIds : (args.traceId ? [args.traceId] : []);
   if (traceIds.length === 0) {
     return { tool: 'trace_correlate', error: '请提供 traceIds 或 traceId 参数' };
@@ -350,10 +354,9 @@ async function traceCorrelate(args = {}) {
 
 async function handle(name, args, deps) {
 
-  // === Bridge deps into scope via globalThis ===
-  const _depsKeys = Object.keys(deps);
-  const _depsPrev = {};
-  for (const k of _depsKeys) { _depsPrev[k] = globalThis[k]; globalThis[k] = deps[k]; }
+  // === Destructure deps into local scope (replacing globalThis bridge) ===
+  let { page, browser, browserSessionId, consoleLogs, networkLogs, pageErrors, currentCheckpoint, eventCheckpoint, lastAction, sessions, activeSessionName, sessionCounter, traceLogs, traceActive, currentTraceName, backendProbeResults, instrumentationEnabled, imageErrors, lastImageErrorCheckpoint, validationResults, lastQualityChecks, lastValidationRun, requestStartTimes, stateManager } = deps;
+  const { MAX_SESSIONS, SCREENSHOT_DIR, HAR_DIR, VISUAL_DIR, VISUAL_BASELINE_DIR, VISUAL_ACTUAL_DIR, VISUAL_DIFF_DIR, VALIDATIONS_DIR, REPORT_DIR, LOG_FILE, PROJECT_ROOT, TOOLS_DIR, logger, ensurePage, text, log, resetRuntimeLogs, getPageLinks, postActionErrorCheck, probeKnownEndpoints, getUnifiedErrors, closeBrowserSession, listBrowserSessions, filterNetwork, filterNetworkDetails, getStorageSnapshot, buildDebugReport, captureStepEvidence, waitForCondition, assertPage, runFlow, installInstrumentation, getBrowserEvents, clearBrowserEvents, startTrace, stopTrace, getArtifacts, clearArtifacts, ensureArtifactsDir, getBackendProbeEndpoints, isCloudApiProbeTarget, screenshotWithRedaction, safeArtifactName, analyzeScreenshotForErrors, exportHar, runFullAudit, visualBaseline, visualCompare, visualReport, runA11yCheck, runPerformanceCheck, runLighthouseAudit, findElement, findPage, suggestLocator, validateLocator, mcpHealthCheck, projectAudit, mcpSelfTest, runValidationCheck, runValidationPlan, runValidationElement, runValidationFlow, buildValidationReport, exportValidationReport, runValidationQuickRun, runDeployVerify, investigateDebug, runBrowserFullRegression, traverseMenu, fetchBackendLogs, buildTraceChain, detectSilentFailures, redact, redactString, isSensitiveKey, trimTraceLogs, genSpanId, genTraceId, browserOperator, evidenceCollector, deepInteractor, errorAggregator, path, fs, execSync, callTool } = deps;
   try {
   // ====== browser_screenshot ======
   if (name === 'browser_screenshot') {
@@ -713,7 +716,7 @@ const { target } = await ensurePage(args);
   // ====== evidence_pack ======
   if (name === 'evidence_pack') {
 const { target } = await ensurePage(args);
-    const result = await buildEvidencePack(target, args);
+    const result = await buildEvidencePack(target, args, { ensureArtifactsDir, captureStepEvidence, exportHar, filterNetwork, getUnifiedErrors, redact, getArtifacts, REPORT_DIR, consoleLogs, networkLogs, pageErrors });
     const enhancedResult = {
       ...(typeof result === 'object' && result !== null ? result : { result }),
       nextSteps: [
@@ -731,7 +734,7 @@ const { target } = await ensurePage(args);
 
   // ====== evidence_index ======
   if (name === 'evidence_index') {
-    const result = buildEvidenceIndex(args);
+    const result = buildEvidenceIndex(args, REPORT_DIR);
     const enhancedResult = {
       ...(typeof result === 'object' && result !== null ? result : { result }),
       nextSteps: [
@@ -749,7 +752,7 @@ const { target } = await ensurePage(args);
 
   // ====== trace_correlate ======
   if (name === 'trace_correlate') {
-    const result = await traceCorrelate(args);
+    const result = await traceCorrelate(args, { REPORT_DIR, fetchBackendLogs, buildTraceChain });
     const enhancedResult = {
       ...(typeof result === 'object' && result !== null ? result : { result }),
       nextSteps: [
@@ -767,8 +770,7 @@ const { target } = await ensurePage(args);
 
   return mcpError(`未知工具（evidence）: ${name}`, { error: 'TOOL_NOT_FOUND', toolName: name });
   } finally {
-    for (const k of _depsKeys) { deps[k] = globalThis[k]; }
-    for (const k of _depsKeys) { if (k in _depsPrev) globalThis[k] = _depsPrev[k]; else delete globalThis[k]; }
+    Object.assign(deps, { page, browser, browserSessionId, consoleLogs, networkLogs, pageErrors, currentCheckpoint, eventCheckpoint, lastAction, sessions, activeSessionName, sessionCounter, traceLogs, traceActive, currentTraceName, backendProbeResults, instrumentationEnabled, imageErrors, lastImageErrorCheckpoint, validationResults, lastQualityChecks, lastValidationRun, requestStartTimes, stateManager });
   }
 
 }
