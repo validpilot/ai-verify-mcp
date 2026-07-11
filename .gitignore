@@ -72,6 +72,7 @@ test-debug-page.js
 test-direct-playwright.js
 test-e2e-real.js
 test-all-tools-v2.js
+test-16-new-tools.js
 test-cf-output.txt
 test-node-out.txt
 test-real-project-report.json

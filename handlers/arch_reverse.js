@@ -75,6 +75,7 @@ const COMMON_PORTS = [
  * 主探测函数
  */
 async function archReverseProbe(args, deps) {
+  const { ensurePage } = deps;
   const targetUrl = args.target || args.url;
   if (!targetUrl) {
     return { isError: true, content: [{ type: 'text', text: '缺少 target 参数' }] };

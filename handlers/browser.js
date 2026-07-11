@@ -32,7 +32,10 @@ const tools = [
   "browser_smart_fill",
   "browser_matrix_test",
   "browser_overlay_detect",
-  "browser_overlay_dismiss"
+  "browser_overlay_dismiss",
+  "browser_captcha_detect",
+  "browser_captcha_screenshot",
+  "browser_captcha_read"
 ];
 
 async function handle(name, args, deps) {
@@ -1762,6 +1765,290 @@ const { target } = await ensurePage();
     }
     
     return text(JSON.stringify(resultData, null, 2));
+  }
+
+  // ====== browser_captcha_detect ======
+  if (name === 'browser_captcha_detect') {
+    const { target } = await ensurePage(args);
+    const detectMode = args.detectMode || 'auto';
+    const captchaSelector = args.captchaSelector;
+
+    const detection = await target.evaluate(({ selector, mode }) => {
+      const result = {
+        found: false,
+        type: 'unknown',
+        complexity: 'unknown',
+        needsHuman: false,
+        elements: [],
+        suggestions: []
+      };
+
+      const selectors = selector
+        ? [selector]
+        : [
+            'img[src*="captcha"]', 'img[src*="verify"]', 'img[src*="code"]',
+            'img[id*="captcha"]', 'img[id*="verify"]', 'img[class*="captcha"]',
+            'canvas[class*="captcha"]', 'canvas[id*="captcha"]',
+            '[class*="captcha"]', '[id*="captcha"]',
+            '[class*="verify-code"]', '[id*="verify-code"]',
+            '[class*="slider"]', '[class*="slide-verify"]',
+            'iframe[src*="captcha"]', 'iframe[src*="recaptcha"]', 'iframe[src*="hcaptcha"]'
+          ];
+
+      for (const sel of selectors) {
+        const els = document.querySelectorAll(sel);
+        for (const el of els) {
+          const rect = el.getBoundingClientRect();
+          if (rect.width === 0 || rect.height === 0) continue;
+          const tagName = el.tagName.toLowerCase();
+          const src = el.src || el.getAttribute('data-src') || '';
+          const cls = (typeof el.className === 'string' ? el.className : '').toLowerCase();
+
+          let type = 'image';
+          if (tagName === 'canvas') type = 'canvas';
+          else if (cls.includes('slider') || cls.includes('slide')) type = 'slider';
+          else if (src.includes('recaptcha') || src.includes('hcaptcha')) type = 'recaptcha';
+          else if (tagName === 'iframe') type = 'iframe';
+
+          let complexity = 'low';
+          if (type === 'slider' || type === 'recaptcha') complexity = 'high';
+          else if (type === 'canvas') complexity = 'medium';
+
+          result.elements.push({
+            type,
+            tagName,
+            selector: sel,
+            src: src.slice(0, 200),
+            width: Math.round(rect.width),
+            height: Math.round(rect.height),
+            visible: rect.width > 0 && rect.height > 0
+          });
+          result.found = true;
+          if (result.type === 'unknown') result.type = type;
+          if (complexity === 'high' || (complexity === 'medium' && result.complexity === 'low')) {
+            result.complexity = complexity;
+          }
+        }
+      }
+
+      if (mode !== 'auto') {
+        result.elements = result.elements.filter(e => e.type === mode);
+        result.found = result.elements.length > 0;
+        result.type = result.found ? mode : 'unknown';
+      }
+
+      result.needsHuman = result.complexity === 'high' || result.type === 'recaptcha';
+      if (!result.found) {
+        result.suggestions = [
+          '未检测到验证码元素，可能原因：页面未加载验证码、验证码在 iframe 中、或使用非标准选择器',
+          '尝试使用 captchaSelector 参数手动指定验证码元素选择器',
+          '使用 browser_snapshot 查看页面 DOM 结构以定位验证码元素'
+        ];
+      } else {
+        result.suggestions = result.needsHuman
+          ? ['验证码复杂度较高，建议人工处理或使用 browser_captcha_screenshot 截图后人工识别']
+          : ['可以使用 browser_captcha_read 尝试自动识别验证码文本'];
+      }
+
+      return result;
+    }, { selector: captchaSelector, mode: detectMode });
+
+    return text(JSON.stringify(detection, null, 2));
+  }
+
+  // ====== browser_captcha_screenshot ======
+  if (name === 'browser_captcha_screenshot') {
+    const { target } = await ensurePage(args);
+    const captchaSelector = args.captchaSelector;
+    const padding = args.padding || 4;
+    const savePath = args.savePath;
+    const minSize = args.minSize || 100;
+
+    let captchaEl = null;
+    if (captchaSelector) {
+      captchaEl = await target.$(captchaSelector).catch(() => null);
+    }
+    if (!captchaEl) {
+      const autoSelectors = [
+        'img[src*="captcha"]', 'img[src*="verify"]', 'img[class*="captcha"]',
+        'canvas[class*="captcha"]', '[class*="captcha"] img', '[class*="verify-code"] img'
+      ];
+      for (const sel of autoSelectors) {
+        captchaEl = await target.$(sel).catch(() => null);
+        if (captchaEl) break;
+      }
+    }
+
+    if (!captchaEl) {
+      return text(JSON.stringify({
+        success: false,
+        error: '未找到验证码元素',
+        suggestions: [
+          '使用 captchaSelector 参数手动指定验证码选择器',
+          '使用 browser_captcha_detect 先检测验证码位置'
+        ]
+      }, null, 2));
+    }
+
+    const box = await captchaEl.boundingBox();
+    if (!box || box.width < 10 || box.height < 10) {
+      return text(JSON.stringify({
+        success: false,
+        error: '验证码元素尺寸过小',
+        boundingBox: box,
+        suggestions: ['验证码可能尚未加载完成，尝试增加等待时间后重试']
+      }, null, 2));
+    }
+
+    const fs = require('fs');
+    const path = require('path');
+    const screenshotDir = path.join(__dirname, '..', 'screenshots');
+    if (!fs.existsSync(screenshotDir)) fs.mkdirSync(screenshotDir, { recursive: true });
+
+    const filename = `captcha-${Date.now()}.png`;
+    const filepath = savePath || path.join(screenshotDir, filename);
+
+    await captchaEl.screenshot({ path: filepath, omitBackground: false });
+
+    const stats = fs.statSync(filepath);
+    const tooSmall = box.width < minSize || box.height < minSize;
+
+    return text(JSON.stringify({
+      success: !tooSmall,
+      path: filepath,
+      size: stats.size,
+      width: Math.round(box.width),
+      height: Math.round(box.height),
+      warning: tooSmall ? `截图尺寸小于 minSize(${minSize})，验证码可能无效` : undefined,
+      nextSteps: tooSmall
+        ? ['验证码图片尺寸过小，可能需要刷新验证码后重新截图']
+        : ['使用 browser_captcha_read 对截图进行 OCR 识别']
+    }, null, 2));
+  }
+
+  // ====== browser_captcha_read ======
+  if (name === 'browser_captcha_read') {
+    const { target } = await ensurePage(args);
+    const captchaSelector = args.captchaSelector;
+    const captchaIndex = args.captchaIndex || 0;
+
+    let captchaEl = null;
+    if (captchaSelector) {
+      captchaEl = await target.$(captchaSelector).catch(() => null);
+    } else {
+      const autoSelectors = [
+        'img[src*="captcha"]', 'img[src*="verify"]', 'img[src*="code"]',
+        'img[class*="captcha"]', '[class*="captcha"] img', '[class*="verify-code"] img'
+      ];
+      for (const sel of autoSelectors) {
+        const els = await target.$$(sel).catch(() => []);
+        if (els.length > captchaIndex) {
+          captchaEl = els[captchaIndex];
+          break;
+        }
+      }
+    }
+
+    if (!captchaEl) {
+      return text(JSON.stringify({
+        success: false,
+        error: '未找到验证码元素',
+        suggestions: [
+          '使用 captchaSelector 参数手动指定验证码选择器',
+          '使用 browser_captcha_detect 先检测验证码位置'
+        ]
+      }, null, 2));
+    }
+
+    const src = await captchaEl.getAttribute('src').catch(() => '');
+    const tagName = await captchaEl.evaluate(el => el.tagName.toLowerCase()).catch(() => 'img');
+
+    let recognizedText = '';
+    let confidence = 0;
+    let ocrMethod = 'none';
+
+    if (src && src.startsWith('data:image')) {
+      ocrMethod = 'data-url';
+      try {
+        const ddddocr = require('ddddocr-node');
+        const base64Data = src.split(',')[1];
+        const imageBuffer = Buffer.from(base64Data, 'base64');
+        const ocrResult = await ddddocr.classification(imageBuffer);
+        recognizedText = ocrResult.text || ocrResult.result || '';
+        confidence = ocrResult.confidence || (recognizedText ? 0.8 : 0);
+      } catch (e) {
+        ocrMethod = 'data-url-failed';
+      }
+    } else if (src && (src.startsWith('http') || src.startsWith('/'))) {
+      ocrMethod = 'url-fetch';
+      try {
+        const ddddocr = require('ddddocr-node');
+        const url = src.startsWith('/') ? await target.evaluate(() => window.location.origin) + src : src;
+        const response = await fetch(url);
+        const arrayBuffer = await response.arrayBuffer();
+        const imageBuffer = Buffer.from(arrayBuffer);
+        const ocrResult = await ddddocr.classification(imageBuffer);
+        recognizedText = ocrResult.text || ocrResult.result || '';
+        confidence = ocrResult.confidence || (recognizedText ? 0.8 : 0);
+      } catch (e) {
+        ocrMethod = 'url-fetch-failed';
+      }
+    } else if (tagName === 'canvas') {
+      ocrMethod = 'canvas';
+      try {
+        const ddddocr = require('ddddocr-node');
+        const dataUrl = await captchaEl.evaluate(el => {
+          if (el.tagName.toLowerCase() === 'canvas') {
+            return el.toDataURL('image/png');
+          }
+          return null;
+        });
+        if (dataUrl) {
+          const base64Data = dataUrl.split(',')[1];
+          const imageBuffer = Buffer.from(base64Data, 'base64');
+          const ocrResult = await ddddocr.classification(imageBuffer);
+          recognizedText = ocrResult.text || ocrResult.result || '';
+          confidence = ocrResult.confidence || (recognizedText ? 0.8 : 0);
+        }
+      } catch (e) {
+        ocrMethod = 'canvas-failed';
+      }
+    }
+
+    if (!recognizedText) {
+      try {
+        const tesseract = require('tesseract.js');
+        const fs = require('fs');
+        const path = require('path');
+        const screenshotDir = path.join(__dirname, '..', 'screenshots');
+        if (!fs.existsSync(screenshotDir)) fs.mkdirSync(screenshotDir, { recursive: true });
+        const tempPath = path.join(screenshotDir, `captcha-ocr-${Date.now()}.png`);
+        await captchaEl.screenshot({ path: tempPath });
+        const { data } = await tesseract.recognize(tempPath, 'eng');
+        recognizedText = (data.text || '').trim();
+        confidence = data.confidence ? data.confidence / 100 : (recognizedText ? 0.6 : 0);
+        ocrMethod = recognizedText ? 'tesseract' : 'tesseract-empty';
+        try { fs.unlinkSync(tempPath); } catch (_) {}
+      } catch (e) {
+        ocrMethod = 'tesseract-failed';
+      }
+    }
+
+    return text(JSON.stringify({
+      success: recognizedText.length > 0,
+      text: recognizedText,
+      confidence: Number(confidence.toFixed(2)),
+      method: ocrMethod,
+      elementInfo: {
+        tag: tagName,
+        src: (src || '').slice(0, 100),
+        hasSrc: !!src
+      },
+      needsHuman: confidence < 0.5 || recognizedText.length === 0,
+      nextSteps: confidence < 0.5
+        ? ['识别置信度较低，建议使用 browser_captcha_screenshot 截图后人工识别']
+        : [`识别结果: "${recognizedText}"，可尝试填入验证码输入框`]
+    }, null, 2));
   }
 
   return mcpError(`未知工具（browser）: ${name}`, { error: 'UNKNOWN_TOOL', toolName: name });

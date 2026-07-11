@@ -23,6 +23,7 @@ async function handle(name, args, deps) {
     return mcpError('UNKNOWN_TOOL', `未知工具：${name}`);}
 
 async function correlateTripleCheck(args, deps) {
+  const { ensurePage, text } = deps;
   const { target } = await ensurePage(args);
   const { mode, apiEndpoint, apiMethod = 'GET', apiPayload, tableSelector = 'table, .table, [role="grid"]', rowSelector = 'tr, [role="row"]', fieldMappings = [], maxRows = 10, identifierField = 'id', strictMode = false } = args;
 
@@ -223,6 +224,7 @@ async function correlateTripleCheck(args, deps) {
 }
 
 async function bypassLogin(args, deps) {
+  const { ensurePage, text } = deps;
   const { target } = await ensurePage(args);
   const { targetUrl, authApiPath, testCases = ['no_cookie', 'no_auth_header', 'fake_user_id', 'direct_api_access', 'backdoor_paths'], userIdToTest, backdoorPaths, maxTestCount = 20 } = args;
 
@@ -253,13 +255,20 @@ async function bypassLogin(args, deps) {
   ];
 
   const pathsToTest = backdoorPaths || defaultBackdoorPaths;
-  const origin = await target.evaluate(() => window.location.origin);
+  let origin = '';
+  try {
+    origin = await target.evaluate(() => window.location.origin);
+  } catch (e) {
+    result.notes.push(`无法获取页面 origin: ${e.message}`);
+  }
 
+  try {
   for (const testCase of testCases) {
     if (result.totalTests >= maxTestCount) break;
 
     let testResult;
 
+    try {
     switch (testCase) {
       case 'no_cookie': {
         const res = await target.evaluate(async (url) => {
@@ -422,6 +431,9 @@ async function bypassLogin(args, deps) {
         break;
       }
     }
+    } catch (e) {
+      testResult = { test: testCase, error: e.message, skipped: true };
+    }
 
     if (testResult) {
       result.testResults.push(testResult);
@@ -434,6 +446,9 @@ async function bypassLogin(args, deps) {
         }
       }
     }
+  }
+  } catch (e) {
+    result.notes.push(`测试中断: ${e.message}`);
   }
 
   result.status = result.vulnerabilities.length === 0 ? 'secure' : 'vulnerable';
@@ -449,6 +464,7 @@ async function bypassLogin(args, deps) {
 }
 
 async function assetEndpointProbe(args, deps) {
+  const { ensurePage, text } = deps;
   const { target } = await ensurePage(args);
   const { basePath = '/api', probeCategories = ['all'], customEndpoints = [], method = 'HEAD', timeout = 5000, maxConcurrent = 5, includeHidden = false } = args;
 

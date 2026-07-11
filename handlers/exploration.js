@@ -41,6 +41,7 @@ async function handle(name, args, deps) {
  * @param {object} deps - 来自 server.js 的依赖注入
  */
 async function explorationQuick(args, deps) {
+  const { log, ensurePage } = deps;
   const targetUrl = args.target || args.url;
   if (!targetUrl) {
     return { isError: true, content: [{ type: 'text', text: '缺少 target 参数（待探索的页面 URL）' }] };
@@ -655,6 +656,7 @@ const LOOP_DEFINITIONS = {
  * 业务闭环验证主函数
  */
 async function businessLoopValidate(args, deps) {
+  const { log, ensurePage } = deps;
   const targetUrl = args.target || args.url;
   if (!targetUrl) {
     return { isError: true, content: [{ type: 'text', text: '缺少 target 参数' }] };

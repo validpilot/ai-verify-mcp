@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.6.9] - 2026-07-12
+
+### Fixed
+
+- **deps 解构缺失修复**：6 个新增 handler 内部函数未从 `deps` 参数解构 `ensurePage`/`text`/`log`，导致运行时 `is not defined` 错误。涉及文件：handlers/correlate.js（correlateTripleCheck、bypassLogin、assetEndpointProbe）、handlers/exploration.js（explorationQuick、businessLoopValidate）、handlers/arch_reverse.js（archReverseProbe）
+- **captcha 工具 handler 补全**：browser_captcha_detect、browser_captcha_screenshot、browser_captcha_read 三个工具的 schema 已存在但 handler 实现完全缺失（未注册到 tools 数组、无处理函数），导致调用返回"未知工具"。现已实现完整 handler：detect 支持 15+ 种验证码选择器自动检测（图片/滑块/canvas/iframe/recaptcha）、screenshot 支持自动定位+截图保存、read 支持 ddddocr-node OCR + tesseract.js 双引擎兜底
+- **Playwright evaluate 参数修复**：browser_captcha_detect 中 `target.evaluate(fn, arg1, arg2)` 传了 2 个参数，Playwright 只接受 1 个，已改为对象包装 `{ selector, mode }`
+- **bypass_login fetch 异常处理**：bypass_login 工具在 `target.evaluate` 中执行 `fetch()` 测试后门路径时，CORS/网络错误会导致未捕获异常，已添加双层 try-catch（case 级 + 循环级）确保工具返回结构化结果而非崩溃
+
+### Test Results
+
+- 16 个 v1.6.8 新增工具全部通过 MCP stdio 协议测试（100% 通过率）
+- 测试站点：https://panjiachen.github.io/vue-element-admin/
+- 测试覆盖：3 项协议验证（128 工具/16 新工具注册/0 outputSchema）+ 12 个非浏览器工具 + 4 个浏览器工具
+
 ## [1.6.8] - 2026-07-11
 
 ### Fixed
