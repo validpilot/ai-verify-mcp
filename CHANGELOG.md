@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file.
 - **Lighthouse v13 兼容性修复**：`require('lighthouse')` 返回值兼容性检查（支持 function / .default / .lighthouse 三种导出形式），修复 browser_lighthouse_audit 工具运行时报错
 - **validation_matrix NodeList 修复**：`document.querySelectorAll('input[id]').filter(...)` 修正为 `Array.from(document.querySelectorAll('input[id]')).filter(...)`，修复 NodeList 没有 filter 方法导致的运行时错误
 - **browser_emulate_device 触摸模拟修复**：`context.emulateTouchDisabled()` 替换为 `navigator.maxTouchPoints` 属性覆盖（Playwright 不支持在 context 创建后修改 touch 设置）
+- **npm 打包清单修复**：package.json `files` 字段新增 `orchestrator/` 和 `scripts/css-var-analyzer.js`，修复 npm 发布后 dual_chain_explore 工具找不到 `../orchestrator/dual_chain_orchestrator` 模块、css_var_check 工具找不到 `./scripts/css-var-analyzer` 模块的问题
 
 ### Test Results
 

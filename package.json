@@ -23,6 +23,8 @@
     "core/",
     "tools/",
     "handlers/",
+    "orchestrator/",
+    "scripts/css-var-analyzer.js",
     "rules/",
     "docs/*.md",
     "docs/faq/",
