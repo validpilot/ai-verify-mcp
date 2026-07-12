@@ -3,7 +3,7 @@
 // Handler: visual
 // Extracted from server.js callTool switch statements
 
-const { mcpError } = require('../core/mcp-error');
+const { mcpError, mcpParamMissing } = require('../core/mcp-error');
 
 const tools = [
   "browser_visual_baseline",
@@ -455,6 +455,7 @@ const { target } = await ensurePage(args);
   // ====== browser_responsive_test ======
   if (name === 'browser_responsive_test') {
     const { target } = await ensurePage();
+    if (!args.url) return mcpParamMissing('url', name);
     const url = args.url;
     await target.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
     await new Promise(r => setTimeout(r, args.waitMs || 1000));

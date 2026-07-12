@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.7.2] - 2026-07-13
+
+### Fixed
+
+- **browser_hover 参数验证**：缺少 `selector` 参数时 Playwright 抛出 "expected string, got undefined"。添加 `mcpParamMissing('selector', name)` 验证
+- **browser_responsive_test 参数验证**：缺少 `url` 参数时 `target.goto(undefined)` 崩溃。添加 `mcpParamMissing('url', name)` 验证
+- **browser_screenshot_element 错误消息参数顺序**：`mcpParamMissing(name, 'selector')` 参数顺序反了，导致错误消息显示 "工具 selector 需要提供 browser_screenshot_element 参数"。修正为 `mcpParamMissing('selector', name)`
+
+### Test Results
+
+- 全部 128 个工具通过全面复测（100%）
+- 测试方式：直接使用 MCP 工具调用每个工具（无参数），验证正常响应或结构化参数缺失错误
+
 ## [1.7.1] - 2026-07-13
 
 ### Fixed

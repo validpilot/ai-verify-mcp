@@ -553,7 +553,7 @@ const { target } = await ensurePage();
     ensureArtifactsDir();
     const selector = args.selector;
     if (!selector) {
-      return mcpParamMissing(name, 'selector');
+      return mcpParamMissing('selector', name);
     }
     const padding = args.padding || 0;
     const safeName = (args.name || `element-screenshot-${Date.now()}`).replace(/[^a-zA-Z0-9_-]/g, '_');

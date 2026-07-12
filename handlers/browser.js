@@ -499,6 +499,7 @@ const { target } = await ensurePage();
   // ====== browser_hover ======
   if (name === 'browser_hover') {
 const { target } = await ensurePage();
+    if (!args.selector) return mcpParamMissing('selector', name);
     await target.hover(args.selector, { timeout: 10000 });
     lastAction = { type: 'hover', selector: args.selector, timestamp: new Date().toISOString() };
     const postErrors = await postActionErrorCheck(target, 'hover', args.selector);
