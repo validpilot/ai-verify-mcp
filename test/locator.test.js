@@ -65,18 +65,26 @@ describe('Locator tools', () => {
 
   it('browser_find_page validates url/title params', async () => {
     const deps = createMockDeps();
-    const result = await locatorHandler.handle('browser_find_page', { url: 'http://example.com', title: 'Test' }, deps);
+    const result = await locatorHandler.handle('browser_find_page', { target: 'home', url: 'http://example.com', title: 'Test' }, deps);
     const parsed = JSON.parse(result.content[0].text);
     assert.strictEqual(parsed.found, true);
     assert.strictEqual(parsed.url, 'http://example.com');
     assert.strictEqual(parsed.matchScore, 1.0);
   });
 
-  it('browser_find_page without url returns not found', async () => {
+  it('browser_find_page without target returns PARAM_MISSING', async () => {
+    const deps = createMockDeps();
+    const result = await locatorHandler.handle('browser_find_page', { url: '' }, deps);
+    const parsed = JSON.parse(result.content[0].text);
+    assert.strictEqual(parsed.error, 'PARAM_MISSING');
+    assert.ok(parsed.message.includes('target'));
+  });
+
+  it('browser_find_page with target but no match returns not found', async () => {
     const deps = createMockDeps({
       findPage: async () => ({ found: false, url: '', title: '', matchScore: 0, error: '未找到匹配页面' })
     });
-    const result = await locatorHandler.handle('browser_find_page', { url: '' }, deps);
+    const result = await locatorHandler.handle('browser_find_page', { target: 'login', url: '' }, deps);
     const parsed = JSON.parse(result.content[0].text);
     assert.strictEqual(parsed.found, false);
     assert.strictEqual(parsed.matchScore, 0);

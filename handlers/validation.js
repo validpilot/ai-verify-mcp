@@ -930,7 +930,7 @@ const { target } = await ensurePage(args);
     const { action, entity, createPayload, updatePayload, identifierField = 'id', entityId, apiBaseUrl } = args;
 
     if (!action || !entity) {
-      return mcpParamMissing('action 和 entity 为必填参数');
+      return mcpParamMissing('action 和 entity', name);
     }
 
     let result = { ok: true, action, entity, checks: [], passed: 0, failed: 0 };
@@ -941,7 +941,7 @@ const { target } = await ensurePage(args);
 
       if (action === 'check_create_read') {
         if (!createPayload) {
-          return mcpParamMissing('check_create_read 需要 createPayload 参数');
+          return mcpParamMissing('createPayload', name);
         }
         const createRes = await target.evaluate(async ({ apiPath, payload, identifierField }) => {
           const res = await fetch(apiPath, {
@@ -985,7 +985,7 @@ const { target } = await ensurePage(args);
 
       if (action === 'check_update_read') {
         if (!updatePayload || !entityId) {
-          return mcpParamMissing('check_update_read 需要 updatePayload 和 entityId 参数');
+          return mcpParamMissing('updatePayload 和 entityId', name);
         }
         const updateRes = await target.evaluate(async ({ apiPath, id, payload }) => {
           const res = await fetch(`${apiPath}/${id}`, {
@@ -1010,7 +1010,7 @@ const { target } = await ensurePage(args);
 
       if (action === 'check_delete_read') {
         if (!entityId) {
-          return mcpParamMissing('check_delete_read 需要 entityId 参数');
+          return mcpParamMissing('entityId', name);
         }
         const deleteRes = await target.evaluate(async ({ apiPath, id }) => {
           const res = await fetch(`${apiPath}/${id}`, { method: 'DELETE' });
@@ -1052,7 +1052,7 @@ const { target } = await ensurePage(args);
     const { action, entity, entityId, otherEntityId, adminApiPaths, roleSelector, targetRole, expectedMenuItems, unexpectedMenuItems } = args;
 
     if (!action) {
-      return mcpParamMissing('action 为必填参数');
+      return mcpParamMissing('action', name);
     }
 
     let result = { ok: true, action, checks: [], passed: 0, failed: 0, vulnerabilities: [] };
@@ -1060,7 +1060,7 @@ const { target } = await ensurePage(args);
     try {
       if (action === 'horizontal_privilege') {
         if (!entity || !otherEntityId) {
-          return mcpParamMissing('horizontal_privilege 需要 entity 和 otherEntityId 参数');
+          return mcpParamMissing('entity 和 otherEntityId', name);
         }
         const apiPath = `/api/${entity}/${otherEntityId}`;
         const res = await target.evaluate(async (apiPath) => {
@@ -1085,7 +1085,7 @@ const { target } = await ensurePage(args);
 
       if (action === 'vertical_privilege') {
         if (!adminApiPaths || !Array.isArray(adminApiPaths)) {
-          return mcpParamMissing('vertical_privilege 需要 adminApiPaths 数组参数');
+          return mcpParamMissing('adminApiPaths', name);
         }
         for (const apiPath of adminApiPaths) {
           const res = await target.evaluate(async (apiPath) => {
@@ -1106,7 +1106,7 @@ const { target } = await ensurePage(args);
 
       if (action === 'role_menu') {
         if (!targetRole) {
-          return mcpParamMissing('role_menu 需要 targetRole 参数');
+          return mcpParamMissing('targetRole', name);
         }
         if (roleSelector) {
           await target.click(roleSelector);

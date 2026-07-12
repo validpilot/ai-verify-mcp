@@ -43,17 +43,18 @@ describe('validation_element', () => {
     assert.ok(schema.inputSchema);
   });
 
-  test('schema 包含 targetUrl/elementSelector 为必填，expectedText 为可选', () => {
+  test('schema 包含 selector 为必填，断言参数为可选', () => {
     const schema = JSON.parse(fs.readFileSync(path.join(TOOLS_DIR, 'validation_element.json'), 'utf8'));
     const props = schema.inputSchema.properties;
-    assert.ok(props.targetUrl);
-    assert.equal(props.targetUrl.type, 'string');
-    assert.ok(props.elementSelector);
-    assert.equal(props.elementSelector.type, 'string');
-    assert.ok(props.expectedText);
-    assert.equal(props.expectedText.type, 'string');
-    assert.ok(schema.inputSchema.required.includes('targetUrl'), 'targetUrl 应为必填');
-    assert.ok(schema.inputSchema.required.includes('elementSelector'), 'elementSelector 应为必填');
+    assert.ok(props.selector, 'selector 属性应存在');
+    assert.equal(props.selector.type, 'string');
+    assert.ok(props.exists, 'exists 断言属性应存在');
+    assert.equal(props.exists.type, 'boolean');
+    assert.ok(props.visible, 'visible 断言属性应存在');
+    assert.ok(props.textContains, 'textContains 断言属性应存在');
+    assert.ok(props.valueEquals, 'valueEquals 断言属性应存在');
+    assert.ok(props.countEquals, 'countEquals 断言属性应存在');
+    assert.ok(schema.inputSchema.required.includes('selector'), 'selector 应为必填');
   });
 
   test('toolNames 中包含 validation_element（已注册到 MCP）', () => {

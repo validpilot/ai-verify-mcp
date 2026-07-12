@@ -3428,6 +3428,14 @@ async function runValidationFlow(target, args = {}) {
             stepResult.screenshot = screenshotPath;
             break;
           }
+          case 'assert': {
+            const assertion = await assertPage(target, step);
+            stepResult.assertion = assertion;
+            if (!assertion.passed) {
+              throw new Error(`断言失败：${assertion.failedCount || 0} 条未通过`);
+            }
+            break;
+          }
           default:
             throw new Error(`不支持的操作类型：${action}`);
         }
@@ -6789,8 +6797,8 @@ async function callTool(name, args = {}) {
     browserSessionId = deps.browserSessionId;
     activeSessionName = deps.activeSessionName;
     sessionCounter = deps.sessionCounter;
-    traceActive = deps.traceActive;
-    currentTraceName = deps.currentTraceName;
+    // traceActive and currentTraceName are managed directly by startTrace/stopTrace in server.js;
+    // syncing back from deps would overwrite the correct module-level value with a stale copy.
     instrumentationEnabled = deps.instrumentationEnabled;
     currentCheckpoint = deps.currentCheckpoint;
     eventCheckpoint = deps.eventCheckpoint;

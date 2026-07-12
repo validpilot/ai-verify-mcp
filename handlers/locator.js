@@ -3,7 +3,7 @@
 // Handler: locator
 // Extracted from server.js callTool switch statements
 
-const { mcpError } = require('../core/mcp-error');
+const { mcpError, mcpParamMissing } = require('../core/mcp-error');
 
 const tools = [
   "browser_find_element",
@@ -49,6 +49,7 @@ const { target } = await ensurePage();
 
   // ====== browser_find_page ======
   if (name === 'browser_find_page') {
+    if (!args.target) return mcpParamMissing('target', name, '请添加 target 参数（login / signup / home / dashboard / admin / settings / profile / search / cart / checkout / forgot-password / reset-password / logout / all）');
     const result = await findPage(args.target, args);
     const resultData = {
       ...result,

@@ -1,25 +1,75 @@
 {
   "name": "validation_element",
-  "description": "验证特定DOM元素",
+  "description": "验证特定DOM元素的状态：存在性、可见性、可用性、文本内容、属性、值、数量等。支持多条断言组合，返回每条断言的通过/失败详情和证据截图。",
   "inputSchema": {
     "type": "object",
     "properties": {
-      "targetUrl": {
+      "url": {
         "type": "string",
-        "description": "目标页面URL"
+        "description": "目标页面URL（可选，若提供则会先导航到该页面）"
       },
-      "elementSelector": {
+      "selector": {
         "type": "string",
-        "description": "元素选择器"
+        "description": "元素CSS选择器（必填）"
       },
-      "expectedText": {
+      "exists": {
+        "type": "boolean",
+        "description": "断言元素是否存在"
+      },
+      "visible": {
+        "type": "boolean",
+        "description": "断言元素是否可见"
+      },
+      "enabled": {
+        "type": "boolean",
+        "description": "断言元素是否可用（非 disabled 且非 readonly）"
+      },
+      "textContains": {
         "type": "string",
-        "description": "预期文本"
+        "description": "断言元素文本包含该内容"
+      },
+      "hasAttribute": {
+        "type": "string",
+        "description": "断言元素具有该属性名"
+      },
+      "valueEquals": {
+        "type": "string",
+        "description": "断言表单元素的值等于该内容"
+      },
+      "countEquals": {
+        "type": "number",
+        "description": "断言匹配选择器的元素数量"
+      },
+      "noErrors": {
+        "type": "boolean",
+        "default": true,
+        "description": "是否同时检查本轮无控制台/页面/网络错误，默认 true"
+      },
+      "name": {
+        "type": "string",
+        "description": "本次验证的名称（用于证据标记）"
+      },
+      "evidence": {
+        "type": "boolean",
+        "default": true,
+        "description": "是否采集证据（截图+快照），默认 true"
+      },
+      "screenshot": {
+        "type": "boolean",
+        "description": "是否在证据中包含截图（默认在断言失败时自动截图）"
+      },
+      "snapshot": {
+        "type": "boolean",
+        "description": "是否在证据中包含DOM快照"
+      },
+      "clearErrors": {
+        "type": "boolean",
+        "default": true,
+        "description": "是否在验证前清空历史错误日志，默认 true"
       }
     },
     "required": [
-      "targetUrl",
-      "elementSelector"
+      "selector"
     ]
   }
 }

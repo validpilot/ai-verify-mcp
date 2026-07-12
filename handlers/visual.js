@@ -251,7 +251,23 @@ const { target } = await ensurePage(args);
     const baselinePath = path.join(baselineDir, `${safeName}.png`);
     const actualPath = path.join(actualDir, `${safeName}-${Date.now()}.png`);
     const locator = target.locator(args.selector).first();
-    await locator.screenshot({ path: actualPath });
+    try {
+      await locator.scrollIntoViewIfNeeded({ timeout: 5000 }).catch(() => {});
+      await locator.screenshot({ path: actualPath, timeout: 15000 });
+    } catch (e) {
+      const msg = String(e?.message || e);
+      if (/timeout|Timeout/i.test(msg)) {
+        return text(JSON.stringify({
+          error: 'ELEMENT_NOT_FOUND',
+          message: `元素截图超时: ${args.selector}`,
+          reason: `无法对选择器 "${args.selector}" 截图，元素可能不可见或被遮挡`,
+          suggestion: '请使用 browser_find_element 确认元素存在，或使用 browser_screenshot 截取整页',
+          selector: args.selector,
+          name: args.name
+        }, null, 2));
+      }
+      throw e;
+    }
     if (!fs.existsSync(baselinePath)) {
       fs.copyFileSync(actualPath, baselinePath);
       return text(JSON.stringify({ name: args.name, selector: args.selector, baseline_created: true, baselinePath, actualPath, passed: true, nextSteps: ['运行 browser_screenshot 确认页面截图', '使用 browser_visual_compare 对比差异', '生成 browser_visual_report 视觉报告'], suggestions: [{ type: 'next', tool: 'browser_screenshot', reason: '确认页面截图' }, { type: 'next', tool: 'browser_visual_compare', reason: '对比视觉差异' }, { type: 'next', tool: 'browser_visual_report', reason: '生成视觉报告' }], paidUpgradeHint: '需要高级视觉分析能力？升级到 Pro 版本获取完整功能。' }, null, 2));

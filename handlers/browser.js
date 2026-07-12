@@ -180,7 +180,15 @@ async function handle(name, args, deps) {
 const { target } = await ensurePage();
     if (!args.selector) return mcpParamMissing('selector', name);
     const urlBefore = target.url();
-    await target.click(args.selector, { timeout: 10000 });
+    try {
+      await target.click(args.selector, { timeout: 10000 });
+    } catch (e) {
+      const msg = String(e?.message || e);
+      if (/timeout|Timeout/i.test(msg)) {
+        return mcpElementNotFound(args.selector, name);
+      }
+      throw e;
+    }
     
     // 检测 URL 是否变化
     let urlAfter;
@@ -963,6 +971,26 @@ const { target } = await ensurePage();
   // ====== browser_assert ======
   if (name === 'browser_assert') {
 const { target } = await ensurePage();
+    const hasAssertion = args.urlContains || args.textContains || args.textEquals
+      || args.selectorVisible || args.selectorHidden || args.selectorCount
+      || args.noErrors === true;
+    if (!hasAssertion) {
+      return text(JSON.stringify({
+        error: 'PARAM_MISSING',
+        message: '未提供任何断言条件',
+        reason: 'browser_assert 需要至少一个断言参数',
+        suggestion: '请提供以下参数之一：urlContains / textContains / textEquals / selectorVisible / selectorHidden / selectorCount / noErrors',
+        supportedAssertions: [
+          { param: 'urlContains', type: 'string', desc: '断言当前URL包含该字符串' },
+          { param: 'textContains', type: 'string', desc: '断言页面文本包含该内容' },
+          { param: 'textEquals', type: 'string', desc: '断言页面文本等于该内容' },
+          { param: 'selectorVisible', type: 'string', desc: '断言CSS选择器可见' },
+          { param: 'selectorHidden', type: 'string', desc: '断言CSS选择器不可见' },
+          { param: 'selectorCount', type: 'object', desc: '断言元素数量 {selector, operator, value}' },
+          { param: 'noErrors', type: 'boolean', desc: '断言本轮无错误' }
+        ]
+      }, null, 2));
+    }
     return text(JSON.stringify(await assertPage(target, args), null, 2));
   }
 

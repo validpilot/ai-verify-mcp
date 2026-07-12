@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.7.3] - 2026-07-13
+
+### Fixed
+
+- **validation_data_integrity / validation_permission 错误消息 toolName 缺失**：8 处 `mcpParamMissing()` 调用仅传入参数名未传入工具名，导致错误消息显示 "工具 undefined"。补充 `name` 作为第二参数
+- **browser_find_page 缺少 target 参数时返回误导性错误**：未提供 `target` 时透传 `undefined` 到 `findPage()`，返回 "未知的页面类型：undefined"。在 handler 入口添加 `mcpParamMissing('target', name)` 验证
+- **browser_click 元素未找到时返回原始 Playwright 超时错误**：`target.click()` 超时返回 "Timeout 10000ms exceeded" 原始文本。包裹 try-catch，超时时返回结构化 `mcpElementNotFound` 错误
+- **validation_element schema 与 handler 参数不匹配**：schema 声明 `targetUrl`/`elementSelector`/`expectedText`，但 handler 实际接受 `selector`/`exists`/`visible`/`enabled`/`textContains`/`hasAttribute`/`valueEquals`/`countEquals` 等参数。更新 schema 与 handler 对齐
+- **browser_assert 无断言参数时返回空结果**：未提供任何断言条件时返回 `checks: [], total: 0, passed: true`，误导用户以为断言通过。添加参数检查，返回 `PARAM_MISSING` 错误并列出支持的断言参数
+- **validation_flow 不支持 assert 操作类型**：`runValidationFlow` 的 switch 语句缺少 `assert` case，返回 "不支持的操作类型：assert"。新增 assert case 调用 `assertPage()` 执行断言
+- **browser_visual_component 截图超时**：`locator.screenshot()` 对视口外元素超时。添加 `scrollIntoViewIfNeeded()` 前置滚动和 15 秒超时，超时时返回结构化 `ELEMENT_NOT_FOUND` 错误
+- **browser_trace_stop 返回 stopped:false**：`traceActive`/`currentTraceName` 在 `startTrace`/`stopTrace` 中直接修改模块级变量，但调用后被 `deps` 同步回写覆盖为旧值。移除这两个变量的有害同步回写
+
+### Test Results
+
+- 深度测试：全部 128 个工具在真实网站（github.com、example.com、iana.org）上使用真实参数测试
+- 单元测试：167 个相关测试全部通过（0 失败）
+- 修复 8 个深度测试发现的 bug
+
 ## [1.7.2] - 2026-07-13
 
 ### Fixed
