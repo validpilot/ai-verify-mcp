@@ -258,6 +258,7 @@ function compareStateSnapshots(before, after, expectations = []) {
 }
 
 async function runStateDiffAssert(target, args = {}) {
+  const { captureStepEvidence, redact } = _deps || {};
   const action = args.action || 'capture';
   if (args.targetUrl) {
     await target.goto(args.targetUrl, { waitUntil: 'domcontentloaded', timeout: args.timeout || 30000 });
@@ -278,7 +279,11 @@ async function runStateDiffAssert(target, args = {}) {
   return redact({ action, passed: comparison.passed, beforeSnapshotId: before.snapshotId, afterSnapshotId: after.snapshotId, comparison, before, after, evidence });
 }
 
+// Module-level reference to deps for use in module-level functions
+let _deps = null;
+
 async function handle(name, args, deps) {
+  _deps = deps;
 
   // === Destructure deps into local scope (replacing globalThis bridge) ===
   let { page, browser, browserSessionId, consoleLogs, networkLogs, pageErrors, currentCheckpoint, eventCheckpoint, lastAction, sessions, activeSessionName, sessionCounter, traceLogs, traceActive, currentTraceName, backendProbeResults, instrumentationEnabled, imageErrors, lastImageErrorCheckpoint, validationResults, lastQualityChecks, lastValidationRun, requestStartTimes, stateManager } = deps;
@@ -898,6 +903,7 @@ if (args.check_type === 'deploy_verify') {
   // ====== validation_element ======
   if (name === 'validation_element') {
 const { target } = await ensurePage(args);
+    if (!args.selector) return mcpParamMissing('selector', name);
     return text(JSON.stringify(await runValidationElement(target, args), null, 2));
   }
 
@@ -1202,12 +1208,14 @@ const report = buildValidationReport(args);
   // ====== validation_quick_run ======
   if (name === 'validation_quick_run') {
 const { target } = await ensurePage(args);
+    if (!args.url) return mcpParamMissing('url', name);
     return text(JSON.stringify(await runValidationQuickRun(target, args), null, 2));
   }
 
   // ====== validation_matrix ======
   if (name === 'validation_matrix') {
     const { target } = await ensurePage(args);
+    if (!args.url) return mcpParamMissing('url', name);
     const url = args.url;
     const dimensions = args.dimensions || ['functional', 'visual', 'performance', 'a11y'];
     const performanceThreshold = args.performanceThreshold || 2500;
@@ -1507,6 +1515,7 @@ function stripNetworkDetails(item) {
 }
 
 async function runValidationFlow(target, args = {}) {
+  const { filterNetwork, networkLogs, captureStepEvidence, redact, consoleLogs, pageErrors } = _deps || {};
   const continueOnFailure = args.continueOnFailure === true;
   const failFast = args.failFast === true;
   const timeout = Number(args.timeout) || 30000;
@@ -1823,6 +1832,7 @@ async function runValidationFlow(target, args = {}) {
 }
 
 async function runValidationChain(target, args = {}) {
+  const { filterNetwork, networkLogs, captureStepEvidence, redact, consoleLogs, pageErrors } = _deps || {};
   const failOnError = args.failOnError !== false;
   const captureScreenshots = args.captureScreenshots === true;
   const requiredSteps = args.requiredSteps !== false;
@@ -2111,6 +2121,7 @@ async function runValidationChain(target, args = {}) {
 }
 
 async function runChainSpecStep(target, step, index) {
+  const { filterNetwork, networkLogs } = _deps || {};
   const action = step.action || step.type;
   const stepName = step.name || `${index + 1}-${action || 'step'}`;
   const timeout = step.timeout || 10000;
@@ -2389,6 +2400,7 @@ function loadChainTemplate(templateName, args = {}) {
 }
 
 async function runChainSpecRun(target, args = {}) {
+  const { filterNetwork, networkLogs, getUnifiedErrors, captureStepEvidence, redact, consoleLogs, pageErrors, resetRuntimeLogs } = _deps || {};
   let resolvedArgs = args;
   if (args.template) {
     const template = loadChainTemplate(args.template, args);
@@ -2532,6 +2544,8 @@ async function runChainSpecRun(target, args = {}) {
 }
 
 async function runTraceCorrelationCheck(args = {}) {
+  const { currentCheckpoint, filterNetwork, networkLogs, fetchBackendLogs } = _deps || {};
+  const findTraceId = _deps?.findTraceId;
   const since = args.since || currentCheckpoint;
   const urlContains = args.urlContains;
   const backendLogPath = args.backendLogPath;
@@ -2717,6 +2731,7 @@ function extractSchema(value, depth = 0, maxDepth = 4) {
 }
 
 async function discoverEndpoints(target, urlContains) {
+  const { currentCheckpoint, filterNetwork, networkLogs } = _deps || {};
   const endpoints = [];
   const seenPaths = new Set();
   const since = currentCheckpoint;
@@ -2737,6 +2752,7 @@ async function discoverEndpoints(target, urlContains) {
 }
 
 async function runContractGuard(args = {}) {
+  const { ensurePage, currentCheckpoint, filterNetwork, networkLogs } = _deps || {};
   const { target } = args.target ? { target: args.target } : await ensurePage(args);
   let endpoints = Array.isArray(args.endpoints) ? args.endpoints : [];
   const fromNetwork = args.fromNetwork !== false;

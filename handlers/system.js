@@ -45,6 +45,9 @@ const cssAnalyzer = require('./scripts/css-var-analyzer');
   if (name === 'skill_mcp_validate') {
   try {
       const { skillName: validateSkillName, mode = 'strict' } = args;
+      if (!validateSkillName) {
+        return text(JSON.stringify({ passed: false, error: '缺少必需参数: skillName' }, null, 2));
+      }
       const skillToolsPath = path.join(PROJECT_ROOT, '.trae', 'skills', validateSkillName, 'SKILL.tools.json');
       if (!fs.existsSync(skillToolsPath)) {
         return text(JSON.stringify({ passed: false, error: `Skill ${validateSkillName} 的 SKILL.tools.json 不存在` }, null, 2));

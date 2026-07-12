@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿try { require('dotenv').config({ quiet: true }); } catch(e) { console.warn('[ValidPilot] dotenv not loaded:', e.message); }
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿try { require('dotenv').config({ quiet: true }); } catch(e) { console.warn('[ValidPilot] dotenv not loaded:', e.message); }
 // 修复 Windows 终端中文编码
 require('./core/win-encoding');
 const fs = require('fs');
@@ -1393,17 +1393,21 @@ async function inspectDom(target, selector) {
 }
 
 async function getStorageSnapshot(target, scope = 'all') {
-  return redact(await target.evaluate(requestedScope => {
-    const readStorage = storage => Object.keys(storage).reduce((acc, key) => {
-      acc[key] = storage.getItem(key);
-      return acc;
-    }, {});
-    const result = {};
-    if (requestedScope === 'all' || requestedScope === 'localStorage') result.localStorage = readStorage(localStorage);
-    if (requestedScope === 'all' || requestedScope === 'sessionStorage') result.sessionStorage = readStorage(sessionStorage);
-    if (requestedScope === 'all' || requestedScope === 'cookies') result.cookies = document.cookie;
-    return result;
-  }, scope));
+  try {
+    return redact(await target.evaluate(requestedScope => {
+      const readStorage = storage => Object.keys(storage).reduce((acc, key) => {
+        acc[key] = storage.getItem(key);
+        return acc;
+      }, {});
+      const result = {};
+      if (requestedScope === 'all' || requestedScope === 'localStorage') result.localStorage = readStorage(localStorage);
+      if (requestedScope === 'all' || requestedScope === 'sessionStorage') result.sessionStorage = readStorage(sessionStorage);
+      if (requestedScope === 'all' || requestedScope === 'cookies') result.cookies = document.cookie;
+      return result;
+    }, scope));
+  } catch (e) {
+    return { error: 'Storage access denied: ' + e.message, hint: 'Navigate to a real page first (about:blank blocks storage access)' };
+  }
 }
 
 async function buildDebugReport(target, args = {}) {
@@ -1981,9 +1985,12 @@ async function runLighthouseAudit(args = {}) {
       throw new Error('lighthouse 模块已加载但未导出函数，请检查 lighthouse 版本兼容性');
     }
 
+    const lhCacheDir = path.join(__dirname, '.lighthouse-cache');
+    fs.mkdirSync(lhCacheDir, { recursive: true });
     const chrome = await chromeLauncher.launch({
       chromePath,
-      chromeFlags: ['--headless', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage']
+      chromeFlags: ['--headless', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage'],
+      userDataDir: lhCacheDir
     });
 
     const categories = args.categories || ['performance', 'accessibility', 'best_practices', 'seo'];
@@ -1995,11 +2002,12 @@ async function runLighthouseAudit(args = {}) {
       onlyCategories: categories,
       port: chrome.port,
       formFactor,
+      screenEmulation: { mobile: formFactor === 'mobile' },
       throttling: args.throttling ? undefined : { throttlingMethod: 'provided' }
     };
 
     const runnerResult = await lighthouse(url, options);
-    await chrome.kill().catch(() => {});
+    try { await chrome.kill(); } catch (_) {}
 
     if (!runnerResult) {
       return { error: 'Lighthouse 审计无返回结果', success: false };

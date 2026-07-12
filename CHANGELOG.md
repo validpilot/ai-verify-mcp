@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.7.1] - 2026-07-13
+
+### Fixed
+
+- **validation.js 模块级函数 _deps 作用域修复**：7 个模块级函数（runStateDiffAssert、runValidationFlow、runValidationChain、runChainSpecStep、runChainSpecRun、runTraceCorrelationCheck、discoverEndpoints、runContractGuard）使用 deps 变量但无法访问，导致 "captureStepEvidence is not defined"、"resetRuntimeLogs is not defined" 等 12+ 个运行时错误。引入 `let _deps = null;` 模块级引用模式，在 `handle()` 入口赋值，各模块级函数开头通过 `const { var1, var2 } = _deps || {};` 解构所需变量
+- **browser_lighthouse_audit screenEmulation 修复**：Lighthouse 选项缺少 `screenEmulation` 导致 "Screen emulation mobile setting (true) does not match formFactor setting (desktop)" 错误。新增 `screenEmulation: { mobile: formFactor === 'mobile' }` 与 formFactor 保持一致
+- **browser_lighthouse_audit 临时目录权限修复**：chrome-launcher 在 Windows 临时目录创建失败（EPERM）。改用 `path.join(__dirname, '.lighthouse-cache')` 并 `fs.mkdirSync` 确保目录存在。`chrome.kill()` 返回 undefined 时 `.catch()` 崩溃改为 `try { await chrome.kill(); } catch (_) {}`
+- **browser_storage SecurityError 修复**：`getStorageSnapshot` 在 about:blank 或跨域页面调用 `target.evaluate()` 访问 localStorage 抛出 SecurityError 未捕获。在 `getStorageSnapshot` 函数内部添加 try-catch 返回结构化错误信息
+- **10 个工具缺少必需参数验证**：以下工具在未提供必需参数时直接崩溃（Playwright 抛出 "expected string, got undefined"），现添加 `mcpParamMissing` 返回结构化错误：browser_highlight（selector）、browser_smart_fill（selector）、browser_click（selector）、browser_type（selector）、browser_press_key（key）、validation_matrix（url）、validation_quick_run（url）、validation_element（selector）、skill_mcp_validate（skillName）
+
+### Test Results
+
+- 全部 128 个工具通过 run_mcp 测试（100%）
+- 测试方式：直接使用 MCP 工具调用每个工具，验证正常响应或结构化参数缺失错误
+
 ## [1.7.0] - 2026-07-12
 
 ### Added

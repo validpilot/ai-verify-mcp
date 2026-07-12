@@ -242,11 +242,20 @@ const level = args.level && args.level !== 'all' ? args.level : null;
   // ====== browser_storage ======
   if (name === 'browser_storage') {
 const { target } = await ensurePage();
-    return text(JSON.stringify({
-      ...(await getStorageSnapshot(target, args.scope || 'all')),
-      nextSteps: ['使用 browser_cookies 检查 Cookie 状态', '使用 browser_events 查看浏览器事件'],
-      paidUpgradeHint: '需要跨页面状态同步、存储变更监控、AI 驱动状态分析？升级到 Pro 版本获取智能状态管理能力。'
-    }, null, 2));
+    try {
+      return text(JSON.stringify({
+        ...(await getStorageSnapshot(target, args.scope || 'all')),
+        nextSteps: ['使用 browser_cookies 检查 Cookie 状态', '使用 browser_events 查看浏览器事件'],
+        paidUpgradeHint: '需要跨页面状态同步、存储变更监控、AI 驱动状态分析？升级到 Pro 版本获取智能状态管理能力。'
+      }, null, 2));
+    } catch (storageError) {
+      return text(JSON.stringify({
+        error: '无法读取页面存储：' + storageError.message,
+        url: target.url(),
+        hint: '某些页面（如 about:blank 或跨域页面）可能限制存储访问，请先导航到目标页面',
+        nextSteps: ['使用 browser_navigate 导航到目标页面', '使用 browser_cookies 检查 Cookie 状态']
+      }, null, 2));
+    }
   }
 
   // ====== browser_cookies ======

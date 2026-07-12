@@ -25,6 +25,7 @@ artifacts/
 test-reports/
 test-project/
 .cache/
+.lighthouse-cache/
 
 # Docs cache
 docs/.vitepress/cache/

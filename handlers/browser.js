@@ -4,65 +4,95 @@
 // Extracted from server.js callTool switch statements
 const { mcpError, mcpParamMissing, mcpPageNotFound, mcpElementNotFound } = require('../core/mcp-error');
 
-// CDP-based accessibility snapshot helper (replaces removed page.accessibility.snapshot API)
+// DOM-based accessibility snapshot helper (replaces removed page.accessibility.snapshot API)
+// Uses page.evaluate() to build AX tree from DOM with reliable bounds via getBoundingClientRect()
 async function getA11ySnapshot(target, options = {}) {
-  const ctx = target.context();
-  const session = await ctx.newCDPSession(target);
-  try {
-    await session.send('Accessibility.enable');
-    const result = await session.send('Accessibility.getFullAXTree');
-    const nodes = result.nodes || [];
-    const nodeMap = new Map();
-    for (const node of nodes) {
-      nodeMap.set(node.nodeId, {
-        role: node.role ? node.role.value : 'unknown',
-        name: node.name ? node.name.value : '',
-        value: node.value ? node.value.value : undefined,
-        bounds: node.bounds ? {
-          x: Math.round(node.bounds.left || 0),
-          y: Math.round(node.bounds.top || 0),
-          width: Math.round(node.bounds.width || 0),
-          height: Math.round(node.bounds.height || 0)
-        } : null,
-        disabled: node.properties && node.properties.disabled ? node.properties.disabled.value : undefined,
-        focused: node.properties && node.properties.focused ? node.properties.focused.value : undefined,
+  const buildTreeScript = (rootEl) => {
+    rootEl = rootEl || document.documentElement;
+    function getRole(el) {
+      if (el.computedRole) return el.computedRole;
+      const role = el.getAttribute && el.getAttribute('role');
+      if (role) return role;
+      const tag = el.tagName ? el.tagName.toLowerCase() : '';
+      const map = {
+        a: el.hasAttribute && el.hasAttribute('href') ? 'link' : 'generic',
+        button: 'button', input: 'textbox', textarea: 'textbox', select: 'combobox',
+        img: 'image', h1: 'heading', h2: 'heading', h3: 'heading', h4: 'heading',
+        h5: 'heading', h6: 'heading', nav: 'navigation', main: 'main', header: 'banner',
+        footer: 'contentinfo', section: 'region', article: 'article', aside: 'complementary',
+        form: 'form', label: 'label', ul: 'list', ol: 'list', li: 'listitem',
+        table: 'table', tr: 'row', td: 'cell', th: 'columnheader', p: 'paragraph',
+        span: 'generic', div: 'generic', html: 'RootWebArea', body: 'generic'
+      };
+      return map[tag] || 'generic';
+    }
+    function getName(el) {
+      if (el.computedName) return el.computedName;
+      if (el.getAttribute && el.getAttribute('aria-label')) return el.getAttribute('aria-label');
+      const labelledby = el.getAttribute && el.getAttribute('aria-labelledby');
+      if (labelledby) {
+        const labelEl = document.getElementById(labelledby);
+        if (labelEl) return (labelEl.textContent || '').trim();
+      }
+      if (el.id) {
+        const label = document.querySelector('label[for="' + CSS.escape(el.id) + '"]');
+        if (label) return (label.textContent || '').trim();
+      }
+      if (el.title) return el.title;
+      if (el.alt) return el.alt;
+      const role = getRole(el);
+      if (['button', 'link', 'heading', 'image'].indexOf(role) !== -1) {
+        return (el.textContent || '').trim().slice(0, 200);
+      }
+      return '';
+    }
+    function isVisible(el) {
+      if (el.tagName === 'HTML' || el.tagName === 'BODY') return true;
+      if (!el.offsetParent && el.tagName !== 'BODY') {
+        const s = window.getComputedStyle(el);
+        if (s.position === 'fixed') return s.display !== 'none';
+        return false;
+      }
+      const s = window.getComputedStyle(el);
+      if (s.display === 'none' || s.visibility === 'hidden') return false;
+      return true;
+    }
+    function buildNode(el, depth, maxDepth) {
+      if (depth > maxDepth) return null;
+      if (!isVisible(el)) return null;
+      const rect = el.getBoundingClientRect();
+      if (rect.width === 0 && rect.height === 0 && el.tagName !== 'HTML' && el.tagName !== 'BODY') return null;
+      const role = getRole(el);
+      const name = getName(el);
+      const node = {
+        role: role,
+        name: name,
+        bounds: {
+          x: Math.round(rect.x),
+          y: Math.round(rect.y),
+          width: Math.round(rect.width),
+          height: Math.round(rect.height)
+        },
+        value: (el.value !== undefined && el.value !== '') ? String(el.value).slice(0, 100) : undefined,
+        disabled: !!(el.disabled || (el.getAttribute && el.getAttribute('aria-disabled') === 'true')),
+        focused: document.activeElement === el,
         children: []
-      });
-    }
-    let root = null;
-    for (const node of nodes) {
-      const transformed = nodeMap.get(node.nodeId);
-      if (node.parentId && nodeMap.has(node.parentId)) {
-        nodeMap.get(node.parentId).children.push(transformed);
-      } else if (!root) {
-        root = transformed;
-      }
-    }
-    if (options.root && root) {
-      const elBounds = await options.root.boundingBox();
-      if (elBounds) {
-        function findSubtree(node) {
-          if (!node || !node.bounds) return null;
-          if (Math.abs(node.bounds.x - elBounds.x) < 5 && Math.abs(node.bounds.y - elBounds.y) < 5 &&
-              Math.abs(node.bounds.width - elBounds.width) < 5 && Math.abs(node.bounds.height - elBounds.height) < 5) {
-            return node;
-          }
-          if (node.children) {
-            for (const child of node.children) {
-              const found = findSubtree(child);
-              if (found) return found;
-            }
-          }
-          return null;
+      };
+      if (el.children && el.children.length > 0) {
+        for (let i = 0; i < el.children.length; i++) {
+          const childNode = buildNode(el.children[i], depth + 1, maxDepth);
+          if (childNode) node.children.push(childNode);
         }
-        const subtree = findSubtree(root);
-        if (subtree) return subtree;
       }
+      return node;
     }
-    return root;
-  } finally {
-    await session.detach();
+    return buildNode(rootEl, 0, 20);
+  };
+
+  if (options.root) {
+    return await options.root.evaluate(buildTreeScript);
   }
+  return await target.evaluate(buildTreeScript);
 }
 
 const tools = [
@@ -148,6 +178,7 @@ async function handle(name, args, deps) {
   // ====== browser_click ======
   if (name === 'browser_click') {
 const { target } = await ensurePage();
+    if (!args.selector) return mcpParamMissing('selector', name);
     const urlBefore = target.url();
     await target.click(args.selector, { timeout: 10000 });
     
@@ -400,6 +431,7 @@ const { target } = await ensurePage();
   // ====== browser_type ======
   if (name === 'browser_type') {
 const { target } = await ensurePage();
+    if (!args.selector) return mcpParamMissing('selector', name);
     await target.fill(args.selector, args.text || '', { timeout: 10000 });
     await target.evaluate(({ selector, text }) => {
       const el = document.querySelector(selector);
@@ -512,6 +544,7 @@ const { target } = await ensurePage();
   // ====== browser_press_key ======
   if (name === 'browser_press_key') {
 const { target } = await ensurePage();
+    if (!args.key) return mcpParamMissing('key', name);
     if (args.selector) {
       await target.focus(args.selector);
     }
@@ -804,6 +837,7 @@ const { target } = await ensurePage();
   // ====== browser_highlight ======
   if (name === 'browser_highlight') {
 const { target } = await ensurePage();
+    if (!args.selector) return mcpParamMissing('selector', name);
     await target.$eval(args.selector, (el, color) => {
       el.scrollIntoView({ block: 'center', inline: 'center' });
       el.setAttribute('data-mcp-debug-highlight', 'true');
@@ -1430,6 +1464,7 @@ const { target } = await ensurePage();
   // ====== browser_smart_fill ======
   if (name === 'browser_smart_fill') {
     const { target } = await ensurePage(args);
+    if (!args.selector) return mcpParamMissing('selector', name);
     const dataGen = require('../hands/data_generator');
     const fieldType = args.fieldType || 'text';
     if (!dataGen.isSupported(fieldType)) {
