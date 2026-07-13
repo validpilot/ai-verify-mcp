@@ -2,6 +2,32 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.8.0] - 2026-07-13
+
+### Added
+
+- **security_headers_check**：HTTP 安全响应头部检查工具。检测 CSP、X-Content-Type-Options、X-Frame-Options、HSTS、Referrer-Policy、X-XSS-Protection、Permissions-Policy 等 7 项安全头部的存在性和配置，检测 X-Powered-By/Server 等信息泄露，输出安全评分和风险等级
+- **security_csp_analyze**：Content-Security-Policy 深度分析工具。解析 CSP 指令，检测 unsafe-inline、unsafe-eval、通配符 * 等不安全配置，检查缺失的关键指令（default-src、script-src、style-src、img-src、connect-src、frame-ancestors），输出 0-100 安全评分
+- **security_sql_injection_scan**：SQL 注入扫描工具。内置 20 个 SQL 注入 payload（含 UNION、时间盲注、错误注入等），自动检测响应中的 MySQL、Oracle、PostgreSQL、SQL Server、SQLite 等数据库错误信息泄露，输出 critical 级别漏洞报告
+- **security_xss_scan**：XSS 漏洞扫描工具。内置 26 个 XSS payload（含 script 注入、事件处理器、SVG/iframe 注入、模板注入等），检测响应体中未转义的 payload，区分完全匹配和部分匹配（过滤不完整），输出 high/medium 级别漏洞报告
+- **security_owasp_top10**：OWASP Top 10 快速安全检查工具。覆盖 A1-A10 全部 10 项（访问控制、加密失败、注入、不安全设计、安全配置错误、易受攻击组件、认证失败、数据完整性、日志监控失败、SSRF），输出 pass/warn/fail/info 状态和详细证据
+- **api_probe**：API 端点探测工具。向目标 URL 发送多种 HTTP 方法（GET/POST/PUT/DELETE/PATCH/OPTIONS），分析响应状态、内容类型、CORS 配置（Access-Control-Allow-Origin/Methods/Headers/Credentials），支持自定义请求头和请求体，输出 CORS 风险评估
+
+### Fixed
+
+- **browser_form_fill 支持 CSS 选择器模式**：原实现仅支持字段 name 属性匹配，当传入 CSS 选择器（如 `#login-email`）作为 key 时超时。新增"简单标识符"检测：key 仅含字母/数字/下划线/连字符时作为字段名传给 `autoFillForm`，否则作为 CSS 选择器用 Playwright 直接定位。支持 `#id`、`.class`、`input[name="..."]`、`textarea[name="..."]` 等所有 CSS 选择器语法，结果分别返回 `selectorFilled` 和 `filled` 字段
+- **browser_eval 自动包装 async/await**：原实现直接调用 `target.evaluate(expression)`，包含 `await` 的表达式报 "await is only valid in async functions" 语法错误。新增智能检测：包含 `await` 但未手动包装在 async IIFE 中时自动包装为 `(async () => { ... })()`，包含 `return` 时包装在 `(function(){ ... })()`
+- **browser_click 多元素匹配处理**：原实现在选择器匹配多个元素时直接调用 `click()` 导致超时（10秒等待后报 "Timeout 10000ms exceeded"）。新增前置元素数量检查：匹配多个元素时返回 `MULTIPLE_ELEMENTS` 错误和前 5 个元素的详细信息（tag、text、href），新增 `index` 参数支持点击指定索引的元素（提供 index 时跳过多元素错误直接用 `nth(index)` 定位）
+- **security handler 错误处理增强**：security handler 的 `handle` 函数缺少 catch 块，fetch 失败（网络错误、无效端口等）时抛出未捕获异常。新增 catch 块返回结构化 `EXECUTION_ERROR` 错误响应
+
+### Test Results
+
+- 新增单元测试：32/32 通过（100%），覆盖 6 个新工具的 schema 验证、参数校验、核心逻辑（安全头部检测、CSP 分析、SQL 注入检测、XSS 检测、OWASP 检查、API 探测）
+- 既有测试回归：19/19 通过（100%），无回归
+- MCP 调用测试（真实网站 https://httpbin.org）：
+  - 6/6 新安全工具通过：security_headers_check（检测 0/7 头部 + server 信息泄露）、security_csp_analyze（检测无 CSP）、security_sql_injection_scan（20 payload 无误报）、security_xss_scan（26 payload 检测到 httpbin 回显 XSS）、security_owasp_top10（A5 fail 缺失安全头部）、api_probe（6 方法 + CORS 分析）
+  - 3/3 Bug 修复通过：browser_eval（async/await 自动包装返回正确结果）、browser_click（10 元素检测 + index=2 点击第 3 个链接）、browser_form_fill（input[name="custname"] 等 CSS 选择器填充 3 字段成功）
+
 ## [1.7.3] - 2026-07-13
 
 ### Fixed

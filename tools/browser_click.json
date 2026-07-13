@@ -1,12 +1,16 @@
 {
   "name": "browser_click",
-  "description": "在真实浏览器中点击指定 CSS 选择器元素",
+  "description": "在真实浏览器中点击指定 CSS 选择器元素。当选择器匹配多个元素时，返回多元素提示而非超时，可通过 index 参数指定点击第几个元素。",
   "inputSchema": {
     "type": "object",
     "properties": {
       "selector": {
         "type": "string",
-        "description": "CSS 选择器"
+        "description": "CSS 选择器（支持 Playwright 语法，如 'button:has-text(\"Log In\")' 或 '#submit-btn'）"
+      },
+      "index": {
+        "type": "number",
+        "description": "当选择器匹配多个元素时，指定点击第几个元素（从 0 开始）。不提供时默认点击第一个元素。"
       }
     },
     "required": [

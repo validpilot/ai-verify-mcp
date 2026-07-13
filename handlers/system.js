@@ -116,12 +116,47 @@ const _traceResult = buildTraceChain(args);
   if (name === 'browser_form_fill') {
     const { target } = await ensurePage();
     const url = args.url;
+    if (!url) return mcpParamMissing('url', name, '请提供目标页面 URL');
     if (url) {
       await target.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
       await new Promise(r => setTimeout(r, 1500));
     }
-    // autoFillForm 在 deepInteractor 中
-    const autoFillResult = await deepInteractor.autoFillForm(target, args.selector || 'form', args.fields || {});
+
+    // 支持两种 fields 格式：
+    // 1. 对象模式 {fieldName: value} - 用字段 name/id 匹配（传给 autoFillForm）
+    // 2. CSS 选择器模式 {cssSelector: value} - key 含特殊字符时直接用 Playwright 定位
+    const rawFields = args.fields || {};
+    const selectorFields = {};   // CSS 选择器模式的字段
+    const nameFields = {};       // 字段 name 模式的字段（传给 autoFillForm）
+    const isSimpleIdentifier = /^[a-zA-Z_][a-zA-Z0-9_\-]*$/;
+    for (const [key, val] of Object.entries(rawFields)) {
+      if (isSimpleIdentifier.test(key)) {
+        nameFields[key] = val;
+      } else {
+        selectorFields[key] = val;
+      }
+    }
+
+    // 先处理 CSS 选择器模式的字段（直接用 Playwright 定位）
+    const selectorResults = [];
+    for (const [selector, value] of Object.entries(selectorFields)) {
+      try {
+        const locator = target.locator(selector).first();
+        await locator.fill(String(value), { timeout: 10000 });
+        selectorResults.push({ selector, value, filled: true });
+      } catch (e) {
+        const msg = String(e?.message || e);
+        if (/timeout|Timeout/i.test(msg)) {
+          selectorResults.push({ selector, value, filled: false, error: `元素未找到或不可交互: ${selector}` });
+        } else {
+          selectorResults.push({ selector, value, filled: false, error: msg });
+        }
+      }
+    }
+
+    // 再处理字段 name 模式的字段（通过 autoFillForm 自动发现并填充）
+    const autoFillResult = await deepInteractor.autoFillForm(target, args.selector || 'form', nameFields);
+
     let submitResult = null;
     if (args.submit !== false) {
       const submitSelector = args.submitSelector || 'button[type="submit"], input[type="submit"]';
@@ -137,7 +172,14 @@ const _traceResult = buildTraceChain(args);
         submitResult = { clicked: submitSelector, error: e.message };
       }
     }
-    return text(JSON.stringify({ filled: autoFillResult, submit: submitResult, nextSteps: ['使用 browser_click 提交表单', '使用 browser_form_validate 验证表单'], suggestions: [{ type: 'next', tool: 'browser_form_validate', reason: '验证表单填写是否有效' }], paidUpgradeHint: '需要智能表单填写、自动生成测试数据、多表单批量填充？升级到 Pro 版本获取智能表单能力。' }, null, 2));
+    return text(JSON.stringify({
+      selectorFilled: selectorResults.length > 0 ? selectorResults : undefined,
+      filled: autoFillResult,
+      submit: submitResult,
+      nextSteps: ['使用 browser_click 提交表单', '使用 browser_form_validate 验证表单'],
+      suggestions: [{ type: 'next', tool: 'browser_form_validate', reason: '验证表单填写是否有效' }],
+      paidUpgradeHint: '需要智能表单填写、自动生成测试数据、多表单批量填充？升级到 Pro 版本获取智能表单能力。'
+    }, null, 2));
   }
 
   // ====== browser_links ======

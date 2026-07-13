@@ -1,0 +1,14 @@
+{
+  "name": "security_headers_check",
+  "description": "检查 HTTP 安全响应头部。分析 CSP、X-Content-Type-Options、X-Frame-Options、HSTS、Referrer-Policy 等安全头部的存在性和配置正确性，检测 X-Powered-By/Server 等信息泄露。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "url": {
+        "type": "string",
+        "description": "目标 URL（必填）"
+      }
+    },
+    "required": ["url"]
+  }
+}

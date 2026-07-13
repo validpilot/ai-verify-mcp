@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿try { require('dotenv').config({ quiet: true }); } catch(e) { console.warn('[ValidPilot] dotenv not loaded:', e.message); }
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿try { require('dotenv').config({ quiet: true }); } catch(e) { console.warn('[ValidPilot] dotenv not loaded:', e.message); }
 // 修复 Windows 终端中文编码
 require('./core/win-encoding');
 const fs = require('fs');
@@ -101,11 +101,12 @@ const handlerArchReverse = require('./handlers/arch_reverse');
 const handlerMemory = require('./handlers/memory');
 const handlerDataCompare = require('./handlers/data_compare');
 const handlerDualChain = require('./handlers/dual_chain');
+const handlerSecurity = require('./handlers/security');
 
 const allHandlers = [
   handlerBrowser, handlerSession, handlerEvidence, handlerNetwork,
   handlerValidation, handlerDiagnose, handlerVisual, handlerLocator, handlerSystem,
-  handlerAsset, handlerExploration, handlerCorrelate, handlerAtl, handlerArchReverse, handlerMemory, handlerDataCompare, handlerDualChain
+  handlerAsset, handlerExploration, handlerCorrelate, handlerAtl, handlerArchReverse, handlerMemory, handlerDataCompare, handlerDualChain, handlerSecurity
 ];
 
 const handlerMap = new Map();

@@ -1,0 +1,14 @@
+{
+  "name": "security_owasp_top10",
+  "description": "OWASP Top 10 安全检查。快速检查 A1 访问控制、A2 加密失败、A5 安全配置错误等 OWASP Top 10 安全风险，返回通过/警告/失败状态。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "url": {
+        "type": "string",
+        "description": "目标 URL（必填）"
+      }
+    },
+    "required": ["url"]
+  }
+}

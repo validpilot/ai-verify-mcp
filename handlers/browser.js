@@ -180,8 +180,43 @@ async function handle(name, args, deps) {
 const { target } = await ensurePage();
     if (!args.selector) return mcpParamMissing('selector', name);
     const urlBefore = target.url();
+
+    // 先检查匹配元素数量，避免 :has-text() 等多元素匹配时直接超时
+    let elementCount = 0;
     try {
-      await target.click(args.selector, { timeout: 10000 });
+      elementCount = await target.locator(args.selector).count();
+    } catch (_) { /* 选择器可能在 click 中有效 */ }
+
+    if (elementCount > 1 && (args.index === undefined || args.index === null)) {
+      // 多元素匹配：收集元素信息供用户选择
+      const elements = [];
+      for (let i = 0; i < Math.min(elementCount, 5); i++) {
+        try {
+          const el = target.locator(args.selector).nth(i);
+          const text = await el.textContent({ timeout: 2000 }).catch(() => '');
+          const tag = await el.evaluate(e => e.tagName.toLowerCase(), { timeout: 2000 }).catch(() => '');
+          const href = await el.getAttribute('href', { timeout: 2000 }).catch(() => null);
+          elements.push({ index: i, tag, text: (text || '').trim().substring(0, 80), href });
+        } catch (_) { /* 忽略单个元素错误 */ }
+      }
+      return text(JSON.stringify({
+        error: 'MULTIPLE_ELEMENTS',
+        message: `选择器 "${args.selector}" 匹配到 ${elementCount} 个元素`,
+        reason: 'Playwright 的 click() 在多元素匹配时会超时，需要更精确的选择器',
+        suggestion: '使用 nth() 语法（如 "selector >> nth=0"）或更具体的 CSS 选择器，或使用 index 参数指定点击第几个元素',
+        matchedCount: elementCount,
+        elements: elements,
+        hint: '可在 selector 参数中使用 ">> nth=0" 语法点击第一个匹配元素'
+      }, null, 2));
+    }
+
+    // 支持 index 参数指定点击第几个元素
+    const clickSelector = args.index !== undefined && args.index !== null
+      ? target.locator(args.selector).nth(args.index)
+      : target.locator(args.selector).first();
+
+    try {
+      await clickSelector.click({ timeout: 10000 });
     } catch (e) {
       const msg = String(e?.message || e);
       if (/timeout|Timeout/i.test(msg)) {
@@ -748,10 +783,22 @@ const { target } = await ensurePage();
     }
     // 审计日志
     console.log('[AUDIT] browser_eval executed:', { expressionLength: expression.length, timestamp: new Date().toISOString() });
-    
-    const wrapped = expression.trim().startsWith('return') || expression.includes('return ')
-      ? `(function(){${expression}})()`
-      : expression;
+
+    // 智能包装表达式：
+    // 1. 如果包含 await 但未手动包装在 async IIFE 中，自动包装为 (async () => { ... })()
+    // 2. 如果以 return 开头或包含 return，包装在 (function(){ ... })()
+    // 3. 否则直接执行
+    const trimmed = expression.trim();
+    const hasAwait = /\bawait\b/.test(trimmed);
+    const hasAsyncIIFE = /\(\s*async\s*\(\s*\)\s*=>/.test(trimmed) || /\(async\s*function\s*\(\s*\)/.test(trimmed);
+    let wrapped;
+    if (hasAwait && !hasAsyncIIFE) {
+      wrapped = `(async () => { ${expression} })()`;
+    } else if (trimmed.startsWith('return') || expression.includes('return ')) {
+      wrapped = `(function(){${expression}})()`;
+    } else {
+      wrapped = expression;
+    }
     const result = await target.evaluate(expr => {
       try {
         const value = (0, eval)(expr);

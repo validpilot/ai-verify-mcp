@@ -1,0 +1,14 @@
+{
+  "name": "security_xss_scan",
+  "description": "XSS 漏洞扫描。向目标 URL 注入 26 种 XSS payload（含 script 标签、事件处理器、SVG、模板注入等），检测响应体中是否未转义地包含 payload。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "url": {
+        "type": "string",
+        "description": "目标 URL，可包含查询参数如 http://example.com/page?q=test（必填）"
+      }
+    },
+    "required": ["url"]
+  }
+}

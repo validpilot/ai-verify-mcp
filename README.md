@@ -8,7 +8,7 @@
 [![npm downloads](https://img.shields.io/npm/dm/@validpilot/ai-verify-mcp.svg?style=flat-square)](https://www.npmjs.com/package/@validpilot/ai-verify-mcp)
 [![CI](https://img.shields.io/github/actions/workflow/status/validpilot/ai-verify-mcp/ci.yml?style=flat-square&label=CI)](https://github.com/validpilot/ai-verify-mcp/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](LICENSE)
-[![MCP Protocol](https://img.shields.io/badge/MCP-128%20tools-brightgreen.svg?style=flat-square)](https://modelcontextprotocol.io/)
+[![MCP Protocol](https://img.shields.io/badge/MCP-134%20tools-brightgreen.svg?style=flat-square)](https://modelcontextprotocol.io/)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D18-green.svg?style=flat-square)](https://nodejs.org/)
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg?style=flat-square)](CODE_OF_CONDUCT.md)
 [![English](https://img.shields.io/badge/English-blue?style=flat-square)](README.en.md)
@@ -56,7 +56,7 @@
 
 ## 🔄 Skill + MCP = 最佳体验
 
-ai-verify-mcp 提供 128 个底层验证工具（浏览器操作、截图、a11y 扫描、断言验证、视觉比对、网络监控、性能分析、内存检测、证据链采集等），但这些工具需要被**编排调用**才能完成完整的验证任务。
+ai-verify-mcp 提供 134 个底层验证工具（浏览器操作、截图、a11y 扫描、断言验证、视觉比对、网络监控、性能分析、内存检测、证据链采集、安全扫描等），但这些工具需要被**编排调用**才能完成完整的验证任务。
 
 **Skill 系统**（如 Trae 的 `browser-dev-full-validation-skill`）正是这个编排层——它定义了一套标准验证流程：
 
@@ -83,7 +83,7 @@ flowchart LR
 
 | 职责 | 说明 |
 |------|------|
-| **128 个原子验证工具** | `browser_open` / `browser_overlay_detect` / `browser_smoke_test` / `browser_counterfactual_analyze` / `browser_assert` / `browser_a11y_check` / `browser_smart_fill` / `browser_memory_check` / `browser_visual_component` 等 |
+| **134 个原子验证工具** | `browser_open` / `browser_overlay_detect` / `browser_smoke_test` / `browser_counterfactual_analyze` / `browser_assert` / `browser_a11y_check` / `browser_smart_fill` / `browser_memory_check` / `browser_visual_component` / `security_headers_check` / `security_owasp_top10` / `api_probe` 等 |
 | **证据链采集** | 每步操作自动截图，记录 Console 日志和网络请求 |
 | **对比与 CSS 变量扫描** | axe-core 集成、CSS 变量追踪 |
 | **报告输出** | 结构化 JSON + Markdown 报告 |
@@ -291,7 +291,7 @@ artifacts/
 | 特性 | ValidPilot Verify | Playwright | Puppeteer |
 |------|-------------------|------------|-----------|
 | **MCP 协议原生** | ✅ 开箱即用 | ❌ 需自己封装 | ❌ 需自己封装 |
-| **AI Agent 友好** | ✅ 128 个专用工具 | ❌ 通用 API | ❌ 通用 API |
+| **AI Agent 友好** | ✅ 134 个专用工具 | ❌ 通用 API | ❌ 通用 API |
 | **证据链留存** | ✅ 自动截图 + 时间戳 | ❌ 手动实现 | ❌ 手动实现 |
 | **智能诊断** | ✅ 错误根因 + 置信度 | ❌ 仅日志 | ❌ 仅日志 |
 | **验证报告** | ✅ Markdown + 截图 | ❌ 需自己写 | ❌ 需自己写 |
@@ -303,7 +303,7 @@ artifacts/
 
 | 单独用 MCP | 单独用 Skill | **Skill + MCP 组合** |
 |-----------|------------|-------------------|
-| ✅ 128 个工具但需手动编排 | ✅ 有流程但缺执行能力 | ✅ 自动编排 + 自动执行 |
+| ✅ 134 个工具但需手动编排 | ✅ 有流程但缺执行能力 | ✅ 自动编排 + 自动执行 |
 | ❌ 验证结果零散 | ❌ 流程模板固定 | ✅ 完整证据链 + 灵活配置 |
 | ❌ 需手动对比差异 | ❌ 无法直接操控浏览器 | ✅ 全自动闭环 |
 
@@ -383,6 +383,17 @@ artifacts/
 | `browser_locator_suggest` | 选择器建议 |
 | `browser_locator_validate` | 选择器验证 |
 | `browser_find_page` | 页面类型识别 |
+
+### 🔒 安全扫描（6个）
+
+| 工具 | 说明 |
+|------|------|
+| `security_headers_check` | HTTP 安全头部检查（CSP、HSTS、XFO 等 7 项 + 信息泄露检测）|
+| `security_csp_analyze` | CSP 策略深度分析（unsafe-inline/eval 检测、评分）|
+| `security_sql_injection_scan` | SQL 注入扫描（20 个 payload，多数据库错误检测）|
+| `security_xss_scan` | XSS 漏洞扫描（26 个 payload，未转义检测）|
+| `security_owasp_top10` | OWASP Top 10 快速检查（A1-A10 全覆盖）|
+| `api_probe` | API 端点探测（多 HTTP 方法 + CORS 分析）|
 
 ---
 

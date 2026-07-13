@@ -1,0 +1,33 @@
+{
+  "name": "api_probe",
+  "description": "API 端点探测工具。向目标 URL 发送多种 HTTP 方法（GET/POST/PUT/DELETE/PATCH/OPTIONS），分析响应状态、内容类型、CORS 配置。支持自定义请求头和请求体，适合 API 安全测试和端点发现。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "url": {
+        "type": "string",
+        "description": "目标 API URL（必填）"
+      },
+      "methods": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "要测试的 HTTP 方法列表，默认 ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS']",
+        "default": ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]
+      },
+      "headers": {
+        "type": "object",
+        "description": "自定义请求头，如 {\"Authorization\": \"Bearer token\", \"Content-Type\": \"application/json\"}"
+      },
+      "body": {
+        "type": "string",
+        "description": "请求体（POST/PUT/PATCH 方法使用）"
+      },
+      "checkCors": {
+        "type": "boolean",
+        "description": "是否分析 CORS 配置，默认 true",
+        "default": true
+      }
+    },
+    "required": ["url"]
+  }
+}

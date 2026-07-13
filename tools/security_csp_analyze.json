@@ -1,0 +1,14 @@
+{
+  "name": "security_csp_analyze",
+  "description": "深度分析 Content-Security-Policy 策略。解析 CSP 指令，检测 unsafe-inline、unsafe-eval、通配符 * 等不安全配置，评估 CSP 安全评分。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "url": {
+        "type": "string",
+        "description": "目标 URL（必填）"
+      }
+    },
+    "required": ["url"]
+  }
+}

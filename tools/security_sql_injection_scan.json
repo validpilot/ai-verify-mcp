@@ -1,0 +1,14 @@
+{
+  "name": "security_sql_injection_scan",
+  "description": "SQL 注入漏洞扫描。向目标 URL 的查询参数注入 20 种 SQL 注入 payload，检测响应中是否泄露 SQL 错误信息（MySQL、Oracle、PostgreSQL、SQL Server、SQLite 等）。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "url": {
+        "type": "string",
+        "description": "目标 URL，可包含查询参数如 http://example.com/page?id=1（必填）"
+      }
+    },
+    "required": ["url"]
+  }
+}

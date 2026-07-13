@@ -1,6 +1,6 @@
 {
   "name": "browser_form_fill",
-  "description": "批量填充表单字段并可选提交检测。自动识别表单input/select/textarea，根据类型生成mock数据，支持手动覆盖字段值，提交后检测成功/失败状态。",
+  "description": "批量填充表单字段并可选提交检测。支持两种字段指定方式：CSS选择器模式（key以#./[等开头）和字段名模式（key为input的name属性）。自动识别表单input/select/textarea，根据类型生成mock数据，支持手动覆盖字段值，提交后检测成功/失败状态。",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -15,7 +15,7 @@
       },
       "fields": {
         "type": "object",
-        "description": "手动指定的字段覆盖值，key为字段名，value为字段值"
+        "description": "手动指定的字段值。支持两种key格式：1) CSS选择器模式（key以#/./[/[/>/:/*开头，如 {\"#login-email\": \"user@test.com\", \"#login-password\": \"pass123\"}）；2) 字段名模式（key为input的name属性，如 {\"email\": \"user@test.com\", \"password\": \"pass123\"}）。CSS选择器模式的字段会直接用Playwright定位填充，字段名模式的字段会通过表单自动发现机制匹配。"
       },
       "submit": {
         "type": "boolean",
