@@ -1,0 +1,31 @@
+{
+  "reporter": ["text", "lcov", "text-summary"],
+  "include": [
+    "handlers/**/*.js",
+    "core/**/*.js",
+    "engines/**/*.js",
+    "brain/**/*.js",
+    "orchestrator/**/*.js"
+  ],
+  "exclude": [
+    "node_modules/**",
+    "test/**",
+    "tests/**",
+    "team/**",
+    "docs/**",
+    "bin/**",
+    "scripts/**",
+    "**/*.test.js"
+  ],
+  "check-coverage": true,
+  "lines": 70,
+  "statements": 70,
+  "functions": 70,
+  "branches": 60,
+  "watermarks": {
+    "lines": [70, 90],
+    "functions": [70, 90],
+    "branches": [60, 85],
+    "statements": [70, 90]
+  }
+}

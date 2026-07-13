@@ -76,6 +76,7 @@
     "cli": "node bin/validpilot.js",
     "validate": "node bin/validpilot.js health",
     "test": "node --test test/*.test.js",
+    "test:coverage": "c8 --reporter=text --reporter=lcov --reporter=text-summary node --test test/*.test.js",
     "test:e2e": "node --test test/e2e.integration.js",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
@@ -99,6 +100,7 @@
     "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
+    "c8": "^11.0.0",
     "gif-encoder-2": "^1.0.5",
     "omggif": "^1.0.10",
     "pngjs": "^7.0.0",

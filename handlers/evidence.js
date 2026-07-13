@@ -215,7 +215,7 @@ function buildEvidenceIndex(args = {}, REPORT_DIR = '.') {
         dataDiffCount: content.dataDiff ? content.dataDiff.length : 0,
         networkCount: content.network ? content.network.length : 0
       });
-    } catch (_) {}
+    } catch (_) { /* optional evidence stats */ }
   }
   packs.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
   const runIds = [...new Set(packs.map(p => p.runId))];
@@ -298,7 +298,7 @@ async function traceCorrelate(args = {}, ctx = {}) {
             networkErrors: content.errors.summary.networkErrorCount
           } : null
         });
-      } catch (_) {}
+      } catch (_) { /* optional error stats */ }
     }
   }
 
@@ -328,7 +328,7 @@ async function traceCorrelate(args = {}, ctx = {}) {
       }
     }
     if (buildTraceChainFn) {
-      try { entry.traceChain = await buildTraceChainFn({ traceId }); } catch (_) {}
+      try { entry.traceChain = await buildTraceChainFn({ traceId }); } catch (_) { /* trace chain build failed */ }
     }
     backendCorrelation.push(entry);
   }

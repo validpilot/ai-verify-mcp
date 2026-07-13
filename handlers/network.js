@@ -203,7 +203,7 @@ const level = args.level && args.level !== 'all' ? args.level : null;
             pageAdded: newPage.length
           };
         }
-      } catch (_) {}
+      } catch (_) { /* optional realtime error check */ }
     }
 
     return text(JSON.stringify({

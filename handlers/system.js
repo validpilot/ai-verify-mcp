@@ -124,12 +124,27 @@ const _traceResult = buildTraceChain(args);
 
     // 支持两种 fields 格式：
     // 1. 对象模式 {fieldName: value} - 用字段 name/id 匹配（传给 autoFillForm）
-    // 2. CSS 选择器模式 {cssSelector: value} - key 含特殊字符时直接用 Playwright 定位
-    const rawFields = args.fields || {};
+    // 2. 数组模式 [{name, value}] - 转为对象后处理
+    let rawFields = {};
+    if (Array.isArray(args.fields)) {
+      for (const f of args.fields) {
+        if (f && f.name) rawFields[f.name] = f.value;
+      }
+    } else if (typeof args.fields === 'object') {
+      rawFields = args.fields || {};
+    }
+
+    // preserveValue 模式：只填用户指定字段，跳过自动生成
+    const preserveValue = args.preserveValue === true;
+    if (preserveValue) {
+      rawFields._preserveOnly = true;
+    }
+
     const selectorFields = {};   // CSS 选择器模式的字段
     const nameFields = {};       // 字段 name 模式的字段（传给 autoFillForm）
     const isSimpleIdentifier = /^[a-zA-Z_][a-zA-Z0-9_\-]*$/;
     for (const [key, val] of Object.entries(rawFields)) {
+      if (key === '_preserveOnly') continue;
       if (isSimpleIdentifier.test(key)) {
         nameFields[key] = val;
       } else {
@@ -155,26 +170,84 @@ const _traceResult = buildTraceChain(args);
     }
 
     // 再处理字段 name 模式的字段（通过 autoFillForm 自动发现并填充）
-    const autoFillResult = await deepInteractor.autoFillForm(target, args.selector || 'form', nameFields);
+    const formSelector = args.selector || 'form';
+    let autoFillResult = await deepInteractor.autoFillForm(target, formSelector, nameFields);
+
+    // 无 form 标签的页面（fallback 到直接操作 input）
+    let usedFallback = false;
+    if (autoFillResult.error && autoFillResult.error.includes('未找到表单元素')) {
+      usedFallback = true;
+      autoFillResult = await deepInteractor.autoFillInputs(target, preserveValue ? { ...nameFields, _preserveOnly: true } : nameFields);
+    }
+
+    // 读取表单当前值（getFormValues）
+    let formValues = null;
+    try {
+      const valuesResult = await deepInteractor.getFormValues(target, formSelector);
+      if (valuesResult.found) {
+        formValues = valuesResult.values;
+        autoFillResult.values = formValues;
+      }
+    } catch (_) { /* getFormValues failed, keep formValues=null */ }
 
     let submitResult = null;
     if (args.submit !== false) {
-      const submitSelector = args.submitSelector || 'button[type="submit"], input[type="submit"]';
+      // 提交按钮选择器支持多种常见按钮样式
+      const submitSelector = args.submitSelector ||
+        'button[type="submit"], input[type="submit"], [class*="submit"], [class*="btn-primary"]';
       try {
         await target.locator(submitSelector).first().click({ timeout: 5000 });
         await new Promise(r => setTimeout(r, 1500));
+
+        // 提交后检测成功/失败状态
+        const pageStatus = await target.evaluate(() => {
+          const body = document.body.innerHTML.toLowerCase();
+          const hasSuccess = body.includes('success') || body.includes('成功') ||
+            !!document.querySelector('.el-message--success, .ant-message-success, .success-message, [class*="success"]');
+          const hasError = body.includes('error') || body.includes('失败') || body.includes('错误') ||
+            !!document.querySelector('.el-message--error, .ant-message-error, .error-message, [class*="error"]');
+          const successMessage = (document.querySelector('.el-message--success, .ant-message-success, .success-message, .alert-success')?.textContent || '').trim();
+          const errorMessage = (document.querySelector('.el-message--error, .ant-message-error, .error-message, .alert-danger, .el-form-item__error, .ant-form-item-explain-error')?.textContent || '').trim();
+
+          // 检测表单验证错误
+          const invalidInputs = document.querySelectorAll('input:invalid, select:invalid, textarea:invalid');
+          const formValidationErrors = Array.from(invalidInputs).map(el => ({
+            name: el.name || el.id,
+            validationMessage: el.validationMessage
+          }));
+
+          // Element UI / Ant Design 等常见 UI 库的消息提示
+          const uiLibraryMessages = [];
+          const elMessages = document.querySelectorAll('.el-message, .el-form-item__error');
+          const antMessages = document.querySelectorAll('.ant-message, .ant-form-item-explain');
+          uiLibraryMessages.push(
+            ...Array.from(elMessages).map(el => ({ library: 'element-ui', text: el.textContent.trim() })),
+            ...Array.from(antMessages).map(el => ({ library: 'ant-design', text: el.textContent.trim() }))
+          );
+
+          return { hasSuccess, hasError, successMessage, errorMessage, formValidationErrors, uiLibraryMessages };
+        });
+
+        const urlBefore = url;
+        const urlAfter = target.url();
+        const navigated = urlBefore !== urlAfter;
+
         submitResult = {
           clicked: submitSelector,
-          urlAfterSubmit: target.url(),
+          status: pageStatus.hasSuccess ? 'success' : pageStatus.hasError ? 'error' : navigated ? 'navigated' : 'unknown',
+          urlAfterSubmit: urlAfter,
           titleAfterSubmit: await target.title().catch(() => ''),
+          pageStatus,
         };
       } catch (e) {
-        submitResult = { clicked: submitSelector, error: e.message };
+        submitResult = { clicked: submitSelector, status: 'error', error: e.message };
       }
     }
     return text(JSON.stringify({
       selectorFilled: selectorResults.length > 0 ? selectorResults : undefined,
       filled: autoFillResult,
+      values: autoFillResult.values,
+      usedFallback,
       submit: submitResult,
       nextSteps: ['使用 browser_click 提交表单', '使用 browser_form_validate 验证表单'],
       suggestions: [{ type: 'next', tool: 'browser_form_validate', reason: '验证表单填写是否有效' }],

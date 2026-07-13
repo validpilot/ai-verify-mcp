@@ -44,7 +44,7 @@ function log(level, message) {
   if (typeof globalThis.log === 'function') {
     globalThis.log(level, message);
   } else if (typeof globalThis.logger === 'object' && globalThis.logger) {
-    try { globalThis.logger[level.toLowerCase()] && globalThis.logger[level.toLowerCase()](message); } catch (_) {}
+    try { globalThis.logger[level.toLowerCase()] && globalThis.logger[level.toLowerCase()](message); } catch (_) { /* optional, ignore errors */ }
   }
 }
 
@@ -188,7 +188,7 @@ function findEntryById(memoryRoot, id) {
       try {
         const raw = fs.readFileSync(file, 'utf8');
         return { entry: JSON.parse(raw), type };
-      } catch (_) {}
+      } catch (_) { /* optional, ignore errors */ }
     }
   }
   return null;
@@ -326,7 +326,7 @@ async function operationRecall(args, memoryRoot, projectId) {
           found.entry.lastRecalledAt = new Date().toISOString();
           found.entry.recallCount = (found.entry.recallCount || 0) + 1;
           saveMemoryEntry(memoryRoot, found.type, found.entry);
-        } catch (_) {}
+        } catch (_) { /* optional, ignore errors */ }
       }
     }
 
@@ -644,7 +644,7 @@ async function operationStats(args, memoryRoot, projectId) {
         if (fs.existsSync(file)) {
           storageBytes += fs.statSync(file).size;
         }
-      } catch (_) {}
+      } catch (_) { /* optional, ignore errors */ }
     }
 
   return {

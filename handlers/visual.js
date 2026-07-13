@@ -326,7 +326,7 @@ const { target } = await ensurePage(args);
       try {
         const layoutShifts = perf.getEntriesByType('layout-shift');
         cls = layoutShifts.reduce((sum, e) => sum + e.value, 0);
-      } catch (e) {}
+      } catch (_) { /* layout-shift entries unavailable, keep cls=0 */ }
 
       // FID / First Input Delay
       const fidEntries = perf.getEntriesByType('first-input');

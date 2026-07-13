@@ -262,7 +262,7 @@ async function runStateDiffAssert(target, args = {}) {
   const action = args.action || 'capture';
   if (args.targetUrl) {
     await target.goto(args.targetUrl, { waitUntil: 'domcontentloaded', timeout: args.timeout || 30000 });
-    try { await target.waitForLoadState('networkidle', { timeout: 8000 }); } catch (_) {}
+    try { await target.waitForLoadState('networkidle', { timeout: 8000 }); } catch (_) { /* optional, ignore errors */ }
   }
 
   if (action === 'capture') {
@@ -2137,7 +2137,7 @@ async function runChainSpecStep(target, step, index) {
       if (!url) throw new Error('navigate 步骤需要 url 参数');
       await target.goto(url, { waitUntil: 'domcontentloaded', timeout });
       if (step.waitForLoadState !== false) {
-        try { await target.waitForLoadState(step.loadState || 'networkidle', { timeout: Math.min(timeout, 8000) }); } catch (_) {}
+        try { await target.waitForLoadState(step.loadState || 'networkidle', { timeout: Math.min(timeout, 8000) }); } catch (_) { /* optional, ignore errors */ }
       }
       break;
     }
@@ -2145,7 +2145,7 @@ async function runChainSpecStep(target, step, index) {
     case 'refresh': {
       await target.reload({ waitUntil: 'domcontentloaded', timeout });
       if (step.waitForLoadState !== false) {
-        try { await target.waitForLoadState(step.loadState || 'networkidle', { timeout: Math.min(timeout, 8000) }); } catch (_) {}
+        try { await target.waitForLoadState(step.loadState || 'networkidle', { timeout: Math.min(timeout, 8000) }); } catch (_) { /* optional, ignore errors */ }
       }
       break;
     }
@@ -2195,7 +2195,7 @@ async function runChainSpecStep(target, step, index) {
           try { return localStorage.getItem('validpilot-auth'); } catch (_) { return null; }
         })();
         let token = null;
-        try { token = authRaw ? JSON.parse(authRaw)?.state?.accessToken : null; } catch (_) {}
+        try { token = authRaw ? JSON.parse(authRaw)?.state?.accessToken : null; } catch (_) { /* optional, ignore errors */ }
         const headers = Object.assign({ 'content-type': 'application/json' }, stepConfig.headers || {});
         if (token && !headers.Authorization && !headers.authorization) headers.Authorization = `Bearer ${token}`;
         const options = { method: stepConfig.method || 'GET', headers, credentials: 'include' };
@@ -2425,7 +2425,7 @@ async function runChainSpecRun(target, args = {}) {
 
   if (targetUrl) {
     await target.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: resolvedArgs.timeout || 30000 });
-    try { await target.waitForLoadState('networkidle', { timeout: 8000 }); } catch (_) {}
+    try { await target.waitForLoadState('networkidle', { timeout: 8000 }); } catch (_) { /* optional, ignore errors */ }
   }
 
   if (stateSources.length > 0 && resolvedArgs.captureBefore !== false) {
@@ -2746,7 +2746,7 @@ async function discoverEndpoints(target, urlContains) {
       if (seenPaths.has(pathKey)) continue;
       seenPaths.add(pathKey);
       endpoints.push({ path: pathname, method: entry.method || 'GET' });
-    } catch (_) {}
+    } catch (_) { /* optional, ignore errors */ }
   }
   return endpoints;
 }
@@ -2773,7 +2773,7 @@ async function runContractGuard(args = {}) {
           const requestUrl = ep.url || new URL(ep.path || '/', location.origin).toString();
           const authRaw = (() => { try { return localStorage.getItem('validpilot-auth'); } catch (_) { return null; } })();
           let token = null;
-          try { token = authRaw ? JSON.parse(authRaw)?.state?.accessToken : null; } catch (_) {}
+          try { token = authRaw ? JSON.parse(authRaw)?.state?.accessToken : null; } catch (_) { /* optional, ignore errors */ }
           const headers = Object.assign({ 'content-type': 'application/json' }, ep.headers || {});
           if (token && !headers.Authorization && !headers.authorization) headers.Authorization = 'Bearer ' + token;
           const options = { method: ep.method || 'GET', headers, credentials: 'include' };
@@ -2829,7 +2829,7 @@ async function runContractGuard(args = {}) {
           generatedAt: new Date().toISOString(),
           source: 'network-capture'
         });
-      } catch (_) {}
+      } catch (_) { /* optional, ignore errors */ }
     }
   }
 

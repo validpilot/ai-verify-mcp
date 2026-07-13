@@ -4,7 +4,7 @@
 
 ## 项目概述
 
-**ai-verify-mcp** 是一个 MCP（模型上下文协议）服务器，为 AI 代理提供 128 个浏览器验证工具。它使 AI 代理能够通过标准化的 MCP 接口执行端到端的 Web 验证、调试和自动化修复。
+**ai-verify-mcp** 是一个 MCP（模型上下文协议）服务器，为 AI 代理提供 134 个浏览器验证工具（v1.8.0）。它使 AI 代理能够通过标准化的 MCP 接口执行端到端的 Web 验证、调试和自动化修复。
 
 **核心技术栈**：Node.js + Playwright + @modelcontextprotocol/sdk
 
@@ -12,7 +12,8 @@
 
 ```
 server.js                    # 主 MCP 服务器（所有工具处理器位于 switch 语句中）
-tools/                       # 128 个 JSON schema 文件（每个工具一个）
+tools/                       # 134 个 JSON schema 文件（每个工具一个）
+handlers/                    # 工具处理器实现（browser/security/validation/exploration 等）
 engines/                     # Playwright / Chrome 适配器引擎
 core/                        # 核心工具（产物、配置、安全、脱敏、报告）
 hands/                       # 高级操作器（browser_operator、evidence_collector、verification_runner）
@@ -21,6 +22,8 @@ rules/                       # 验证规则（suggested-rules.json）
 docs/                        # 用户文档
 examples/                    # 演示示例
 bin/                         # CLI 入口点
+test/                        # 单元测试（npm test 运行）
+test-reports/                # 测试报告（含 v1.8.0 全量测试报告）
 ```
 
 ## 核心约定
@@ -67,11 +70,17 @@ bin/                         # CLI 入口点
 # 语法检查
 node -c server.js
 
-# 自测（MCP 协议 + 浏览器工具）
-node test-mcp.js
+# 单元测试套件（60+ 测试文件）
+npm test
 
-# 验证工具数量与 schema 匹配
-node check-tools-final.js
+# 测试覆盖率报告（c8，生成 lcov + text 报告）
+npm run test:coverage
+
+# MCP 工具调用测试（必须使用 run_mcp 调用，不得使用脚本测试）
+# 通过 Trae IDE 的 MCP 集成调用 mcp_health_check 和 mcp_self_test 验证
+
+# 验证发布包内容
+npm run pack:dry
 ```
 
 ## 发布流程
@@ -92,7 +101,7 @@ This document provides guidance for AI coding agents (Claude, Cursor, Trae, Copi
 
 ## Project Overview
 
-**ai-verify-mcp** is an MCP (Model Context Protocol) server that provides 83 browser validation tools for AI agents. It enables AI agents to perform end-to-end web validation, debugging, and automated fixes through a standardized MCP interface.
+**ai-verify-mcp** is an MCP (Model Context Protocol) server that provides 134 validation tools for AI agents (v1.8.0). It enables AI agents to perform end-to-end web validation, debugging, and automated fixes through a standardized MCP interface.
 
 **Core stack**: Node.js + Playwright + @modelcontextprotocol/sdk
 
@@ -100,7 +109,8 @@ This document provides guidance for AI coding agents (Claude, Cursor, Trae, Copi
 
 ```
 server.js                    # Main MCP server (all tool handlers in switch statement)
-tools/                       # 83 JSON schema files (one per tool)
+tools/                       # 134 JSON schema files (one per tool)
+handlers/                    # Tool handler implementations (browser/security/validation/exploration etc.)
 engines/                     # Playwright / Chrome adapter engines
 core/                        # Core utilities (artifacts, config, security, redaction, report)
 hands/                       # High-level operators (browser_operator, evidence_collector, verification_runner)
@@ -109,6 +119,8 @@ rules/                       # Validation rules (suggested-rules.json)
 docs/                        # User documentation
 examples/                    # Demo examples
 bin/                         # CLI entry points
+test/                        # Unit tests (run via npm test)
+test-reports/                # Test reports (includes v1.8.0 full test report)
 ```
 
 ## Key Conventions
@@ -155,11 +167,17 @@ Run the following before submitting changes:
 # Syntax check
 node -c server.js
 
-# Self-test (MCP protocol + browser tools)
-node test-mcp.js
+# Unit test suite (60+ test files)
+npm test
 
-# Verify tool count matches schemas
-node check-tools-final.js
+# Test coverage report (c8, generates lcov + text reports)
+npm run test:coverage
+
+# MCP tool invocation testing (must use run_mcp calls, not script testing)
+# Verify via Trae IDE MCP integration: call mcp_health_check and mcp_self_test
+
+# Verify package contents
+npm run pack:dry
 ```
 
 ## Release Process

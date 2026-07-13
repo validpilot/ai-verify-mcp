@@ -1,19 +1,34 @@
 # 工具总览
 
-AI-Verify MCP 提供 **84 个工具**，按功能分为 8 大类。
+AI-Verify MCP 提供 **134 个工具**（v1.8.0），按功能分为 22 大类。
 
 ## 工具分类
 
 | 类别 | 数量 | 说明 |
 |------|------|------|
-| [浏览器操作](./browser) | 29 | 页面导航、元素操作、截图、遮挡检测等 |
-| 诊断与调试 | 17 | 错误捕获、网络分析、性能检查 |
-| 验证框架 | 16 | 断言、流程验证、报告生成、冒烟测试 |
-| [视觉验证](./visual) | 3 | 视觉对比、基线管理 |
-| 会话管理 | 7 | 多会话、Cookie、存储 |
-| 证据产物 | 4 | 产物管理、追踪、HAR 导出 |
-| [错误修复](./fix) | 内置 23 模式 | 自动诊断 + 修复建议 |
-| [系统工具](./system) | 4 | 健康检查、自检、基准测试 |
+| Browser 导航 & 页面 | 10 | 页面打开、刷新、快照、DOM、链接、查找 |
+| Browser 交互 | 10 | 点击、输入、悬停、滚动、按键、表单填充 |
+| Browser ARIA | 3 | ARIA 快照、点击、输入（无障碍树操作） |
+| Browser 视觉 | 10 | 截图、视觉对比、基线、组件、高亮 |
+| Browser 错误 & 控制台 | 6 | 错误捕获、聚合、清空、控制台、事件 |
+| Browser 网络 & 存储 | 5 | 网络请求、详情、Cookie、存储、HAR |
+| Browser 性能 & A11y | 5 | 性能检查、追踪、Lighthouse、无障碍、内存 |
+| Browser 高级 | 10 | 遮挡、验证码、反爬、设备模拟、响应式、反事实 |
+| Browser 调试 | 6 | 诊断、调试报告、探针、Eval、断言、点击审计 |
+| Browser 组合 | 11 | 步骤、批量、链式、流程、智能填充、会话、冒烟、全量审计 |
+| Browser Trace & Artifacts | 5 | 追踪开始/停止/链、产物列表/清空 |
+| Browser 全量审计 | 2 | 全量审计、全量回归 |
+| Browser 矩阵测试 | 1 | 跨浏览器矩阵测试 |
+| Security | 6 | 安全头部、CSP、SQL 注入、XSS、OWASP Top10、API 探测 |
+| Asset Discovery | 4 | 路由发现、端点枚举、端点探测、架构反推 |
+| Validation | 14 | 启动、检查、快速、元素、流程、矩阵、合规、数据完整性、权限、决策、链、报告、导出、执行 |
+| Report & Evidence | 2 | 证据索引、证据打包 |
+| Contract & Correlate | 5 | 契约基线、契约守护、三重检查、Trace 关联、关联检查 |
+| Error Analysis | 3 | 修复建议、错误摘要、调试调查 |
+| Memory & ATL | 3 | 记忆召回、ATL 学习、ATL 修复 |
+| Exploration & System | 7 | 快速探索、双链探索、健康检查、自检、项目审计、技能验证、CSS 变量 |
+| Chain & Business | 6 | 模板列表、评分报告、规范运行、业务闭环、登录绕过、状态差异 |
+| **合计** | **134** | |
 
 ## 快速查找
 
@@ -35,6 +50,8 @@ AI-Verify MCP 提供 **84 个工具**，按功能分为 8 大类。
 | `browser_overlay_dismiss` | 遮挡物关闭 |
 | `browser_smoke_test` | 冒烟测试 |
 | `browser_counterfactual_analyze` | 反事实根因分析 |
+| `security_owasp_top10` | OWASP Top 10 快速检查 |
+| `asset_routes_discover` | API 路由发现 |
 
 ### 按场景选择
 
@@ -58,3 +75,34 @@ AI-Verify MCP 提供 **84 个工具**，按功能分为 8 大类。
 
 **冒烟测试与根因分析：**
 `browser_smoke_test` → `browser_counterfactual_analyze` → `validation_report`
+
+**安全扫描：**
+`security_headers_check` → `security_csp_analyze` → `security_owasp_top10` → `security_sql_injection_scan` → `security_xss_scan`
+
+**API 资产发现：**
+`asset_routes_discover` → `asset_endpoint_enum` → `asset_endpoint_probe` → `api_probe` → `arch_reverse_probe`
+
+**跨浏览器兼容性测试：**
+`browser_matrix_test`（chromium / firefox / webkit 任意组合）
+
+**业务闭环验证：**
+`business_loop_validate` → `state_diff_assert` → `validation_chain`
+
+## 版本历史
+
+| 版本 | 工具数 | 主要变更 |
+|------|--------|---------|
+| v1.8.0 | 134 | 新增 6 个安全扫描工具 + 3 个 bug 修复 |
+| v1.7.3 | 128 | 修复 8 个深度测试发现的 bug |
+| v1.7.0 | 128 | 验证码检测增强、API 推导 |
+| v1.6.7 | 124 | MCP 协议合规性修复与 trace 模块重构 |
+
+## 相关文档
+
+- [浏览器工具](./browser)
+- [视觉验证](./visual)
+- [系统工具](./system)
+- [验证框架](./validation)
+- [MCP 协议速查手册](../reference/mcp-cheatsheet.md)
+- [用户操作手册](../public/legacy/USER-MANUAL.md)
+- [v1.8.0 全量测试报告](../../test-reports/v1.8.0-full-test-report.md)

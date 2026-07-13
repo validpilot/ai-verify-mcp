@@ -356,7 +356,7 @@ async function bypassLogin(args, deps) {
           try {
             const text = await res.text();
             isHtml = text.includes('<!DOCTYPE') || text.includes('<html');
-          } catch (e) {}
+          } catch (_) { /* res.text() failed, keep default isHtml=false */ }
           return { ok: res.ok, status: res.status, redirected: res.redirected, isHtml };
         }, targetUrl);
         testResult = { test: 'no_cookie', status: res.status, bypassed: res.ok && !res.redirected, isHtml: res.isHtml };
@@ -377,7 +377,7 @@ async function bypassLogin(args, deps) {
           try {
             const text = await res.text();
             isHtml = text.includes('<!DOCTYPE') || text.includes('<html');
-          } catch (e) {}
+          } catch (_) { /* res.text() failed, keep default isHtml=false */ }
           return { ok: res.ok, status: res.status, isHtml };
         }, targetUrl);
         testResult = { test: 'no_auth_header', status: res.status, bypassed: res.ok, isHtml: res.isHtml };
@@ -405,7 +405,7 @@ async function bypassLogin(args, deps) {
           try {
             const text = await res.text();
             isHtml = text.includes('<!DOCTYPE') || text.includes('<html');
-          } catch (e) {}
+          } catch (_) { /* res.text() failed, keep default isHtml=false */ }
           return { ok: res.ok, status: res.status, isHtml };
         }, { apiPath: `${origin}${authApiPath}`, userId: testId });
         testResult = { test: 'fake_user_id', userId: testId, status: res.status, bypassed: res.ok && !res.isHtml, isHtml: res.isHtml };
@@ -426,7 +426,7 @@ async function bypassLogin(args, deps) {
           try {
             const text = await res.text();
             isHtml = text.includes('<!DOCTYPE') || text.includes('<html');
-          } catch (e) {}
+          } catch (_) { /* res.text() failed, keep default isHtml=false */ }
           return { ok: res.ok, status: res.status, isHtml };
         }, `${origin}${authApiPath}`);
         testResult = { test: 'direct_api_access', apiPath: authApiPath, status: res.status, bypassed: res.ok && !res.isHtml, isHtml: res.isHtml };
@@ -450,7 +450,7 @@ async function bypassLogin(args, deps) {
               try {
                 bodyPreview = await res.text();
                 isHtml = bodyPreview.includes('<!DOCTYPE') || bodyPreview.includes('<html');
-              } catch (e) {}
+              } catch (_) { /* res.text() failed, keep default isHtml=false */ }
               return { ok: res.ok, status: res.status, isHtml, bodyPreview: bodyPreview.slice(0, 200) };
             } catch (e) {
               return { ok: false, status: 0, isHtml: false, error: e.message };
@@ -483,7 +483,7 @@ async function bypassLogin(args, deps) {
           try {
             const text = await res.text();
             isHtml = text.includes('<!DOCTYPE') || text.includes('<html');
-          } catch (e) {}
+          } catch (_) { /* res.text() failed, keep default isHtml=false */ }
           return { ok: res.ok, status: res.status, isHtml };
         }, { apiPath: `${origin}${authApiPath}`, userId: userIdToTest });
         testResult = { test: 'idor_test', userId: userIdToTest, status: res.status, vulnerable: res.ok && !res.isHtml, isHtml: res.isHtml };
@@ -500,7 +500,7 @@ async function bypassLogin(args, deps) {
           try {
             const text = await res.text();
             isHtml = text.includes('<!DOCTYPE') || text.includes('<html');
-          } catch (e) {}
+          } catch (_) { /* res.text() failed, keep default isHtml=false */ }
           return { ok: res.ok, status: res.status, isHtml };
         }, targetUrl);
         testResult = { test: 'unauthorized_access', status: res.status, bypassed: res.ok && !res.isHtml, isHtml: res.isHtml };
@@ -631,7 +631,7 @@ async function assetEndpointProbe(args, deps) {
             try {
               bodyPreview = await res.text();
               isHtml = bodyPreview.includes('<!DOCTYPE') || bodyPreview.includes('<html');
-            } catch (e) {}
+            } catch (_) { /* res.text() failed, keep default isHtml=false */ }
           }
           return { ok: res.ok, status: res.status, statusText: res.statusText, isHtml, bodyPreview: bodyPreview.slice(0, 200) };
         }, { url: fullUrl, method });

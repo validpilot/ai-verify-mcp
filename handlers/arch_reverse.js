@@ -217,7 +217,7 @@ async function detectTechStackWithVersion(page) {
       try {
         const data = JSON.parse(nextData.textContent);
         version = data?.buildId?.slice(0, 8) || '';
-      } catch (_) {}
+      } catch (_) { /* optional probe, ignore errors */ }
       stack.push({
         name: 'Next.js',
         version,
@@ -376,7 +376,7 @@ async function detectMiddlewareChain(page) {
       else if (headerInfo['via']?.includes('haproxy')) result.loadBalancer = 'HAProxy';
       else if (headerInfo['x-amz-cf-id']) result.loadBalancer = 'AWS ALB';
     }
-  } catch (_) {}
+  } catch (_) { /* optional probe, ignore errors */ }
 
   return result;
 }
@@ -525,7 +525,7 @@ async function detectContainerSignals(page) {
       if (containerHints.some(h => h.includes('Kubernetes'))) result.kubernetes = true;
       if (containerHints.some(h => h.includes('Docker'))) result.docker = true;
     }
-  } catch (_) {}
+  } catch (_) { /* optional probe, ignore errors */ }
 
   return result;
 }

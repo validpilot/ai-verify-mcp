@@ -2,6 +2,7 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert');
+const { patternStore } = require('../brain/pattern_store');
 const { learnFromError, learnFromErrors, suggestFixes, computeLogLikelihoodRatio, calculateLikelihoodScore } = require('../brain/atl_learner');
 
 describe('ATL Learner', () => {
@@ -16,7 +17,7 @@ describe('ATL Learner', () => {
       const result = learnFromError(error);
       assert.ok(result);
       assert.ok(result.errorSignature);
-      assert.strictEqual(result.totalPatterns, 2);
+      assert.strictEqual(result.totalPatterns, patternStore.length);
       assert.ok(Array.isArray(result.topMatches));
     });
 

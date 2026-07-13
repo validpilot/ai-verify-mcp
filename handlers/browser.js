@@ -322,7 +322,7 @@ const { target } = await ensurePage();
           return null;
         }, args.text);
         if (found) selector = found;
-      } catch (_) {}
+      } catch (_) { /* optional, ignore errors */ }
     }
     
     if (!selector) {
@@ -410,7 +410,7 @@ const { target } = await ensurePage();
           returned = true;
           returnMethod = 'goBack';
         } catch (_) {
-          try { await target.goBack(); returned = true; returnMethod = 'goBack_simple'; } catch (_) {}
+          try { await target.goBack(); returned = true; returnMethod = 'goBack_simple'; } catch (_) { /* optional, ignore errors */ }
         }
       } else if (spaNavigated) {
         try {
@@ -420,7 +420,7 @@ const { target } = await ensurePage();
           // 验证状态是否恢复
           const afterReturn = target.url();
           if (afterReturn === urlBefore) returned = true;
-        } catch (_) {}
+        } catch (_) { /* optional, ignore errors */ }
       }
     }
     
@@ -624,7 +624,7 @@ const { target } = await ensurePage();
       const allEls = document.querySelectorAll('body *');
       for (const el of allEls) {
         if (visibleCount >= 500) break;
-        try { const s = window.getComputedStyle(el); if (s.display !== 'none' && s.visibility !== 'hidden' && el.offsetParent !== null) visibleCount++; } catch (_) {}
+        try { const s = window.getComputedStyle(el); if (s.display !== 'none' && s.visibility !== 'hidden' && el.offsetParent !== null) visibleCount++; } catch (_) { /* optional, ignore errors */ }
       }
       const mainText = (document.body.innerText || '').trim();
       const textHash = mainText.length + '_' + mainText.slice(0, 100).replace(/\s+/g, '');
@@ -1205,7 +1205,7 @@ const { target } = await ensurePage(args);
           } catch (e) {
             try {
               await target.fill(`[name="${field.name}"]`, '');
-            } catch (e2) {}
+            } catch (_) { /* fill fallback failed, skip */ }
           }
         }
 
@@ -2402,7 +2402,7 @@ const { target } = await ensurePage();
         recognizedText = (data.text || '').trim();
         confidence = data.confidence ? data.confidence / 100 : (recognizedText ? 0.6 : 0);
         ocrMethod = recognizedText ? 'tesseract' : 'tesseract-empty';
-        try { fs.unlinkSync(tempPath); } catch (_) {}
+        try { fs.unlinkSync(tempPath); } catch (_) { /* optional, ignore errors */ }
       } catch (e) {
         ocrMethod = 'tesseract-failed';
       }

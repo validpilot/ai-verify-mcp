@@ -97,7 +97,7 @@ async function explorationQuick(args, deps) {
           }))
         };
       });
-    } catch (_) {}
+    } catch (_) { /* optional probe, ignore errors */ }
 
     findings.phases.navigate = {
       url: pageUrl,
@@ -343,7 +343,7 @@ async function detectTechStack(page) {
             if (m) twMatches += m.length;
           }
           if (twMatches > 3) detected.uiLibraries.push('Tailwind CSS');
-        } catch (_) {}
+        } catch (_) { /* optional probe, ignore errors */ }
       }
 
       // State management
@@ -364,7 +364,7 @@ async function detectTechStack(page) {
 
     Object.assign(result, info);
     result.detected = result.frameworks.length > 0 || result.buildTools.length > 0;
-  } catch (_) {}
+  } catch (_) { /* optional probe, ignore errors */ }
 
   return result;
 }
@@ -429,7 +429,7 @@ async function discoverRoutes(page, networkLogs, depth) {
     result.routes = routeInfo.routes;
     result.componentNames = routeInfo.componentNames;
 
-  } catch (_) {}
+  } catch (_) { /* optional probe, ignore errors */ }
 
   return result;
 }
@@ -499,7 +499,7 @@ async function detectForms(page, domSummary) {
 
     result.forms = formInfo.forms;
 
-  } catch (_) {}
+  } catch (_) { /* optional probe, ignore errors */ }
 
   return result;
 }
@@ -931,7 +931,7 @@ async function analyzePageForBusinessNodes(page, pageUrl, pageTitle, checkForm, 
           confidence += 0.25;
           break;
         }
-      } catch (_) {}
+      } catch (_) { /* optional probe, ignore errors */ }
     }
 
     // 文本关键词匹配

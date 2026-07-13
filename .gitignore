@@ -22,10 +22,15 @@ visual/actual/
 visual/diff/
 visual/baselines/
 artifacts/
-test-reports/
+coverage/
+test-reports/*
+!test-reports/*.md
 test-project/
 .cache/
 .lighthouse-cache/
+
+# Team-only workspace (never commit, per project rules)
+team/
 
 # Docs cache
 docs/.vitepress/cache/
