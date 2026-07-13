@@ -71,7 +71,35 @@ temp/
 # OCR trained data
 eng.traineddata
 
-# Temporary test scripts (root level)
+# Local test projects (never commit, third-party fixtures only)
+local-test/
+
+# Legacy test scripts (use test/ directory for unit tests)
+tests/
+
+# One-off development scripts in scripts/ (CI and utility scripts are tracked)
+scripts/test-*.js
+scripts/debug*.js
+scripts/smoke-*.js
+scripts/extract*.js
+scripts/fix*.js
+scripts/full-test-*.js
+scripts/inject_*.js
+scripts/kill-*.js
+scripts/real-project-*.js
+scripts/remove_*.js
+scripts/restore_*.js
+scripts/serve-test*.js
+scripts/start-all*.js
+scripts/transform_*.js
+scripts/update_server_*.js
+scripts/validate-*.js
+scripts/verify-quick-*.js
+scripts/deep-verify*.js
+scripts/analyze_*.js
+scripts/archive/
+
+# Temporary root-level test scripts
 test-captcha-*.js
 test-captcha.js
 test-debug-page.js
@@ -84,11 +112,6 @@ test-node-out.txt
 test-real-project-report.json
 test-output.txt
 test-results/
-scripts/archive/
-scripts/test-captcha-*.js
-scripts/test-captcha.js
-scripts/test-debug-page.js
-scripts/test-direct-playwright.js
 
 # Temporary helper scripts
 commit-and-push.bat
