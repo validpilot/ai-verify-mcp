@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.8.3] - 2026-07-16
+
+### Removed
+
+- **死代码清理**：移除 `brain/error_aggregator.js` 中 `pageFunctionalStatus` 函数（约 97 行）。该函数仅定义未导出/未调用，长期占据 0% 覆盖率
+
+### Tests
+
+- **handlers/diagnose.js 单元测试**：新增 `test/handlers_diagnose.test.js`，23 个测试覆盖 error_fix_suggestion（16 种错误模式匹配 + maxSuggestions/errorSummary 对象/空字符串/排序）、error_summary_md（3 种 evidence 输入路径）、browser_errors_aggregate（3 种 evidence/includeCurrentPage 路径）、未知工具
+- **handlers/validation.js 单元测试**：新增 `test/handlers_validation.test.js`，48 个测试覆盖 validation_start、validation_decision、chain_list_templates（5）、chain_score_report（10 种分数/等级组合）、contract_baseline（10 种 action 含真实 fs 操作）、validation_report/export、validation_check deploy_verify、trace_correlation_check（10 种 traceId/backend 路径）、validation_compliance（4 种 strictMode/步骤组合）、未知工具
+- **handlers/browser.js 单元测试**：新增 `test/handlers_browser.test.js`，20 个测试覆盖 browser_assert（PARAM_MISSING + 4 种断言）、browser_click（参数缺失 + MULTIPLE_ELEMENTS + index 跳过）、5 个工具的参数验证、browser_open（2）、browser_events_clear/flow/instrument/events、未知工具
+- **orchestrator 单元测试**：新增 `test/dual_chain_orchestrator.test.js`，52 个测试覆盖构造函数、_summarizeChainResult（5）、_generateRecommendations（6）、_detectChainBreaks（10 种断裂/verdict 组合）、_parseResult（10 种输入格式）、_callToolSafe（4）、execute（8 种链路/fix 组合）、_runSynthesis（3）、_runAutoFix（3）
+
+### Coverage
+
+- 整体: 25.67% → **33.11%** (+7.44%)
+- error_aggregator.js: 62.97% → **100%**（+37%，死代码移除 + 测试覆盖）
+- dual_chain_orchestrator.js: 5.67% → **58.04%**（+52%，新增 52 个 orchestrator 测试）
+- diagnose.js: ~4% → **20.59%**（+16%，error_fix_suggestion 等纯逻辑测试）
+- validation.js: 9% → **23.45%**（+14%，chain_score_report/contract_baseline/trace_correlation）
+- browser.js: 6% → **12.8%**（+7%，browser_assert/click/参数验证）
+- 1180 个单元测试全部通过（新增 143 个），c8 阈值全部通过
+
 ## [1.8.2] - 2026-07-16
 
 ### Tests
