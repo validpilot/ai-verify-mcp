@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.8.1] - 2026-07-16
+
+### Changed
+
+- **browser_form_fill 增强**：支持数组/对象字段填充、preserveValue 模式、表单未找到时回退到 autoFillInputs、提交后状态检测（success/error/navigated/unknown）、Element UI/Ant Design 消息检测、多提交按钮选择器、getFormValues 集成
+- **空 catch 块清理**：清理 9 个 handler 文件中约 40 个空 catch 块，添加上下文注释
+
+### Removed
+
+- **仓库瘦身**：移除 local-test/（259 文件，第三方测试项目）、tests/（19 文件，旧测试脚本）、36 个一次性 scripts（保留 CI 和工具脚本）、team/audit/ 跟踪。npm pack 验证：227 文件，无测试脚本
+
+### Tests
+
+- **core 模块单元测试**：新增 101 个测试（logger 14、state 28、trace 35、report +10）
+- **覆盖率提升**：core/ 模块 logger 31.5%→97.26%、state 43.29%→100%、trace 58.57%→100%、report 68.35%→75.94%，整体 82.37% lines / 82.99% branches / 88.23% functions
+- **回归测试**：903 个单元测试全部通过
+- **MCP 调用测试**：6 大 handler 类别 10 个工具通过真实 MCP 调用测试（目标站点 baidu.com）
+- **c8 覆盖率工具**：新增 .c8rc.json（阈值 lines 70% / functions 70% / branches 60%）和 test:coverage 脚本
+
+### Docs
+
+- v1.8.0 完整测试报告（134 工具，22 类别）
+- docs/tools/overview.md 和 AGENTS.md 更新至 134 工具
+
 ## [1.8.0] - 2026-07-13
 
 ### Added
