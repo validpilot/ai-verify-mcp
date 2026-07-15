@@ -272,3 +272,133 @@ describe('aggregateErrors with pattern classification', () => {
     assert.equal(result.topErrors[0].affectedTarget, '跨域');
   });
 });
+
+// ============================================================
+// severityOf 间接测试（通过 aggregateErrors）
+// ============================================================
+
+describe('aggregateErrors — severityOf 覆盖路径', () => {
+  it('404 + .js URL 应为 severity 2（关键 JS 资源缺失）', () => {
+    const input = {
+      console: {
+        recent: [
+          { type: 'error', text: 'Failed to load resource', url: 'http://ex.com/app.js', status: 404 }
+        ]
+      }
+    };
+    const result = aggregateErrors(input);
+    assert.equal(result.topErrors.length, 1);
+    assert.equal(result.topErrors[0].severity, 2);
+  });
+
+  it('404 + .css URL 应为 severity 2（关键 CSS 资源缺失）', () => {
+    const input = {
+      console: {
+        recent: [
+          { type: 'error', text: 'Failed to load resource', url: 'http://ex.com/style.css', status: 404 }
+        ]
+      }
+    };
+    const result = aggregateErrors(input);
+    assert.equal(result.topErrors.length, 1);
+    assert.equal(result.topErrors[0].severity, 2);
+  });
+
+  it('404 + .png URL 应为 severity 1（非关键资源）', () => {
+    const input = {
+      console: {
+        recent: [
+          { type: 'error', text: 'Failed to load resource', url: 'http://ex.com/logo.png', status: 404 }
+        ]
+      }
+    };
+    const result = aggregateErrors(input);
+    assert.equal(result.topErrors.length, 1);
+    assert.equal(result.topErrors[0].severity, 1);
+  });
+
+  it('500 状态应为 severity 3（服务端错误）', () => {
+    const input = {
+      network: {
+        recent: [
+          { url: 'http://ex.com/api', status: 500, method: 'GET' }
+        ]
+      }
+    };
+    const result = aggregateErrors(input);
+    assert.equal(result.topErrors.length, 1);
+    assert.equal(result.topErrors[0].severity, 3);
+  });
+
+  it('silentFail 来源应为 severity 3', () => {
+    const input = {
+      silentFailErrors: [
+        { text: 'HTTP 200 but error in body', url: 'http://ex.com/api', status: 200 }
+      ]
+    };
+    const result = aggregateErrors(input);
+    assert.equal(result.topErrors.length, 1);
+    assert.equal(result.topErrors[0].severity, 3);
+  });
+
+  it('warning 类型应为 severity 1', () => {
+    const input = {
+      console: {
+        recent: [
+          { type: 'warning', text: 'Deprecated API usage', url: 'http://ex.com/app.js' }
+        ]
+      }
+    };
+    const result = aggregateErrors(input);
+    assert.equal(result.topErrors.length, 1);
+    assert.equal(result.topErrors[0].severity, 1);
+  });
+});
+
+// ============================================================
+// errorSummaryMd — 聚合输入路径
+// ============================================================
+
+describe('errorSummaryMd — 聚合输入路径', () => {
+  it('接受 errorAggregation 格式输入', () => {
+    const md = errorSummaryMd({
+      errorAggregation: {
+        totalErrors: 5,
+        topPatterns: [
+          { pattern: 'TypeError: x is null', count: 3 },
+          { pattern: '404 Not Found', count: 2 }
+        ]
+      }
+    });
+    assert.ok(md.includes('Status: fail'));
+    assert.ok(md.includes('total=5'));
+    assert.ok(md.includes('unique=2'));
+  });
+
+  it('接受 evidence.errorAggregation 格式输入', () => {
+    const md = errorSummaryMd({
+      evidence: {
+        errorAggregation: {
+          totalErrors: 3,
+          topPatterns: [
+            { pattern: 'CORS error', count: 3 }
+          ]
+        }
+      }
+    });
+    assert.ok(md.includes('Status: fail'));
+    assert.ok(md.includes('total=3'));
+  });
+
+  it('已有 topErrors 的输入直接使用', () => {
+    const md = errorSummaryMd({
+      topErrors: [
+        { signature: 'test error', count: 1, severity: 2, examples: [] }
+      ],
+      uniqueCount: 1,
+      totalCount: 1,
+      summary: '## Error Summary\n- Status: fail'
+    });
+    assert.ok(md.includes('Status: fail'));
+  });
+});
