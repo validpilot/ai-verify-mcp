@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.8.7] - 2026-07-17
+
+### Changed
+
+- **server.js 瘦身 Phase 2 — 提取智能页面发现模块**：覆盖 8 月计划 W2 任务"findElement()/findPage() 提取独立模块"。新增 [hands/locator_helpers.js](file:///e:/daima/validpilot/ai-verify-mcp/hands/locator_helpers.js)（630 行），将以下内容从 server.js 迁移：
+  - `PAGE_PATTERNS` 常量（12 种页面类型的 URL/选择器/文本/标题匹配模式：login/signup/home/dashboard/admin/settings/profile/search/cart/checkout/forgot-password/logout）
+  - `findPage()` 函数（274 行）：智能页面发现，支持 URL/Hash/DOM 三层匹配 + SPA 按钮导航
+  - `findElement()` 函数（241 行）：智能元素查找，7 种匹配策略（精确/包含/placeholder/aria-label/title-alt/role-fuzzy）
+- **工厂注入模式**：`findPage` 依赖 `ensurePage`，通过 `createLocatorHelpers({ ensurePage })` 工厂函数注入，避免循环依赖。`findElement` 为纯函数无外部依赖，直接导出
+
+### Stats
+
+- server.js: 7141 → 6553 行（**-588 行**），310KB → 286KB（**-24KB**）
+- 新增模块：hands/locator_helpers.js（630 行）
+- 无功能变更，无 API 变更，仅文件位置重组
+
+### Coverage
+
+- 1180 个单元测试全部通过（0 失败）
+- c8 阈值全部通过，覆盖率小幅提升：Lines 33.11% → **33.25%**、Branches 78.59% → **79.00%**、Functions 52.68% → **54.60%**
+- 新模块被 handlers/locator.js 测试间接覆盖
+
 ## [1.8.6] - 2026-07-17
 
 ### Fixed
