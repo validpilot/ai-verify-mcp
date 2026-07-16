@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿try { require('dotenv').config({ quiet: true }); } catch(e) { console.warn('[ValidPilot] dotenv not loaded:', e.message); }
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿try { require('dotenv').config({ quiet: true }); } catch(e) { console.warn('[ValidPilot] dotenv not loaded:', e.message); }
 // 修复 Windows 终端中文编码
 require('./core/win-encoding');
 const fs = require('fs');
@@ -7094,56 +7094,6 @@ async function startHttpMode() {
   };
   process.on('SIGINT', shutdown);
   process.on('SIGTERM', shutdown);
-}
-
-// Pattern store - accumulated fix knowledge
-if (!global.__patternStore) {
-  global.__patternStore = [];
-}
-// Record HuoKe HIS gateway fix (round 1)
-const huokeFix = {
-  id: 'huoke-his-gateway-schema-fix',
-  score: 2.0,
-  title: 'HuoKe HIS gateway 4x P0 API fix',
-  symptom: '4 个 API 端点返回 404/500 (identity/me, tenants, reports/overview, reports/channel-roi)',
-  rootCause: 'schema.sql 中 DEFAULT community 缺少引号（应为 DEFAULT \'community\'），导致整个数据库 schema 迁移失败，核心表（leads/orders/settlements）未创建',
-  fix: 'sed -i "s/DEFAULT community/DEFAULT \'community\'/g" /app/infra/postgres/schema.sql + 删除 _migrations 表后重新执行 apply_schema()',
-  verifyAction: 'curl 验证 6 个端点全部返回 HTTP 200',
-  tags: ['python', 'postgres', 'schema', 'flask', 'fastapi', 'huoke'],
-  createdAt: new Date().toISOString()
-};
-// Add if not duplicate
-const exists = global.__patternStore.some(p => p.id === huokeFix.id);
-if (!exists) {
-  global.__patternStore.push(huokeFix);
-}
-// Record comprehensive DB schema fix (round 2)
-const huokeFix2 = {
-  id: 'huoke-his-comprehensive-db-fix',
-  score: 2.0,
-  title: 'HuoKe HIS comprehensive DB schema repair (4 missing columns/1 missing table/2 migrations)',
-  symptom: 'orders → 500 (UndefinedColumn: status), settlements → 500 (UndefinedColumn: payout_status), ' +
-    'settlement-accounts → 500 (UndefinedTable: settlement_accounts), settlements → 500 (payout_requested_at missing), ' +
-    'migrations 009-010 not applied, callback-douyin → 500 (leads table), migration_roles.sql not executed',
-  rootCause: [
-    'orders 表 status 列: 代码 SELECT id, status, ... 但 schema.sql 未定义 status',
-    'settlements 表 payout_status 列: 代码 SELECT ... payout_status 但 schema.sql 未定义',
-    'settlements 表 payout_requested_at 列: 同样缺失',
-    'settlement_accounts 表: 代码 INSERT INTO settlement_accounts 但无 CREATE TABLE',
-    'migrations 009-010: apply_migrations() 执行失败跳过',
-    'migration_roles.sql: 文件在 infra/ 目录但不在 migrations/ 中，从未自动执行',
-    'callback-douyin: 容器启动顺序导致 leads 表尚不存在时已开始查询'
-  ].join('; '),
-  fix: 'ALTER TABLE ADD COLUMN IF NOT EXISTS (3次) + CREATE TABLE settlement_accounts (16列+2索引) + ' +
-    'docker exec psql -f migration_roles.sql + docker exec psql -f 009.sql + docker exec psql -f 010.sql',
-  verifyAction: '14 个核心 API 端点全部 200, 前端页面无报错, 40 张表, 68 个外键, 16 个性能索引',
-  tags: ['python', 'postgres', 'schema', 'flask', 'fastapi', 'huoke', 'missing-column', 'missing-table', 'migration'],
-  createdAt: new Date().toISOString()
-};
-// Add if not duplicate
-const exists2 = global.__patternStore.some(p => p.id === huokeFix2.id);
-if (!exists2) {
-  global.__patternStore.push(huokeFix2);
 }
 
 const MODE = process.env.MCP_MODE || 'stdio';

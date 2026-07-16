@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.8.4] - 2026-07-16
+
+### Removed
+
+- **死代码清理**：移除 `server.js` 中 `global.__patternStore` 旧初始化逻辑（约 49 行，原 L7099-L7147）。该块在模块加载时向 `global.__patternStore` 推入 2 个 HuoKe 修复模式，但 `global.__patternStore` 从未被任何模块读取（grep 验证仅 server.js 自身写入）。相同模式数据早已迁移至 `brain/pattern_store.js`，由 `brain/atl_learner.js` 通过 `require('./pattern_store')` 正常消费
+
+### Docs
+
+- **`.env.example` 补全**：从 3 项（AI_PROVIDER/AI_API_KEY/AI_MODEL 可选）扩展到 12 项，新增 9 个实际使用的环境变量文档：
+  - MCP 服务：`MCP_MODE`（stdio/http）、`MCP_HTTP_PORT`（默认 3456）、`MCP_API_KEY`（HTTP 模式认证，含安全警告）
+  - 浏览器与安全：`VALIDPILOT_HEADLESS`、`VALIDPILOT_REDACTION`（含风险说明）、`VALIDPILOT_ARTIFACT_DIR`、`VALIDPILOT_ALLOWLIST`（SSRF 防护）、`VALIDPILOT_BLOCKED_HOSTS`（优先级说明）
+  - 后端日志：`BACKEND_LOG_PATH`（evidence_pack 工具采集）
+- **npm 发布包含 `.env.example`**：将 `.env.example` 加入 `package.json` 的 `files` 数组，用户安装后可直接查阅完整环境变量文档
+
+### Coverage
+
+- 1180 个单元测试全部通过，c8 阈值全部通过（Lines 33.11%、Functions 52.68%、Branches 78.59%）
+- 覆盖率与 v1.8.3 一致（移除的死代码位于模块加载层，不影响函数级覆盖率统计）
+
 ## [1.8.3] - 2026-07-16
 
 ### Removed
