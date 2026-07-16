@@ -113,7 +113,7 @@ npm uninstall -g @validpilot/ai-verify-mcp
 # {"ok":false,"error":"Playwright browser is not available"}
 ```
 
-**用?*：CI 流水线前置检查、Docker 容器健康检查?
+**用途**：部署前后验证、Docker 容器健康检查
 
 ---
 
@@ -884,7 +884,7 @@ cd your-project
 npm install --save-dev @validpilot/ai-verify-mcp
 ```
 
-Suitable for use in project CI pipelines, or add scripts to `package.json`:
+Suitable for use in pre/post-deployment verification, or add scripts to `package.json`:
 
 ```json
 {
@@ -929,7 +929,7 @@ Check if the Playwright browser is available.
 # {"ok":false,"error":"Playwright browser is not available"}
 ```
 
-**Use cases**: CI pipeline pre-checks, Docker container health checks.
+**Use cases**: pre/post-deployment verification, Docker container health checks.
 
 ---
 

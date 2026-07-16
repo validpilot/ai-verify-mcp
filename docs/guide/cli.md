@@ -17,7 +17,7 @@
 @validpilot/ai-verify-mcp health
 ```
 
-**用?*：CI 流水线前置检查、Docker 容器健康检查?
+**用途**：部署前后验证、Docker 容器健康检查
 ## validate ?快速验?
 一键验证一?URL ?7 项核心检查?
 ```bash

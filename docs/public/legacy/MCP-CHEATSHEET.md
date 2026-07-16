@@ -105,7 +105,7 @@ npx -y @validpilot/ai-verify-mcp health
 npx -y @validpilot/ai-verify-mcp validate --url http://localhost:5173
 ```
 
-> `health` ?`validate` 无需启动 MCP Server，独立运行，适合 CI/CD 流水线?
+> `health` ?`validate` 无需启动 MCP Server，独立运行，适合在 CI/CD 流水线中使用
 
 ### 启动 MCP Server（供 AI 客户端连接）
 
@@ -296,7 +296,7 @@ npx -y @validpilot/ai-verify-mcp health
 npx -y @validpilot/ai-verify-mcp validate --url http://localhost:5173
 ```
 
-> `health` and `validate` run independently without starting an MCP Server, suitable for CI/CD pipelines.
+> `health` and `validate` run independently without starting an MCP Server, suitable for use in CI/CD pipelines.
 
 ### Starting MCP Server (for AI Client Connection)
 
