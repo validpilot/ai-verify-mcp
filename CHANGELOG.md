@@ -2,6 +2,51 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.9.0] - 2026-07-17
+
+### Changed
+
+- **server.js 瘦身 Phase 3 — 提取部署验证 + 修复 logger.warn bug**：新增 [hands/deploy_verifier.js](file:///e:/daima/validpilot/ai-verify-mcp/hands/deploy_verifier.js)（521 行），将 `runDeployVerify()` 函数从 server.js 迁移（原 493 行）。
+  - 函数实现部署后端到端验证，包含 6 项检查：
+    - HTML 可达性检查
+    - 静态资源完整性检查（CSS/JS/图片/字体）
+    - API 端点可用性检查（含降级硬编码列表）
+    - 控制台错误监控
+    - CSS 变量定义完整性检查
+    - 浏览器全量回归测试（调用 `runBrowserFullRegression`）
+  - 内部 require 路径调整：`./scripts/css-var-analyzer` → `../scripts/css-var-analyzer`（适应 hands/ 子目录）
+- **函数签名变更**：`runDeployVerify(args)` → `runDeployVerify(args, ensurePage, logger, runBrowserFullRegression)`，依赖通过参数注入
+- **工厂注入模式**：`createDeployVerifier({ ensurePage, logger, runBrowserFullRegression })`，与 v1.8.7/v1.8.8/v1.8.9 一致
+- **依赖顺序**：`runDeployVerify` 定义必须放在 `runBrowserFullRegression` 之后（TDZ 要求）
+
+### Fixed
+
+- **修复 logger.warn() latent bug**：`runDeployVerify` 内 L3260 调用 `logger.warn('pwPage.close 失败', _.message)`，但 `Logger` 类（[core/logger.js](file:///e:/daima/validpilot/ai-verify-mcp/core/logger.js)）只有 `log(level, message, data)` 方法，没有 `warn()`。修复为 `logger.log('WARN', 'pwPage.close 失败', _.message)`
+
+### Stats
+
+- server.js: 4879 → 4384 行（**-495 行**），218KB → **194KB**（**-24KB**）
+- 新增模块：hands/deploy_verifier.js（521 行）
+- **🎉 server.js ≤200KB 目标达成**（August Plan W2 目标）
+- 累计四步瘦身（v1.8.7 + v1.8.8 + v1.8.9 + v1.9.0）：server.js 7141 → 4384 行（**-2757 行**），310KB → 194KB（**-116KB**）
+
+### Coverage
+
+- 1180 个单元测试全部通过（0 失败）
+- c8 阈值全部通过（Lines 33.09%、Branches 78.59%、Functions 52.68%）
+- 覆盖率与 v1.8.9 一致（Lines 0%、Branches +0.05%、Functions 0%），纯文件位置重组 + 1 处 bug 修复
+
+### Milestone
+
+**🎉 August Plan W2 目标全部达成**：
+- ✅ `runBrowserFullRegression()` 函数拆分（v1.8.9）
+- ✅ `findElement()`/`findPage()` 提取独立模块（v1.8.7）
+- ✅ `traverseMenu()` 提取独立模块（v1.8.8）
+- ✅ `runDeployVerify()` 提取独立模块（v1.9.0，额外完成）
+- ✅ **server.js ≤200KB 目标达成**（194KB）
+
+版本号升至 1.9.0 标志 August Plan W2 里程碑完成。
+
 ## [1.8.9] - 2026-07-17
 
 ### Changed
