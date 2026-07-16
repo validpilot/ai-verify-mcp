@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.8.5] - 2026-07-17
+
+### Fixed
+
+- **`server.js` 全局严格模式**：在文件顶部添加 `'use strict';`，对齐项目代码风格规范（`core/trace.js` 等模块已遵循）。同时清除文件开头的 33 个冗余 UTF-8 BOM 字符（`EF BB BF` 重复 33 次，共 99 字节），这些 BOM 为历史编辑器误插入，虽不影响运行但属冗余字节
+- **工具数文档一致性**：`standalone-start.js` 启动提示从 `128` 更正为 `134`（与实际 `tools/` 目录下的 134 个 JSON schema 文件及 README/AGENTS 文档对齐）
+
+### Coverage
+
+- 1180 个单元测试全部通过，c8 阈值全部通过（Lines 33.11%、Functions 52.68%、Branches 78.59%）
+- `'use strict'` 未引入任何严格模式违规（全量测试 0 失败）
+
 ## [1.8.4] - 2026-07-16
 
 ### Removed

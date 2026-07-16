@@ -1,4 +1,6 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿try { require('dotenv').config({ quiet: true }); } catch(e) { console.warn('[ValidPilot] dotenv not loaded:', e.message); }
+'use strict';
+
+try { require('dotenv').config({ quiet: true }); } catch(e) { console.warn('[ValidPilot] dotenv not loaded:', e.message); }
 // 修复 Windows 终端中文编码
 require('./core/win-encoding');
 const fs = require('fs');
