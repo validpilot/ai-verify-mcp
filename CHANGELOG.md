@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.8.8] - 2026-07-17
+
+### Changed
+
+- **server.js 瘦身 Phase 2 — 提取菜单遍历器**：新增 [hands/menu_traverser.js](file:///e:/daima/validpilot/ai-verify-mcp/hands/menu_traverser.js)（352 行），将 `traverseMenu()` 函数从 server.js 迁移。该函数实现菜单遍历（最多 3 层深度、支持子菜单展开、SPA 按钮导航），包含 4 个内部辅助函数：
+  - `smartClick(text, href)`：evaluate 内联点击 + selector 回退
+  - `discoverNavItems()`：发现导航项（30+ 选择器，含 antd/element-ui/iview 等）
+  - `clickAndCheck(text, href, level)`：点击 + 错误检查 + URL 变化检测
+  - `discoverChildren(parentText)`：发现子菜单项
+- **工厂注入模式**：`traverseMenu` 依赖 `ensurePage` 和 `postActionErrorCheck`，通过 `createMenuTraverser({ ensurePage, postActionErrorCheck })` 注入
+
+### Stats
+
+- server.js: 6553 → 6235 行（**-318 行**），286KB → 282KB（**-13KB**）
+- 新增模块：hands/menu_traverser.js（352 行）
+- 累计两步瘦身（v1.8.7 + v1.8.8）：server.js 7141 → 6235 行（**-906 行**），310KB → 282KB（**-44KB**）
+
+### Coverage
+
+- 1180 个单元测试全部通过（0 失败）
+- c8 阈值全部通过（Lines 33.25%、Branches 79.00%、Functions 54.60%）
+- 覆盖率与 v1.8.7 一致（纯文件位置重组，无逻辑变更）
+
 ## [1.8.7] - 2026-07-17
 
 ### Changed
