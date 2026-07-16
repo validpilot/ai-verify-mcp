@@ -299,7 +299,9 @@ class DualChainOrchestrator {
             description: '快速连续点击导致重复提交或错误'
           });
         }
-      } catch (e) { }
+      } catch (e) {
+        // 双击探测为辅助检测项，单点失败不应阻断整体功能链路扫描
+      }
     }
 
     if (isHacker) {
@@ -323,7 +325,9 @@ class DualChainOrchestrator {
                 url: fullUrl
               });
             }
-          } catch (_) { }
+          } catch (_) {
+            // 单条敏感路径探测失败（404/超时/连接拒绝）属预期，需继续扫描剩余路径
+          }
         }
       } catch (e) {
         this.log('WARN', `[DualChain:Functional] 黑客路径探测失败`, { error: e.message });
@@ -474,12 +478,16 @@ class DualChainOrchestrator {
             });
             if (status >= 400) hasErrors = true;
           }
-        } catch (_) { }
+        } catch (_) {
+          // 单条 API 详情解析失败（响应格式异常/超时）不影响其他响应的聚合统计
+        }
       }
 
       try {
         await this._callToolSafe('browser_har_export', { sessionId });
-      } catch (_) { }
+      } catch (_) {
+        // HAR 导出失败（无 trace 或权限不足）非关键，已采集的 responses 仍可使用
+      }
     } catch (e) {
       this.log('WARN', `[DualChain:Technical] API追踪失败`, { error: e.message });
     }
@@ -518,7 +526,9 @@ class DualChainOrchestrator {
         if (errorSummary) {
           hasErrors = true;
         }
-      } catch (_) { }
+      } catch (_) {
+        // error_summary_md 调用失败不影响主路径采集的日志条目
+      }
     } catch (e) {
       this.log('WARN', `[DualChain:Technical] 后端追踪失败`, { error: e.message });
     }

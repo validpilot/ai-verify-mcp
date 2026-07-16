@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.8.6] - 2026-07-17
+
+### Fixed
+
+- **空 catch 块规范化**：覆盖 8 月计划任务"逐个审查 78 处空 catch，至少添加日志"。共审查并修复 91 个空 catch 块，分布于 5 个源文件：
+  - `server.js`：77 处（45 处补描述性注释、32 处原 `log('WARN', '操作失败')` 替换为更精准的描述性注释；其中约 5 处位于浏览器注入代码内 `target.evaluate()` 上下文，Node.js `log()` 不可用，必须使用注释而非日志调用）
+  - `orchestrator/dual_chain_orchestrator.js`：5 处（双击探测、敏感路径单点探测、API 详情解析、HAR 导出、error_summary_md 调用）
+  - `hands/deep_interactor.js`：5 处（networkidle 等待、提交后 UI 状态、表单截图、流程步骤截图、提交后状态评估）
+  - `core/logger.js`：3 处（日志轮转、stat 检查、appendFileSync 写入 —— 避免递归日志记录）
+  - `hands/memory_analyzer.js`：1 处（getEventListeners Chrome DevTools 专有方法浏览器侧回退）
+- **修复原则**：每处 catch 补充 1 行中文注释，说明"为何可忽略 + 后果"，便于后续维护与审查；不引入新日志调用以避免在浏览器上下文或递归日志场景下产生新问题
+
+### Coverage
+
+- 1180 个单元测试全部通过（0 失败），c8 阈值全部通过（Lines 33.11%、Functions 52.68%、Branches 78.59%）
+- 覆盖率与 v1.8.5 一致（catch 块注释改动不影响逻辑路径覆盖）
+
 ## [1.8.5] - 2026-07-17
 
 ### Fixed

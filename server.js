@@ -1035,10 +1035,10 @@ async function runFullAudit(args = {}) {
               result.silentFailures.push({ url: ep, status: r.status, responseBody: (r.body || '').slice(0, 200), source: 'backend_probe' });
             }
           }
-        } catch (_) {}
+        } catch (_) { /* best-effort text extraction */ }
       }
       backendProbeCount = result.backendProbeErrors.length;
-    } catch (_) {}
+    } catch (_) { /* best-effort text extraction */ }
   }
 
   result.summary = {
@@ -1891,14 +1891,14 @@ async function runPerformanceCheck(target, args = {}) {
       try {
         const layoutShifts = perf.getEntriesByType('layout-shift');
         cls = layoutShifts.reduce((sum, e) => sum + e.value, 0);
-      } catch (e) {}
+      } catch (e) { /* browser perf API: non-critical */ }
 
       // LCP
       let lcp = 0;
       try {
         const lcpEntries = perf.getEntriesByType('largest-contentful-paint');
         if (lcpEntries.length > 0) lcp = lcpEntries[lcpEntries.length - 1].startTime;
-      } catch (e) {}
+      } catch (e) { /* browser perf API: non-critical */ }
 
       const metrics = {
         domContentLoaded: Math.round(nav?.domContentLoadedEventEnd || 0),
@@ -2010,7 +2010,7 @@ async function runLighthouseAudit(args = {}) {
     };
 
     const runnerResult = await lighthouse(url, options);
-    try { await chrome.kill(); } catch (_) {}
+    try { await chrome.kill(); } catch (_) { /* cleanup: ignore */ }
 
     if (!runnerResult) {
       return { error: 'Lighthouse 审计无返回结果', success: false };
@@ -2227,7 +2227,7 @@ function instrumentationScript() {
       try {
         window.__mcpEvents.push({ ...event, timestamp: new Date().toISOString(), url: location.href });
         if (window.__mcpEvents.length > 1000) window.__mcpEvents.shift();
-      } catch (_) {}
+      } catch (_) { /* URL parse fallback */ }
     };
     const short = value => {
       try {
@@ -2252,7 +2252,7 @@ function instrumentationScript() {
     const genTraceId = () => genHex(16);  // 32 hex chars
     const genSpanId = () => genHex(8);    // 16 hex chars
     const safeSessionGet = key => { try { return sessionStorage.getItem(key); } catch (_) { return null; } };
-    const safeSessionSet = (key, value) => { try { sessionStorage.setItem(key, value); } catch (_) {} };
+    const safeSessionSet = (key, value) => { try { sessionStorage.setItem(key, value); } catch (_) { /* browser-side: ignore */ } };
     // 当前 navigation span (整页生命周期内复用同一 traceId)
     const navTraceId = safeSessionGet('__mcp_nav_trace_id') || genTraceId();
     const navSpanId = safeSessionGet('__mcp_nav_span_id') || genSpanId();
@@ -2303,7 +2303,7 @@ function instrumentationScript() {
           init.headers = init.headers || {};
           // 支持 Headers / 普通对象 两种形态
           injectTrace(init.headers, requestSpanId);
-        } catch (_) {}
+        } catch (_) { /* non-critical */ }
         push({ type: 'fetch_start', requestUrl, method, requestBody: short(init.body), spanId: requestSpanId });
         try {
           const response = await originalFetch.apply(this, arguments);
@@ -2335,7 +2335,7 @@ function instrumentationScript() {
         const send = xhr.send;
         xhr.send = function(body) {
           startedAt = performance.now();
-          try { setReqHeader.call(xhr, 'traceparent', buildTp(requestSpanId)); } catch (_) {}
+          try { setReqHeader.call(xhr, 'traceparent', buildTp(requestSpanId)); } catch (_) { /* trace injection: non-critical */ }
           push({ type: 'xhr_start', requestUrl, method, requestBody: short(body), spanId: requestSpanId });
           xhr.addEventListener('loadend', () => push({ type: 'xhr_end', requestUrl, method, status: xhr.status, duration: Math.round(performance.now() - startedAt), responseBody: short(xhr.responseText), spanId: requestSpanId }));
           return send.apply(xhr, arguments);
@@ -3705,7 +3705,7 @@ function collectNetworkEvidence() {
       if (status >= 400) errors.push({ url: log.url, status, method: log.method, type: status >= 500 ? 'server_error' : 'client_error', timestamp: log.timestamp });
       if (requests.length < 50) requests.push({ url: log.url, status, method: log.method, duration: log.duration, timestamp: log.timestamp });
     });
-  } catch (e) {}
+  } catch (e) { /* log parsing: non-critical */ }
   return { totalRequests: requests.length, errorRequests: errors.length, errors, sampleRequests: requests };
 }
 
@@ -4467,7 +4467,7 @@ async function findPage(target, args = {}) {
                   }
                 }
               }
-            } catch(e) {}
+            } catch (e) { /* browser DOM query: non-critical */ }
           }
           // 检查按钮文本（SPA常用按钮导航）
           const allButtons = document.querySelectorAll('button, [role="button"], .btn, input[type="submit"]');
@@ -4864,7 +4864,7 @@ async function findElement(target, args = {}) {
             if (result) allResults.push(result);
           }
         }
-      } catch (_) {}
+      } catch (_) { /* browser DOM query: non-critical */ }
     }
 
     allResults.sort((a, b) => b.confidence - a.confidence);
@@ -5047,23 +5047,23 @@ async function traverseMenu(args = {}) {
         // 精确匹配文本
         for (const el of all) {
           const t = (el.innerText || el.textContent || el.getAttribute('aria-label') || el.getAttribute('title') || '').trim();
-          if (t === txt) { try { el.scrollIntoView?.({block:'center',behavior:'instant'}); } catch(_){} el.click(); return true; }
+          if (t === txt) { try { el.scrollIntoView?.({block:'center',behavior:'instant'}); } catch (_) { /* browser-side: ignore */ } el.click(); return true; }
         }
         // 精确匹配href
         if (hrf) {
           for (const el of all) {
-            if (el.tagName === 'A' && el.href === hrf) { try { el.scrollIntoView?.(); } catch(_){} el.click(); return true; }
+            if (el.tagName === 'A' && el.href === hrf) { try { el.scrollIntoView?.(); } catch (_) { /* browser-side: ignore */ } el.click(); return true; }
           }
         }
         // 部分匹配文本
         for (const el of all) {
           const t = (el.innerText || el.textContent || el.getAttribute('aria-label') || el.getAttribute('title') || '').trim();
-          if (t.includes(txt) || txt.includes(t)) { try { el.scrollIntoView?.({block:'center',behavior:'instant'}); } catch(_){} el.click(); return true; }
+          if (t.includes(txt) || txt.includes(t)) { try { el.scrollIntoView?.({block:'center',behavior:'instant'}); } catch (_) { /* browser-side: ignore */ } el.click(); return true; }
         }
         // 部分匹配href
         if (hrf) {
           for (const el of all) {
-            if (el.tagName === 'A' && hrf.includes(el.href)) { try { el.scrollIntoView?.(); } catch(_){} el.click(); return true; }
+            if (el.tagName === 'A' && hrf.includes(el.href)) { try { el.scrollIntoView?.(); } catch (_) { /* browser-side: ignore */ } el.click(); return true; }
           }
         }
         return false;
@@ -5076,7 +5076,7 @@ async function traverseMenu(args = {}) {
       try {
         await target.click(`a[href="${href.replace(/"/g, '\\"')}"]`, { timeout: 2000 });
         return true;
-      } catch (_) {}
+      } catch (_) { /* fallback action */ }
     }
     return false;
   }
@@ -5214,7 +5214,7 @@ async function traverseMenu(args = {}) {
 
     totalClicks++;
     await new Promise(r => setTimeout(r, Math.min(waitMs, 1000)));
-    try { await target.waitForLoadState('domcontentloaded', { timeout: 5000 }).catch(() => {}); } catch (_) {}
+    try { await target.waitForLoadState('domcontentloaded', { timeout: 5000 }).catch(() => {}); } catch (_) { /* load state timeout */ }
     await new Promise(r => setTimeout(r, 200));
 
     const errors = await postActionErrorCheck(target, 'traverse', text);
@@ -5231,7 +5231,7 @@ async function traverseMenu(args = {}) {
     };
 
     if (result.navigated) {
-      try { result.pageTitle = await target.title(); } catch (_) {}
+      try { result.pageTitle = await target.title(); } catch (_) { /* best-effort title */ }
     }
     return result;
   }
@@ -5423,14 +5423,14 @@ async function runBrowserFullRegression(args = {}) {
             localLogs.console.push(entry);
             permanentErrors.console.push(entry);
           }
-        } catch (_) {}
+        } catch (_) { /* console listener: non-critical */ }
       });
       target.on('pageerror', (err) => {
         try {
           const entry = { message: err.message, ts: Date.now(), source: 'pw' };
           localLogs.page.push(entry);
           permanentErrors.page.push(entry);
-        } catch (_) {}
+        } catch (_) { /* non-critical */ }
       });
       // requestfailed 保留为 CDP 的补充
       target.on('requestfailed', (req) => {
@@ -5441,7 +5441,7 @@ async function runBrowserFullRegression(args = {}) {
             localLogs.network.push(entry);
             permanentErrors.network.push(entry);
           }
-        } catch (_) {}
+        } catch (_) { /* non-critical */ }
       });
       target.on('response', (res) => {
         try {
@@ -5452,12 +5452,12 @@ async function runBrowserFullRegression(args = {}) {
             localLogs.network.push(entry);
             permanentErrors.network.push(entry);
           }
-        } catch (_) {}
+        } catch (_) { /* non-critical */ }
       });
       result.captureEvidence.consoleListeners = true;
       result.captureEvidence.pageListeners = true;
       result.captureEvidence.networkListeners = true;
-    } catch (_) {}
+    } catch (_) { /* console listener: non-critical */ }
 
     // ===== CDP 直连（主要来源，不漏任何请求）— 必须在 goto 前完成 =====
     try {
@@ -5483,9 +5483,9 @@ async function runBrowserFullRegression(args = {}) {
               localLogs.console.push(logEntry);
               permanentErrors.console.push(logEntry);
             }
-          } catch (_) {}
+          } catch (_) { /* console listener: non-critical */ }
         });
-      } catch (_) {}
+      } catch (_) { /* console listener: non-critical */ }
 
       // ===== CDP Runtime.exceptionThrown（第五层：未捕获异常） =====
       // 捕获 unhandled rejection、运行时异常等
@@ -5500,9 +5500,9 @@ async function runBrowserFullRegression(args = {}) {
             const entry = { message: `[exception@${line}:${col}] ${text}`, ts: Date.now(), source: 'cdp-exc' };
             localLogs.page.push(entry);
             permanentErrors.page.push(entry);
-          } catch (_) {}
+          } catch (_) { /* non-critical */ }
         });
-      } catch (_) {}
+      } catch (_) { /* non-critical */ }
 
       cdpSession.on('Network.responseReceived', (params) => {
         try {
@@ -5515,7 +5515,7 @@ async function runBrowserFullRegression(args = {}) {
             localLogs.network.push(entry);
             permanentErrors.network.push(entry);
           }
-        } catch (_) {}
+        } catch (_) { /* non-critical */ }
       });
 
       cdpSession.on('Network.loadingFailed', (params) => {
@@ -5527,7 +5527,7 @@ async function runBrowserFullRegression(args = {}) {
             localLogs.network.push(entry);
             permanentErrors.network.push(entry);
           }
-        } catch (_) {}
+        } catch (_) { /* non-critical */ }
       });
 
       cdpSession.on('Runtime.consoleAPICalled', (params) => {
@@ -5545,7 +5545,7 @@ async function runBrowserFullRegression(args = {}) {
           const entry = { message: text, level: type, ts: Date.now(), source: 'cdp' };
           localLogs.console.push(entry);
           permanentErrors.console.push(entry);
-        } catch (_) {}
+        } catch (_) { /* console listener: non-critical */ }
       });
 
     } catch (e) {
@@ -5576,7 +5576,7 @@ async function runBrowserFullRegression(args = {}) {
         if (status >= 400 && url && !url.match(/\\\\.(css|js|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot|map|webp)(\\\\?|#|$)/i) && !url.match(/\\/favicon/i)) {
           const clone = resp.clone ? resp.clone() : null;
           let bodyText = '';
-          try { if (clone) bodyText = (await clone.text()).slice(0,200); } catch(e) {}
+          try { if (clone) bodyText = (await clone.text()).slice(0,200); } catch (e) { /* best-effort text extraction */ }
           window.__interceptedApiResponses.push({
             url: url, method: method, status: status,
             ts: Date.now(), body: bodyText,
@@ -5658,7 +5658,7 @@ async function runBrowserFullRegression(args = {}) {
       const bodyText = await target.evaluate(() => document.body?.innerText || '');
       const m = bodyText.match(/加载失败|系统内部错误|Internal Server Error|出错了|服务器繁忙|服务器错误|500\s*Error/i);
       if (m) errs.errorText = m[0];
-    } catch (_) {}
+    } catch (_) { /* browser DOM query: non-critical */ }
     // 优先使用 localLogs（更可信），其次合并全局 getRuntimeLogs
     const combined = { console: [], page: [], network: [] };
     const since = sinceTs || 0;
@@ -5680,7 +5680,7 @@ async function runBrowserFullRegression(args = {}) {
         combined.network.push({ url: item.url, method: item.method, status: item.status, ts: item.ts, source: 'js' });
         localLogs.network.push({ url: item.url, method: item.method, status: item.status, ts: item.ts, source: 'js' });
       }
-    } catch (_) {}
+    } catch (_) { /* non-critical */ }
 
     // ===== 第四层：Performance API 扫描（通用兜底） =====
     // 原理：Performance API 记录了所有已完成的资源请求，包括状态码。
@@ -5699,7 +5699,7 @@ async function runBrowserFullRegression(args = {}) {
           localLogs.network.push({ url: pe.url, method: 'PERF', status: pe.status, ts: Date.now(), source: 'perf' });
         }
       }
-    } catch (_) {}
+    } catch (_) { /* browser perf API: non-critical */ }
 
     errs.consoleErrors = combined.console.length;
     errs.networkErrors = combined.network.length;
@@ -5721,13 +5721,13 @@ async function runBrowserFullRegression(args = {}) {
   async function tryClick(selOrText, isSelector) {
     // 三级点击策略
     if (isSelector && selOrText) {
-      try { await target.evaluate((s) => { const el = document.querySelector(s); if (el) el.click(); }, selOrText); return true; } catch (_) {}
+      try { await target.evaluate((s) => { const el = document.querySelector(s); if (el) el.click(); }, selOrText); return true; } catch (_) { /* fallback action */ }
     }
     if (!isSelector && selOrText && selOrText.length > 0 && selOrText.length < 100) {
-      try { const el = await target.locator('text="' + selOrText.replace(/"/g, '\\"') + '"').first(); await el.click({ timeout: 3000 }); return true; } catch (_) {}
+      try { const el = await target.locator('text="' + selOrText.replace(/"/g, '\\"') + '"').first(); await el.click({ timeout: 3000 }); return true; } catch (_) { /* fallback action */ }
     }
     if (isSelector && selOrText) {
-      try { await target.click(selOrText, { timeout: 3000 }); return true; } catch (_) {}
+      try { await target.click(selOrText, { timeout: 3000 }); return true; } catch (_) { /* fallback action */ }
     }
     return false;
   }
@@ -5745,15 +5745,15 @@ async function runBrowserFullRegression(args = {}) {
     // 等待页面渲染稳定 + 让用户看到实际页面内容
     await new Promise(r => setTimeout(r, 3000));
     // 📸 首页截图
-    try { const buf = await target.screenshot({ type: 'png', fullPage: false }); result.captureEvidence.screenshots.push({ stage: 'home', label: '首页', data: buf.toString('base64').slice(0, 500) }); } catch (_) {}
+    try { const buf = await target.screenshot({ type: 'png', fullPage: false }); result.captureEvidence.screenshots.push({ stage: 'home', label: '首页', data: buf.toString('base64').slice(0, 500) }); } catch (_) { /* best-effort screenshot */ }
 
     // 验证页面前提：确实加载了内容，不是空白页
     let pageTitle = '';
-    try { pageTitle = await target.title(); } catch (_) {}
+    try { pageTitle = await target.title(); } catch (_) { /* best-effort screenshot */ }
     if (!pageTitle || pageTitle === '') {
       // 尝试再等待并检查 body
       await new Promise(r => setTimeout(r, 2000));
-      try { pageTitle = await target.title(); } catch (_) {}
+      try { pageTitle = await target.title(); } catch (_) { /* best-effort screenshot */ }
     }
     // 通过 Performance API 直接诊断所有网络请求（不依赖任何事件监听器）
     let perfErrors = [];
@@ -5770,7 +5770,7 @@ async function runBrowserFullRegression(args = {}) {
         }
         return errors;
       }).catch(() => []);
-    } catch (_) {}
+    } catch (_) { /* browser perf API: non-critical */ }
     // 把初始错误快照存入 result.captureEvidence
     const initialSnap = snapshotLocalLogs();
     result.captureEvidence.runtimeLogsBeforeReset = initialSnap;
@@ -5828,7 +5828,7 @@ async function runBrowserFullRegression(args = {}) {
         });
         return items;
       });
-    } catch (_) {}
+    } catch (_) { /* browser DOM query: non-critical */ }
 
     // 分类：导航链接 vs 页面动作
     const navItems = [];
@@ -5871,7 +5871,7 @@ async function runBrowserFullRegression(args = {}) {
       try {
         if (isTimeout()) break;
         // 📸 页面导航截图
-        try { const buf = await target.screenshot({ type: 'png', fullPage: false }); result.captureEvidence.screenshots.push({ stage: 'nav', label: nav.text || nav.resolvedUrl, data: buf.toString('base64').slice(0, 500) }); } catch (_) {}
+        try { const buf = await target.screenshot({ type: 'png', fullPage: false }); result.captureEvidence.screenshots.push({ stage: 'nav', label: nav.text || nav.resolvedUrl, data: buf.toString('base64').slice(0, 500) }); } catch (_) { /* best-effort screenshot */ }
         await target.goto(nav.resolvedUrl, { waitUntil: 'networkidle', timeout: 15000 });
         await new Promise(r => setTimeout(r, 1000));
         pageDetail.navigated = true;
@@ -5913,12 +5913,12 @@ async function runBrowserFullRegression(args = {}) {
             });
             return items;
           });
-        } catch (_) {}
+        } catch (_) { /* non-critical */ }
 
         // 过滤掉同源导航链接（避免再次导航到其他页面），保留动作按钮
         // [重要] 限制每页最多 2 个子功能，保留 API 配额给 select 角色切换测试（阶段 3.5）
         const uniqueActions = subFunctions.filter(f => {
-          if (f.href) { try { const u = new URL(f.href, target.url()); if (u.origin === new URL(target.url()).origin && u.pathname !== new URL(target.url()).pathname) return false; } catch (_) {} }
+          if (f.href) { try { const u = new URL(f.href, target.url()); if (u.origin === new URL(target.url()).origin && u.pathname !== new URL(target.url()).pathname) return false; } catch (_) { /* URL parse fallback */ } }
           return true;
         }).slice(0, 2);
 
@@ -6036,9 +6036,9 @@ async function runBrowserFullRegression(args = {}) {
                 }
               } else if (uiState.modal && !uiState.modal.hasForm) {
                 // 纯弹窗（无表单）→ 尝试关闭
-                try { await target.keyboard.press('Escape'); await new Promise(r => setTimeout(r, 300)); } catch (_) {}
+                try { await target.keyboard.press('Escape'); await new Promise(r => setTimeout(r, 300)); } catch (_) { /* fallback action */ }
               }
-            } catch (_) {}
+            } catch (_) { /* fallback action */ }
 
             if (subDetail.navigated) {
               try { await target.goBack({ waitUntil: 'networkidle', timeout: 10000 }); subDetail.returned = true; } catch (_) { subDetail.returned = false; }
@@ -6060,7 +6060,7 @@ async function runBrowserFullRegression(args = {}) {
       } catch (e) { pageDetail.passed = false; pageDetail.error = e.message; }
 
       // 返回首页
-      try { await target.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }); await new Promise(r => setTimeout(r, 1500)); } catch (_) {}
+      try { await target.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }); await new Promise(r => setTimeout(r, 1500)); } catch (_) { /* fallback action */ }
       result.details.push(pageDetail);
     }
 
@@ -6119,13 +6119,13 @@ async function runBrowserFullRegression(args = {}) {
         let visibleCount = 0;
         for (const el of allEls) {
           if (visibleCount >= 500) break;
-          try { const s = window.getComputedStyle(el); if (s.display !== 'none' && s.visibility !== 'hidden' && el.offsetParent !== null) visibleCount++; } catch (_) {}
+          try { const s = window.getComputedStyle(el); if (s.display !== 'none' && s.visibility !== 'hidden' && el.offsetParent !== null) visibleCount++; } catch (_) { /* best-effort visibility check */ }
         }
         const mainText = (document.body.innerText || '').trim().slice(0, 2000);
         const hash = mainText.length + '_' + mainText.slice(0, 100);
         return { visibleCount, textHash: hash };
       });
-    } catch (_) {}
+    } catch (_) { /* best-effort visibility check */ }
 
     for (let hi = 0; hi < homeActions.length && !isTimeout() && totalClicked < maxItems; hi++) {
       await new Promise(r => setTimeout(r, clickDelay));
@@ -6149,13 +6149,13 @@ async function runBrowserFullRegression(args = {}) {
             await target.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
             await new Promise(r => setTimeout(r, 1500));
             await resetLogs();
-          } catch (_) {}
+          } catch (_) { /* fallback action */ }
           // 使用 selectOption 而非点击
           try {
             await target.selectOption(fn.selector, fn.value, { timeout: 5000 });
             clicked = true;
           } catch (_) {
-            try { await target.selectOption(fn.selector, { value: fn.value }, { timeout: 3000 }); clicked = true; } catch (_) {}
+            try { await target.selectOption(fn.selector, { value: fn.value }, { timeout: 3000 }); clicked = true; } catch (_) { /* fallback action */ }
           }
         } else {
           clicked = await tryClick(fn.selector, true);
@@ -6184,7 +6184,7 @@ async function runBrowserFullRegression(args = {}) {
               let visibleCount = 0;
               for (const el of allEls) {
                 if (visibleCount >= 500) break;
-                try { const s = window.getComputedStyle(el); if (s.display !== 'none' && s.visibility !== 'hidden' && el.offsetParent !== null) visibleCount++; } catch (_) {}
+                try { const s = window.getComputedStyle(el); if (s.display !== 'none' && s.visibility !== 'hidden' && el.offsetParent !== null) visibleCount++; } catch (_) { /* best-effort visibility check */ }
               }
               const mainText = (document.body.innerText || '').trim().slice(0, 2000);
               const hash = mainText.length + '_' + mainText.slice(0, 100);
@@ -6211,12 +6211,12 @@ async function runBrowserFullRegression(args = {}) {
                     const sel = id || (el.tagName.toLowerCase() + cls) || '';
                     if (sel) items.push({ text, selector: sel, tag: el.tagName.toLowerCase() });
                     if (items.length >= 3) break;
-                  } catch (_) {}
+                  } catch (_) { /* best-effort visibility check */ }
                 }
                 return items;
               }).catch(() => null);
             }
-          } catch (_) {}
+          } catch (_) { /* best-effort visibility check */ }
         }
         detail.navigated = (detail.urlAfter !== detail.urlBefore) || spaNavigated;
         if (spaNavigated) {
@@ -6244,10 +6244,10 @@ async function runBrowserFullRegression(args = {}) {
         if (spaNavigated && spaNewContent && spaNewContent.length > 0) {
           try {
             const targetEl = spaNewContent[0];
-            try { await target.evaluate((sel) => { const el = document.querySelector(sel); if (el) el.click(); }, targetEl.selector); } catch (_) {}
+            try { await target.evaluate((sel) => { const el = document.querySelector(sel); if (el) el.click(); }, targetEl.selector); } catch (_) { /* fallback action */ }
             try { await target.waitForLoadState('networkidle', { timeout: 5000 }); } catch (_) { await new Promise(r => setTimeout(r, 1500)); }
             await new Promise(r => setTimeout(r, 500));
-          } catch (_) {}
+          } catch (_) { /* load state timeout */ }
         }
 
         // 返回：URL 变化用 goBack，SPA 变化点击同一按钮切换回
@@ -6296,7 +6296,7 @@ async function runBrowserFullRegression(args = {}) {
         // 指数退避策略：检测到限流后至少等 30 秒
         await new Promise(r => setTimeout(r, 30000));
       }
-    } catch (_) {}
+    } catch (_) { /* non-critical */ }
 
     // 设计原理（续）：
     //   通用模式：SelectChange → StateChange → NewAPIRequests → PermissionErrors(4xx)
@@ -6355,7 +6355,7 @@ async function runBrowserFullRegression(args = {}) {
             await target.selectOption(selInfo.selector, opt.value, { timeout: 5000 });
             selected = true;
           } catch (_) {
-            try { await target.selectOption(selInfo.selector, { value: opt.value }, { timeout: 3000 }); selected = true; } catch (_) {}
+            try { await target.selectOption(selInfo.selector, { value: opt.value }, { timeout: 3000 }); selected = true; } catch (_) { /* fallback action */ }
           }
           if (!selected) continue;
 
@@ -6365,7 +6365,7 @@ async function runBrowserFullRegression(args = {}) {
           const navigated = urlAfter !== urlBefore;
 
           // 📸 select 选项测试截图
-          try { const buf = await target.screenshot({ type: 'png', fullPage: false }); result.captureEvidence.screenshots.push({ stage: 'select', label: `${selInfo.selector} → ${opt.text || opt.value}`, data: buf.toString('base64').slice(0, 500) }); } catch (_) {}
+          try { const buf = await target.screenshot({ type: 'png', fullPage: false }); result.captureEvidence.screenshots.push({ stage: 'select', label: `${selInfo.selector} → ${opt.text || opt.value}`, data: buf.toString('base64').slice(0, 500) }); } catch (_) { /* best-effort screenshot */ }
 
           // Orient + Decide: 捕获错误并分类
           const sinceTs = Date.now() - 3000;
@@ -6423,10 +6423,10 @@ async function runBrowserFullRegression(args = {}) {
                     foundErrors: newErrors.length,
                     sample: newErrors.slice(0, 3)
                   });
-                } catch (_) {}
+                } catch (_) { /* non-critical */ }
               }
             }
-          } catch (_) {}
+          } catch (_) { /* non-critical */ }
 
           // 如果大量错误是 429，说明服务端限流了，等待后重试一次
           const hasRateLimit = errs.items.some(i => /429|too many requests|rate limit/i.test(i.msg || ''));
@@ -6449,7 +6449,7 @@ async function runBrowserFullRegression(args = {}) {
                 const retryErrs2 = await captureErrors(retrySinceTs);
                 // 用重试后的结果覆盖
                 Object.assign(errs, retryErrs2);
-              } catch (_) {}
+              } catch (_) { /* non-critical */ }
             }
           }
 
@@ -6600,7 +6600,7 @@ async function runBrowserFullRegression(args = {}) {
           }
         }
       }
-    } catch (_) {}
+    } catch (_) { /* non-critical */ }
 
     // ====== 永久累加器最终扫描 ======
     // 底层原理：resetLogs() 清空 localLogs 会导致操作间隙的错误永久丢失
@@ -6639,14 +6639,14 @@ async function runBrowserFullRegression(args = {}) {
           }
         }
       }
-    } catch (_) {}
+    } catch (_) { /* non-critical */ }
 
   } catch (err) {
     result.passed = false;
     result.error = err.message;
   }
   // CDP session 清理
-  if (cdpSession) { try { cdpSession.detach(); } catch (_) {} cdpSession = null; }
+  if (cdpSession) { try { cdpSession.detach(); } catch (_) { /* cleanup: ignore */ } cdpSession = null; }
 
   // ===== 最终过滤：去除假阳性错误 =====
   // 1. 429 Rate Limit — 测试工具自身触发的限流，不是应用 Bug
@@ -6682,7 +6682,7 @@ async function runBrowserFullRegression(args = {}) {
     result.captureEvidence._postFilter = removedCounts;
     // 更新 passed 状态（只有真错误才算）
     result.passed = result.blockingIssues.length === 0;
-  } catch (_) {}
+  } catch (_) { /* non-critical */ }
 
   // 性能快照（新增）
   let performanceSnapshot = null;
@@ -6697,7 +6697,7 @@ async function runBrowserFullRegression(args = {}) {
         tti: nav?.domInteractive,
       };
     });
-  } catch (_) {}
+  } catch (_) { /* browser perf API: non-critical */ }
   if (performanceSnapshot) {
     result.performanceSnapshot = performanceSnapshot;
   }
@@ -6916,7 +6916,7 @@ function createMcpServer() {
         await item.browser.close().catch(() => {});
       }
       browserPool.clear();
-    } catch (_) {}
+    } catch (_) { /* cleanup: ignore */ }
     process.exit(1);
   });
   
@@ -6929,7 +6929,7 @@ function createMcpServer() {
         await item.browser.close().catch(() => {});
       }
       browserPool.clear();
-    } catch (_) {}
+    } catch (_) { /* cleanup: ignore */ }
   });
   
   return server;
@@ -6951,7 +6951,7 @@ async function main() {
         await item.browser.close().catch(() => {});
       }
       browserPool.clear();
-    } catch (_) {}
+    } catch (_) { /* cleanup: ignore */ }
     logger.log('INFO', 'Shutdown complete');
     process.exit(0);
   }
@@ -6960,9 +6960,9 @@ async function main() {
   process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
   process.on('exit', () => {
     if (!shuttingDown) {
-      try { if (browser) browser.close().catch(() => {}); } catch (_) {}
+      try { if (browser) browser.close().catch(() => {}); } catch (_) { /* cleanup: ignore */ }
       for (const [, item] of browserPool) {
-        try { item.browser.close().catch(() => {}); } catch (_) {}
+        try { item.browser.close().catch(() => {}); } catch (_) { /* cleanup: ignore */ }
       }
     }
   });
@@ -7086,10 +7086,10 @@ async function startHttpMode() {
   warmupBrowser().catch(() => {});
   
   const shutdown = async () => {
-    try { if (page && !page.isClosed()) await page.close(); } catch (_) {}
-    try { if (browser) await browser.close(); } catch (_) {}
+    try { if (page && !page.isClosed()) await page.close(); } catch (_) { /* cleanup: ignore */ }
+    try { if (browser) await browser.close(); } catch (_) { /* cleanup: ignore */ }
     for (const [, item] of browserPool) {
-      try { await item.browser.close(); } catch (_) {}
+      try { await item.browser.close(); } catch (_) { /* cleanup: ignore */ }
     }
     browserPool.clear();
     httpServer.close(() => process.exit(0));

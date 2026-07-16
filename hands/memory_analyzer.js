@@ -68,7 +68,9 @@ function detectInBrowser() {
       for (const key of Object.keys(rootListeners)) {
         listenerCount += rootListeners[key].length;
       }
-    } catch (_) {}
+    } catch (err) {
+      // getEventListeners 是 Chrome DevTools 专有方法，在普通浏览器上下文中不可用或抛错，回退到 0
+    }
   }
 
   // 3. JS 堆大小

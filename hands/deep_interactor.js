@@ -345,7 +345,9 @@ async function interactWithForm(page, options = {}) {
     if (submitted) {
       result.submitted = true;
       // 等待提交结果
-      try { await page.waitForLoadState('networkidle', { timeout: 8000 }); } catch (_) {}
+      try { await page.waitForLoadState('networkidle', { timeout: 8000 }); } catch (err) {
+        // networkidle 超时常见于长轮询/SSE 应用，提交动作本身已完成，等待只是辅助
+      }
       await new Promise(r => setTimeout(r, 1500));
 
       // 收集提交后的错误和后端响应
@@ -367,7 +369,9 @@ async function interactWithForm(page, options = {}) {
           result.success = true;
           if (!result.successMessage) result.successMessage = '弹窗关闭，提交成功';
         }
-      } catch (_) {}
+      } catch (err) {
+        // 提交后 UI 状态探测失败不影响 submitted 标记，下游可凭提交动作成功继续推断
+      }
     }
   }
 
@@ -993,7 +997,9 @@ async function autoFillForm(page, formSelector = 'form', overrides = {}) {
     try {
       const buf = await form.screenshot({ type: 'png' });
       result.screenshot = buf.toString('base64').slice(0, 2000);
-    } catch (_) {}
+    } catch (err) {
+      // 截图为辅助证据，元素可能已被重渲染或不可见，失败时不影响表单数据本身
+    }
   } catch (e) {
     result.error = e.message;
   }
@@ -1232,7 +1238,9 @@ async function runInteractionChain(page, chain = []) {
           try {
             const buf = await currentPage.screenshot({ type: 'png', fullPage: false });
             stepResult.screenshotBase64 = buf.toString('base64').slice(0, 2000);
-          } catch (_) {}
+          } catch (err) {
+            // 步骤截图失败不阻断流程链，页面可能已导航或被关闭
+          }
           stepResult.success = true;
           break;
 
@@ -1258,7 +1266,9 @@ async function runInteractionChain(page, chain = []) {
               const hasError = /error|失败|错误|invalid/i.test(body);
               return { url, hasError, bodySnippet: body.slice(0, 100) };
             });
-          } catch (_) {}
+          } catch (err) {
+            // 提交后状态评估失败不影响 stepResult.success，下游可读取其他证据
+          }
           break;
 
         default:

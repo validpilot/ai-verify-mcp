@@ -28,7 +28,9 @@ class Logger {
       if (fs.existsSync(Logger.LOG_FILE)) {
         fs.renameSync(Logger.LOG_FILE, `${Logger.LOG_FILE}.1`);
       }
-    } catch (_) {}
+    } catch (err) {
+      // 日志轮转失败不阻断主流程：可能是跨设备链接、权限问题或并发写入，忽略后仅损失日志轮转能力
+    }
   }
 
   log(level, message, details = {}) {
@@ -42,10 +44,14 @@ class Logger {
           if (stats.size > Logger.MAX_LOG_SIZE) {
             this.rotateLogs();
           }
-        } catch (_) {}
+        } catch (err) {
+          // stat 失败通常因日志文件尚未创建或被外部删除，跳过轮转检查即可
+        }
       }
       fs.appendFileSync(Logger.LOG_FILE, JSON.stringify(entry) + '\n');
-    } catch (_) {}
+    } catch (err) {
+      // 写入日志文件失败无法再记录（避免递归），静默丢弃该条日志以保证主流程稳定
+    }
   }
 
   readRecentMcpErrors(args = {}) {
