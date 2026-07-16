@@ -2,6 +2,43 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.8.9] - 2026-07-17
+
+### Changed
+
+- **server.js 瘦身 Phase 2 完成 — 提取浏览器全量回归测试**：新增 [hands/full_regression.js](file:///e:/daima/validpilot/ai-verify-mcp/hands/full_regression.js)（1398 行），将 `runBrowserFullRegression()` 函数从 server.js 迁移。这是本次 Phase 2 瘦身中**最大**的一次提取（原 1362 行，占 server.js 的 21%）。
+  - 函数实现浏览器全量回归测试，包含 8 个内部辅助函数：
+    - `isApiUrl(url)`：过滤静态资源，只保留 API 请求
+    - `installListeners()`：Playwright + CDP + JS 拦截器 + Performance API 多层监听（约 220 行）
+    - `snapshotLocalLogs()` / `deltaAndClear(sinceTime)`：本地日志快照与增量
+    - `captureErrors(sinceTs)`：合并多层数据源捕获错误
+    - `resetLogs()`：清空 localLogs（permanentErrors 永不清除）
+    - `tryClick(selOrText, isSelector)`：三级点击策略
+    - `resolveUrl(href)` / `isSameOriginNav(href)`：URL 解析辅助
+  - 测试阶段：BFS 遍历导航链接 → 首页非导航功能点击（含 SPA 检测）→ select 状态变更独立测试（含深度探索）→ Performance API + permanentErrors 最终扫描 → 假阳性过滤（429 限流、IP 中假 5xx、去重）
+- **函数签名变更**：`runBrowserFullRegression(args)` → `runBrowserFullRegression(args, ensurePage, deepInteractor)`，依赖通过参数注入
+- **工厂注入模式**：与 v1.8.7/v1.8.8 一致，`createFullRegression({ ensurePage, deepInteractor })` 返回绑定依赖的函数
+
+### Stats
+
+- server.js: 6235 → 4879 行（**-1356 行**），282KB → 218KB（**-64KB**）
+- 新增模块：hands/full_regression.js（1398 行）
+- 累计三步瘦身（v1.8.7 + v1.8.8 + v1.8.9）：server.js 7141 → 4879 行（**-2262 行**），310KB → 218KB（**-92KB**）
+
+### Coverage
+
+- 1180 个单元测试全部通过（0 失败）
+- c8 阈值全部通过（Lines 33.09%、Branches 78.54%、Functions 52.68%）
+- 覆盖率与 v1.8.8 基本一致（Lines -0.16%、Branches -0.46%、Functions -1.92%），纯文件位置重组，无逻辑变更
+
+### Milestone
+
+**August Plan W2 任务完成**：
+- ✅ `runBrowserFullRegression()` 函数拆分（拆为独立模块）
+- ✅ `findElement()`/`findPage()` 提取独立模块（v1.8.7）
+- ✅ `traverseMenu()` 提取独立模块（v1.8.8）
+- ⚠️ server.js ≤200KB 目标：218KB（接近但未达，后续可通过提取 `callTool` 调度逻辑或 handlers 进一步瘦身）
+
 ## [1.8.8] - 2026-07-17
 
 ### Changed
