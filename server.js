@@ -597,7 +597,7 @@ async function analyzeScreenshotForErrors(target, imagePath) {
         }).length;
         return { totalErrorElements: total, visibleErrorElements: visible };
       });
-    } catch (_) { logger.warn('buildInteractionReport: evaluate 失败', _.message); }
+    } catch (_) { logger.log('WARN', 'buildInteractionReport: evaluate 失败', _.message); }
 
     // 4. 构建分析结果
     const analysis = {
@@ -928,9 +928,9 @@ async function probeKnownEndpoints(target, options = {}) {
             timestamp: new Date().toISOString()
           });
         }
-      } catch (_) { logger.warn('consoleListener: 处理 console 事件失败', _.message); }
+      } catch (_) { logger.log('WARN', 'consoleListener: 处理 console 事件失败', _.message); }
     }
-  } catch (_) { logger.warn('setupConsoleListeners: 整体捕获异常', _.message); }
+  } catch (_) { logger.log('WARN', 'setupConsoleListeners: 整体捕获异常', _.message); }
   return results;
 }
 
@@ -1002,7 +1002,7 @@ async function runFullAudit(args = {}) {
         // 5e. Cross-origin script errors
         result.crossOriginErrors = injected.filter(e => e.type === 'window_error' && e.crossOrigin).map(e => ({ message: (e.message || '').slice(0, 300), timestamp: e.timestamp }));
       }
-    } catch (_) { logger.warn('collectConsoleErrors: 收集错误失败', _.message); }
+    } catch (_) { logger.log('WARN', 'collectConsoleErrors: 收集错误失败', _.message); }
   }
 
   // 6. deduplicate runtimeErrors (same message)
@@ -1199,7 +1199,7 @@ async function postActionErrorCheck(target, actionName, selector) {
         text: e.args ? e.args.join(' ') : (e.message || e.reason || ''),
         source: 'injected'
       }));
-    } catch (_) { logger.warn('injectedConsoleErrors: 处理注入脚本错误失败', _.message); }
+    } catch (_) { logger.log('WARN', 'injectedConsoleErrors: 处理注入脚本错误失败', _.message); }
     
     // 合并 CDP 捕获 + 注入脚本直读
     const allConsoleEntries = [...newConsoleErrors, ...injectedConsoleErrors];

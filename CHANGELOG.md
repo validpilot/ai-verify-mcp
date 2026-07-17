@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.9.2] - 2026-07-18
+
+### Fixed
+
+- **修复 5 处 `logger.warn()` latent bug**：server.js 中 5 处 catch 块调用 `logger.warn(msg, _.message)`，但 [Logger](file:///e:/daima/validpilot/ai-verify-mcp/core/logger.js) 类只有 `log(level, message, details)` 方法，没有 `warn()`。运行时一旦触发这些 catch 分支，会抛出 `TypeError: logger.warn is not a function`，导致错误处理本身失败。
+  - L600 `buildInteractionReport: evaluate 失败`
+  - L931 `consoleListener: 处理 console 事件失败`
+  - L933 `setupConsoleListeners: 整体捕获异常`
+  - L1005 `collectConsoleErrors: 收集错误失败`
+  - L1202 `injectedConsoleErrors: 处理注入脚本错误失败`
+  - 修复方式：`logger.warn(msg, data)` → `logger.log('WARN', msg, data)`，与 v1.9.0 修复 `runDeployVerify` 内同类型 bug 一致
+  - 全项目扫描确认：除 server.js 外，handlers/、hands/、brain/、core/、engines/、orchestrator/ 均无类似问题
+
+### Stats
+
+- server.js: 4149 行（行数不变），184KB（体积不变）
+- 纯 bug 修复，无新增/删除代码，仅 5 处单行修改
+
+### Coverage
+
+- 1180 个单元测试全部通过（0 失败）
+- c8 阈值全部通过（Lines 33.09%、Branches 78.54%、Functions 52.68%）
+- 覆盖率与 v1.9.1 完全一致（catch 块错误处理路径未在单元测试中触发，但修复不影响主逻辑路径覆盖率）
+
 ## [1.9.1] - 2026-07-18
 
 ### Changed
