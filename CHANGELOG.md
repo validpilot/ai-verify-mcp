@@ -2,6 +2,34 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.9.1] - 2026-07-18
+
+### Changed
+
+- **server.js 瘦身 Phase 4 — 提取项目质量审计**：新增 [hands/project_auditor.js](file:///e:/daima/validpilot/ai-verify-mcp/hands/project_auditor.js)（262 行），将 `projectAudit()` 函数从 server.js 迁移（原 239 行，含 JSDoc）。
+  - 函数实现项目目录扫描，检测 7 类代码质量问题：
+    - 硬编码密码/密钥
+    - 硬编码绝对路径 (Windows)
+    - TODO/FIXME/HACK 注释
+    - 调试代码（console.log/debugger）
+    - 大文件（>1000 行）
+    - 重复的 require 语句
+    - 可疑的 eval/exec 调用
+  - **完全自包含**：只依赖 `fs`/`path`（函数内部 require），无任何 server.js 模块级依赖
+  - **无需工厂注入**：直接 `module.exports = { projectAudit }`，server.js 通过 `const { projectAudit } = require('./hands/project_auditor')` 引入
+
+### Stats
+
+- server.js: 4384 → 4149 行（**-235 行**），194KB → **184KB**（**-10KB**）
+- 新增模块：hands/project_auditor.js（262 行）
+- 累计五步瘦身（v1.8.7 ~ v1.9.1）：server.js 7141 → 4149 行（**-2992 行**），310KB → 184KB（**-126KB**）
+
+### Coverage
+
+- 1180 个单元测试全部通过（0 失败）
+- c8 阈值全部通过（Lines 33.09%、Branches 78.54%、Functions 52.68%）
+- 覆盖率与 v1.9.0 完全一致（纯文件位置重组，无逻辑变更）
+
 ## [1.9.0] - 2026-07-17
 
 ### Changed
