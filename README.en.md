@@ -8,7 +8,7 @@
 [![npm downloads](https://img.shields.io/npm/dm/@validpilot/ai-verify-mcp.svg?style=flat-square)](https://www.npmjs.com/package/@validpilot/ai-verify-mcp)
 [![CI](https://img.shields.io/github/actions/workflow/status/validpilot/ai-verify-mcp/ci.yml?style=flat-square&label=CI)](https://github.com/validpilot/ai-verify-mcp/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](LICENSE)
-[![MCP Protocol](https://img.shields.io/badge/MCP-134%20tools-brightgreen.svg?style=flat-square)](https://modelcontextprotocol.io/)
+[![MCP Protocol](https://img.shields.io/badge/MCP-136%20tools-brightgreen.svg?style=flat-square)](https://modelcontextprotocol.io/)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D18-green.svg?style=flat-square)](https://nodejs.org/)
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg?style=flat-square)](CODE_OF_CONDUCT.md)
 [![中文](https://img.shields.io/badge/%E4%B8%AD%E6%96%87-red?style=flat-square)](README.md)
@@ -58,9 +58,9 @@
 
 ## 🔄 Skill + MCP = Best Experience
 
-ai-verify-mcp provides 87 **underlying verification tools** (browser operations, screenshots, a11y scanning, assertion verification, etc.), but these tools need to be **orchestrated** to complete a full verification task.
+ai-verify-mcp provides 136 **underlying verification tools** (browser operations, screenshots, a11y scanning, assertion verification, etc.), but these tools need to be **orchestrated** to complete a full verification task.
 
-The **Skill system** (like Trae's `browser-dev-full-validation-skill`) is precisely this orchestration layer ?it defines a standard verification process:
+**As of v1.9.3+, orchestration is built into the MCP server via MCP Prompts primitives** — no IDE extension package required. In MCP-Prompts-aware clients (Claude Desktop, Cursor, Trae), type `/` to see 7 slash-command workflows.
 
 ```mermaid
 flowchart LR
@@ -71,6 +71,14 @@ flowchart LR
     E --> C
     D -->|Passed| F[Preserve evidence chain]
 ```
+
+### Three Skill Forms
+
+| Form | What it is | Install required | v1.9.3+ status |
+|------|------------|------------------|----------------|
+| **A. MCP Prompts** | 7 slash commands (`/validate-login`, `/submit-form`, etc.) built into the MCP server | ❌ No | ✅ Out of the box |
+| **B. Skill docs** | 8 orchestration manuals under `docs/skills/*.md` | ❌ No (shipped with npm package) | ✅ Since v1.9.3 |
+| **C. IDE Skill extension** | IDE-native extensions like Trae's `browser-dev-full-validation-skill` | ✅ Yes (via Trae Skill marketplace) | Optional enhancement |
 
 ### Skill is Responsible For
 
@@ -85,12 +93,16 @@ flowchart LR
 
 | Responsibility | Description |
 |------|------|
-| **87 Atomic Verification Tools** | `browser_open` / `browser_screenshot` / `browser_a11y_check` / `browser_form_fill` / `browser_responsive_test` / `browser_eval` / `console_error_check` / `network_check`, etc. |
+| **136 Atomic Verification Tools** | `browser_open` / `browser_screenshot` / `browser_a11y_check` / `browser_form_fill` / `browser_responsive_test` / `browser_eval` / `console_error_check` / `network_check`, etc. |
+| **7 MCP Prompts** | `/validate-login`, `/submit-form`, `/audit-performance`, `/audit-security`, `/visual-regression`, `/debug-page`, `/e2e-flow` built-in workflows |
 | **Evidence Chain Collection** | Automatic screenshots at each step, recording Console logs and network requests |
 | **Contrast/CSS Variable Scanning** | axe-core integration, CSS variable tracking |
 | **Report Output** | Structured JSON + Markdown reports |
 
-> 💡 **Best Practice**: Enable both `browser-dev-full-validation-skill` + `ai-verify-mcp` MCP Server in Trae. Skill automatically orchestrates the 7-phase verification process, and ai-verify-mcp provides the underlying execution capability. **Both are essential** ?MCP alone lacks orchestration, Skill alone lacks execution capability.
+> 💡 **Best Practice** (v1.9.3+):
+> - **Minimum-dependency path (recommended)**: Install only the `@validpilot/ai-verify-mcp` MCP Server. Type `/` to trigger any of the 7 Skill workflows. No IDE extension needed.
+> - **Enhanced path (optional)**: Additionally enable the `browser-dev-full-validation-skill` extension in Trae for 7-phase fine-grained orchestration (each Skill is split into 7 execution phases).
+> - See [Skill Usage Guide](docs/guide/skill-usage.md).
 
 ---
 

@@ -8,7 +8,7 @@
 [![npm downloads](https://img.shields.io/npm/dm/@validpilot/ai-verify-mcp.svg?style=flat-square)](https://www.npmjs.com/package/@validpilot/ai-verify-mcp)
 [![CI](https://img.shields.io/github/actions/workflow/status/validpilot/ai-verify-mcp/ci.yml?style=flat-square&label=CI)](https://github.com/validpilot/ai-verify-mcp/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](LICENSE)
-[![MCP Protocol](https://img.shields.io/badge/MCP-134%20tools-brightgreen.svg?style=flat-square)](https://modelcontextprotocol.io/)
+[![MCP Protocol](https://img.shields.io/badge/MCP-136%20tools-brightgreen.svg?style=flat-square)](https://modelcontextprotocol.io/)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D18-green.svg?style=flat-square)](https://nodejs.org/)
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg?style=flat-square)](CODE_OF_CONDUCT.md)
 [![English](https://img.shields.io/badge/English-blue?style=flat-square)](README.en.md)
@@ -56,9 +56,9 @@
 
 ## 🔄 Skill + MCP = 最佳体验
 
-ai-verify-mcp 提供 134 个底层验证工具（浏览器操作、截图、a11y 扫描、断言验证、视觉比对、网络监控、性能分析、内存检测、证据链采集、安全扫描等），但这些工具需要被**编排调用**才能完成完整的验证任务。
+ai-verify-mcp 提供 136 个底层验证工具（浏览器操作、截图、a11y 扫描、断言验证、视觉比对、网络监控、性能分析、内存检测、证据链采集、安全扫描等），但这些工具需要被**编排调用**才能完成完整的验证任务。
 
-**Skill 系统**（如 Trae 的 `browser-dev-full-validation-skill`）正是这个编排层——它定义了一套标准验证流程：
+**v1.9.3+ 起，编排能力已通过 MCP Prompts 原语内置到 MCP 服务器**——无需安装任何 IDE 扩展包，在支持 MCP Prompts 的客户端（Claude Desktop、Cursor、Trae）输入 `/` 即可看到 7 个斜杠命令工作流。
 
 ```mermaid
 flowchart LR
@@ -69,6 +69,14 @@ flowchart LR
     E --> C
     D -->|通过| F[留存证据链]
 ```
+
+### 三种 Skill 形态
+
+| 形态 | 是什么 | 是否需安装 | v1.9.3+ 状态 |
+|------|--------|-----------|--------------|
+| **A. MCP Prompts** | `/validate-login`、`/submit-form` 等 7 个斜杠命令，内置在 MCP 服务器中 | ❌ 不需要 | ✅ 开箱即用 |
+| **B. Skill 指导文档** | `docs/skills/*.md` 8 篇工具链编排手册 | ❌ 不需要（随 npm 包发布） | ✅ v1.9.3 已有 |
+| **C. IDE Skill 扩展包** | Trae 的 `browser-dev-full-validation-skill` 等 IDE 原生扩展 | ✅ 需在 Trae Skill 市场安装 | 可选增强 |
 
 ### Skill 负责
 
@@ -83,12 +91,16 @@ flowchart LR
 
 | 职责 | 说明 |
 |------|------|
-| **134 个原子验证工具** | `browser_open` / `browser_overlay_detect` / `browser_smoke_test` / `browser_counterfactual_analyze` / `browser_assert` / `browser_a11y_check` / `browser_smart_fill` / `browser_memory_check` / `browser_visual_component` / `security_headers_check` / `security_owasp_top10` / `api_probe` 等 |
+| **136 个原子验证工具** | `browser_open` / `browser_overlay_detect` / `browser_smoke_test` / `browser_counterfactual_analyze` / `browser_assert` / `browser_a11y_check` / `browser_smart_fill` / `browser_memory_check` / `browser_visual_component` / `security_headers_check` / `security_owasp_top10` / `api_probe` 等 |
+| **7 个 MCP Prompts** | `/validate-login`、`/submit-form`、`/audit-performance`、`/audit-security`、`/visual-regression`、`/debug-page`、`/e2e-flow` 内置工作流 |
 | **证据链采集** | 每步操作自动截图，记录 Console 日志和网络请求 |
 | **对比与 CSS 变量扫描** | axe-core 集成、CSS 变量追踪 |
 | **报告输出** | 结构化 JSON + Markdown 报告 |
 
-> 💡 **最佳实践**：在 Trae 中同时启用 `browser-dev-full-validation-skill` + `ai-verify-mcp` MCP Server。Skill 自动编排 7 阶段验证流程，ai-verify-mcp 提供底层执行能力。**两者缺一不可**——只有 MCP 缺乏编排，只有 Skill 缺乏执行能力。
+> 💡 **最佳实践**（v1.9.3+）：
+> - **最小依赖路径（推荐）**：只装 `@validpilot/ai-verify-mcp` MCP Server，输入 `/` 即可触发 7 个 Skill 工作流。无需任何 IDE 扩展包。
+> - **增强路径（可选）**：在 Trae 中额外启用 `browser-dev-full-validation-skill` 扩展包，获得 7 阶段细粒度流程编排（每个 Skill 内部拆成 7 个执行阶段）。
+> - 详见 [Skill 使用指南](docs/guide/skill-usage.md)。
 
 ---
 
@@ -291,7 +303,7 @@ artifacts/
 | 特性 | ValidPilot Verify | Playwright | Puppeteer |
 |------|-------------------|------------|-----------|
 | **MCP 协议原生** | ✅ 开箱即用 | ❌ 需自己封装 | ❌ 需自己封装 |
-| **AI Agent 友好** | ✅ 134 个专用工具 | ❌ 通用 API | ❌ 通用 API |
+| **AI Agent 友好** | ✅ 136 个专用工具 | ❌ 通用 API | ❌ 通用 API |
 | **证据链留存** | ✅ 自动截图 + 时间戳 | ❌ 手动实现 | ❌ 手动实现 |
 | **智能诊断** | ✅ 错误根因 + 置信度 | ❌ 仅日志 | ❌ 仅日志 |
 | **验证报告** | ✅ Markdown + 截图 | ❌ 需自己写 | ❌ 需自己写 |
@@ -303,7 +315,7 @@ artifacts/
 
 | 单独用 MCP | 单独用 Skill | **Skill + MCP 组合** |
 |-----------|------------|-------------------|
-| ✅ 134 个工具但需手动编排 | ✅ 有流程但缺执行能力 | ✅ 自动编排 + 自动执行 |
+| ✅ 136 个工具但需手动编排 | ✅ 有流程但缺执行能力 | ✅ 自动编排 + 自动执行 |
 | ❌ 验证结果零散 | ❌ 流程模板固定 | ✅ 完整证据链 + 灵活配置 |
 | ❌ 需手动对比差异 | ❌ 无法直接操控浏览器 | ✅ 全自动闭环 |
 

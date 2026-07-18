@@ -6,8 +6,9 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
-- **MCP Prompts 原语实现**：新增 `handlers/prompts.js` 模块，将 6 个核心 Skill 以斜杠命令形式暴露给 MCP 客户端
+- **MCP Prompts 原语实现**：新增 `handlers/prompts.js` 模块，将 7 个核心 Skill 以斜杠命令形式暴露给 MCP 客户端
   - `/validate-login` — 登录流程验证工作流（参数：url, username, password, successIndicator）
+  - `/submit-form` — 表单提交验证工作流（参数：url, fields, formSelector, submitSelector, expectedText, expectedUrlContains）
   - `/audit-performance` — 性能审计工作流（参数：url, formFactor, throttling）
   - `/audit-security` — 安全审计工作流（参数：url, injectionUrl）
   - `/visual-regression` — 视觉回归工作流（参数：url, baselineName, selector, maxDiffPixelRatio）
@@ -35,9 +36,17 @@ All notable changes to this project will be documented in this file.
 
 - **工具选择决策矩阵**：新增 `docs/reference/tool-decision-matrix.md`
   - "我想做 X"决策树
-  - 134 工具按 22 大类速查
+  - 136 工具按 22 大类速查
   - 推荐工具链组合表
   - MCP Prompts 速查表
+
+- **Skill-MCP 协调配合能力**（v1.9.3+）：三层映射打通 Skill 文档 ↔ MCP Prompts ↔ MCP 工具
+  - `handlers/skill_map.js` 模块（新）：`SKILL_TOOLS_MAP` 显式常量作为单一数据源，避免解析 markdown 的脆弱性；提供 `getSkillTools` / `getToolSkills` / `getAllSkillToolsMap` / `getReverseMap` / `extractToolsFromPromptMessages` / `validateConsistency` 6 个纯内存计算函数，不依赖 `fs`/`path`
+  - `skill_tools_map` 工具（新）：双向查询 Skill↔Tool 映射（skillName→工具链 / toolName→Skill 列表），schema 使用 anyOf 二选一；返回结构含 `nextSteps` 引导下一步操作
+  - `skill_consistency_check` 工具（新）：批量校验所有 Skill 引用的工具与实际注册工具一致；支持 `mode: strict|warn`（strict 模式 mapDrift 影响 passed，warn 模式仅 warning）；支持 `skillName` 单 Skill 过滤；不依赖 `.trae/skills/SKILL.tools.json` 外部文件
+  - `mcp_self_test` 扩展：返回对象追加 `skillConsistencyV2` 字段（基于 `skill_map.validateConsistency`，含 `checked/summary/skills/availableToolsCount`），保留旧 `skillConsistency` 字段向后兼容；修复旧字段因 `PROJECT_ROOT` 路径解析 bug 长期 `checked: false` 的问题
+  - `/submit-form` MCP Prompt（新）：补齐 form-submission Skill 的 Prompt 缺口，使 7 个核心 Skill 全部覆盖（7/8，仅 debug-investigation 无独立 prompt，因其流程与 `/debug-page` 高度重合）
+  - `docs/reference/skill-tools-map.md`（新）：人工可读映射表，含正向映射（7 Skill × 工具链）、反向映射、一致性校验说明
 
 ### Changed
 
@@ -52,7 +61,16 @@ All notable changes to this project will be documented in this file.
 - **VitePress 文档站点导航增强**：
   - nav 新增"Skill 指导"和"场景手册"入口
   - sidebar 新增 `/skills/`（8 篇）和 `/scenarios/`（5 篇）板块
-  - `/reference/` 板块新增"工具选择决策矩阵"
+  - `/reference/` 板块新增"工具选择决策矩阵"和"Skill↔Tool 映射表"
+
+- **工具总数 134 → 136**（v1.9.3+）：新增 2 个 Skill-MCP 协调工具（`skill_tools_map`、`skill_consistency_check`），同步更新以下文件中的工具计数：
+  - `README.md`（badge + 4 处正文）
+  - `README.en.md`（badge）
+  - `AGENTS.md`（中英双版各 2 处）
+  - `docs/tools/overview.md`（标题、分类计数、合计、版本历史）
+  - `docs/skills/index.md`（2 处）
+  - `docs/reference/tool-decision-matrix.md`（4 处）
+  - `standalone-start.js`（启动日志）
 
 - **`docs/tools/overview.md` 更新**：
   - 版本号 v1.8.0 → v1.9.3

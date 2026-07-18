@@ -3540,6 +3540,23 @@ async function mcpSelfTest(args = {}) {
     skillConsistency.error = e.message;
   }
 
+  // Skill-MCP 一致性检查 V2（v1.9.3+，不依赖 .trae/skills/SKILL.tools.json 外部文件）
+  // 通过 handlers/skill_map.js 的 SKILL_TOOLS_MAP 单一数据源校验
+  let skillConsistencyV2 = { checked: false, summary: { total: 0, passed: 0, warnings: 0 }, skills: [] };
+  try {
+    const skillMap = require('./handlers/skill_map');
+    const toolFiles = fs.readdirSync(TOOLS_DIR).filter(f => f.endsWith('.json'));
+    const availableTools = toolFiles.map(f => path.basename(f, '.json'));
+    skillConsistencyV2 = skillMap.validateConsistency({
+      availableTools,
+      prompts: handlerPrompts.PROMPTS
+    });
+    skillConsistencyV2.checked = true;
+    skillConsistencyV2.availableToolsCount = availableTools.length;
+  } catch (e) {
+    skillConsistencyV2.error = e.message;
+  }
+
   perf.total.duration = Date.now() - perf.total.start;
 
   return redact({
@@ -3554,7 +3571,8 @@ async function mcpSelfTest(args = {}) {
     trace,
     traceStop,
     artifacts,
-    skillConsistency
+    skillConsistency,
+    skillConsistencyV2
   });
 }
 // ===== 智能页面发现（v1.8.7 提取到 hands/locator_helpers.js）=====

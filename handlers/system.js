@@ -15,7 +15,9 @@ const tools = [
   "browser_links",
   "browser_traverse_menu",
   "mcp_health_check",
-  "mcp_self_test"
+  "mcp_self_test",
+  "skill_tools_map",
+  "skill_consistency_check"
 ];
 
 async function handle(name, args, deps) {
@@ -292,6 +294,67 @@ const _traceResult = buildTraceChain(args);
   if (name === 'mcp_self_test') {
   const _selfTestResult = await mcpSelfTest(args);
   return text(JSON.stringify({ ..._selfTestResult, nextSteps: ['使用 mcp_health_check 检查服务状态'], paidUpgradeHint: '需要全面的 MCP 自测、自动化测试报告、性能基准对比？升级到 Pro 版本获取完整测试能力。' }, null, 2));
+  }
+
+  // ====== skill_tools_map ======
+  if (name === 'skill_tools_map') {
+  const skillMap = require('./skill_map');
+  const { skillName, toolName, includeDetails = false } = args || {};
+  if (!skillName && !toolName) {
+    return text(JSON.stringify({ error: 'skillName 或 toolName 至少需提供一项', availableSkills: skillMap.getAllSkillToolsMap().map(s => s.skillName) }, null, 2));
+  }
+  if (skillName) {
+    const map = skillMap.getSkillTools(skillName);
+    if (!map) {
+      return text(JSON.stringify({ error: `Unknown skill: ${skillName}`, availableSkills: skillMap.getAllSkillToolsMap().map(s => s.skillName) }, null, 2));
+    }
+    const toolsList = includeDetails ? map.tools : map.tools.map(t => t.name);
+    return text(JSON.stringify({
+      skillName: map.skillName,
+      promptName: map.promptName,
+      docFile: map.docFile,
+      tools: toolsList,
+      total: toolsList.length,
+      nextSteps: ['使用 skill_consistency_check 校验所有 Skill 工具一致性', '查看 ' + map.docFile + ' 了解完整工作流']
+    }, null, 2));
+  }
+  const skills = skillMap.getToolSkills(toolName);
+  return text(JSON.stringify({
+    toolName,
+    skills,
+    total: skills.length,
+    nextSteps: ['使用 skillName 参数查看某 Skill 的完整工具链', '使用 skill_consistency_check 校验一致性']
+  }, null, 2));
+  }
+
+  // ====== skill_consistency_check ======
+  if (name === 'skill_consistency_check') {
+  const skillMap = require('./skill_map');
+  const handlerPrompts = require('./prompts');
+  const { mode = 'strict', skillName: filterSkill } = args || {};
+  try {
+    const toolFiles = fs.readdirSync(TOOLS_DIR).filter(f => f.endsWith('.json'));
+    const availableTools = toolFiles.map(f => path.basename(f, '.json'));
+    const result = skillMap.validateConsistency({
+      availableTools,
+      prompts: handlerPrompts.PROMPTS,
+      filterSkill
+    });
+    const passed = mode === 'strict' ? result.passed : true;
+    return text(JSON.stringify({
+      ...result,
+      passed,
+      mode,
+      availableToolsCount: availableTools.length,
+      nextSteps: [
+        '使用 skill_tools_map 查询具体 Skill↔Tool 映射',
+        '使用 mcp_self_test 执行完整自测',
+        filterSkill ? `如需校验全部 Skill，去掉 skillName 参数` : `如需校验单个 Skill，传入 skillName 参数`
+      ]
+    }, null, 2));
+  } catch (err) {
+    return text(JSON.stringify({ passed: false, error: err.message, mode }, null, 2));
+  }
   }
 
   return mcpError(`未知工具（system）: ${name}`, { error: 'UNKNOWN_TOOL', toolName: name });

@@ -256,4 +256,16 @@ evidence_pack({ name: "form-submission-herokuapp" })
 
 ## MCP Prompt
 
-使用 `/e2e-flow` prompt 可快速启动包含表单提交的端到端工作流（需 ValidPilot v1.9.3+）。在支持 MCP Prompts 的客户端中输入 `/` 即可看到该命令，传入 `url`、`flow` 参数后返回多步指令文本。
+使用 `/submit-form` prompt 可快速启动表单提交验证工作流（需 ValidPilot v1.9.3+）。在支持 MCP Prompts 的客户端（如 Claude Desktop、Cursor、Trae）中输入 `/` 即可看到该命令。
+
+必填参数：
+- `url` — 表单页 URL
+- `fields` — 字段值映射对象，例如 `{ "#email": "user@test.com", "#password": "Pass1234!" }`
+
+可选参数：
+- `formSelector` — 表单 CSS 选择器（默认 `form`）
+- `submitSelector` — 提交按钮选择器（默认 `button[type='submit']`）
+- `expectedText` — 提交后预期文本（如 `"提交成功"`）
+- `expectedUrlContains` — 提交后预期 URL 子串（如 `"thank-you"`）
+
+调用后返回 7 步指令文本，与本 Skill 第 2 节工具链完全对齐：`browser_open → browser_snapshot → browser_form_validate → browser_form_fill(submit:false) → browser_click → browser_assert → evidence_pack`。

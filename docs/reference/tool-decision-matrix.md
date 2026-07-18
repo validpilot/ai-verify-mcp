@@ -1,7 +1,7 @@
 # 工具选择决策矩阵
 
 > "我想做 X，该用什么工具？"——按场景查找工具的决策树和矩阵。
-> 共 134 个工具，22 大类。本矩阵帮助你快速找到合适的工具。
+> 共 136 个工具，22 大类。本矩阵帮助你快速找到合适的工具。
 
 ## 快速决策树
 
@@ -190,6 +190,8 @@
 | 自检 | `mcp_self_test` | MCP 服务自检 |
 | 项目审计 | `project_audit` | 项目整体审计 |
 | 技能验证 | `skill_mcp_validate` | 验证 MCP 技能 |
+| Skill 映射查询 | `skill_tools_map` | 查询 Skill↔Tool 双向映射（skillName→工具链 / toolName→Skill 列表） |
+| Skill 一致性校验 | `skill_consistency_check` | 批量校验所有 Skill 引用工具与实际注册一致，不依赖外部文件 |
 | CSS 变量检查 | `css_var_check` | CSS 变量一致性检查 |
 
 ### 我要链式执行/业务闭环
@@ -203,7 +205,7 @@
 | 登录绕过 | `bypass_login` | 绕过登录（测试用） |
 | 状态差异 | `state_diff_assert` | 状态差异断言 |
 
-## 按工具类别速查（22 大类，134 个工具）
+## 按工具类别速查（22 大类，136 个工具）
 
 ### 1. Browser 导航 & 页面（10）
 `browser_open` `browser_navigate` `browser_snapshot` `browser_dom` `browser_links` `browser_find_element` `browser_find_page` `browser_wait` `browser_sessions` `browser_session_create`
@@ -265,8 +267,8 @@
 ### 20. Memory & ATL（3）
 `memory_recall` `atl_learn` `atl_fix`
 
-### 21. Exploration & System（7）
-`exploration_quick` `dual_chain_explore` `mcp_health_check` `mcp_self_test` `project_audit` `skill_mcp_validate` `css_var_check`
+### 21. Exploration & System（9）
+`exploration_quick` `dual_chain_explore` `mcp_health_check` `mcp_self_test` `project_audit` `skill_mcp_validate` `css_var_check` `skill_tools_map` `skill_consistency_check`
 
 ### 22. Chain & Business（6）
 `chain_list_templates` `chain_score_report` `chain_spec_run` `business_loop_validate` `bypass_login` `state_diff_assert`
@@ -290,6 +292,7 @@
 | 命令 | 用途 | 参数 |
 |---|---|---|
 | `/validate-login` | 登录流程验证 | url, username, password, successIndicator |
+| `/submit-form` | 表单提交验证 | url, fields, formSelector, submitSelector, expectedText, expectedUrlContains |
 | `/audit-performance` | 性能审计 | url, formFactor, throttling |
 | `/audit-security` | 安全审计 | url, injectionUrl |
 | `/visual-regression` | 视觉回归 | url, baselineName, selector, maxDiffPixelRatio |
@@ -298,7 +301,8 @@
 
 ## 相关文档
 
-- [工具总览](../tools/overview) — 134 工具按 22 类分组
+- [工具总览](../tools/overview) — 136 工具按 22 类分组
 - [Skill 指导总览](../skills/index) — 场景化工具链用法手册
+- [Skill↔Tool 映射表](./skill-tools-map) — 7 Skill × 工具链双向映射（v1.9.3+）
 - [场景手册](../scenarios/ecommerce-checkout) — 跨 Skill 业务场景 Playbook
 - [MCP 协议速查](./mcp-cheatsheet) — MCP 客户端配置

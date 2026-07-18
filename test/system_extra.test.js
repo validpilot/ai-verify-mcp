@@ -354,3 +354,68 @@ describe('fix_verify', () => {
     assert.ok(!toolNames.has('fix_verify'), '工具 fix_verify 不应在 OSS 版本中（属于 Pro 版付费能力）');
   });
 });
+
+// ============================================================
+// skill_tools_map（v1.9.3+ Skill↔Tool 双向映射查询）
+// ============================================================
+
+describe('skill_tools_map', () => {
+  test('schema 文件存在且 JSON 合法', () => {
+    const filePath = path.join(TOOLS_DIR, 'skill_tools_map.json');
+    assert.ok(fs.existsSync(filePath));
+    const schema = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    assert.equal(schema.name, 'skill_tools_map');
+    assert.ok(schema.description);
+    assert.ok(schema.inputSchema);
+  });
+
+  test('schema 包含 skillName/toolName/includeDetails 参数及 anyOf 二选一约束', () => {
+    const schema = JSON.parse(fs.readFileSync(path.join(TOOLS_DIR, 'skill_tools_map.json'), 'utf8'));
+    const props = schema.inputSchema.properties;
+    assert.ok(props.skillName);
+    assert.equal(props.skillName.type, 'string');
+    assert.ok(props.toolName);
+    assert.equal(props.toolName.type, 'string');
+    assert.ok(props.includeDetails);
+    assert.equal(props.includeDetails.type, 'boolean');
+    assert.ok(Array.isArray(schema.inputSchema.anyOf), 'anyOf 必须存在（skillName 或 toolName 二选一）');
+    assert.equal(schema.inputSchema.anyOf.length, 2);
+  });
+
+  test('toolNames 中包含 skill_tools_map（已注册到 MCP）', () => {
+    assert.ok(toolNames.has('skill_tools_map'), '工具 skill_tools_map 应在 toolNames 中');
+  });
+});
+
+// ============================================================
+// skill_consistency_check（v1.9.3+ Skill-MCP 一致性批量校验，不依赖外部文件）
+// ============================================================
+
+describe('skill_consistency_check', () => {
+  test('schema 文件存在且 JSON 合法', () => {
+    const filePath = path.join(TOOLS_DIR, 'skill_consistency_check.json');
+    assert.ok(fs.existsSync(filePath));
+    const schema = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    assert.equal(schema.name, 'skill_consistency_check');
+    assert.ok(schema.description);
+    assert.ok(schema.inputSchema);
+  });
+
+  test('schema 包含 mode 枚举（strict/warn）与可选 skillName 参数', () => {
+    const schema = JSON.parse(fs.readFileSync(path.join(TOOLS_DIR, 'skill_consistency_check.json'), 'utf8'));
+    const props = schema.inputSchema.properties;
+    assert.ok(props.mode);
+    assert.equal(props.mode.type, 'string');
+    assert.ok(props.mode.enum.includes('strict'), 'mode 应包含 strict');
+    assert.ok(props.mode.enum.includes('warn'), 'mode 应包含 warn');
+    assert.equal(props.mode.default, 'strict');
+    assert.ok(props.skillName);
+    assert.equal(props.skillName.type, 'string');
+    // skillName 是可选（不在 required 中）
+    assert.ok(!schema.inputSchema.required || !schema.inputSchema.required.includes('skillName'), 'skillName 应为可选');
+  });
+
+  test('toolNames 中包含 skill_consistency_check（已注册到 MCP）', () => {
+    assert.ok(toolNames.has('skill_consistency_check'), '工具 skill_consistency_check 应在 toolNames 中');
+  });
+});

@@ -374,6 +374,163 @@ describe('system.js handle — css_var_check', () => {
 });
 
 // ============================================================
+// system.js handle — skill_tools_map
+// ============================================================
+
+describe('system.js handle — skill_tools_map', () => {
+  test('skillName=validate-login 返回 7 个工具', async () => {
+    const deps = makeSystemDeps();
+    const result = await systemHandle('skill_tools_map', { skillName: 'validate-login' }, deps);
+    const parsed = JSON.parse(result);
+    assert.equal(parsed.skillName, 'validate-login');
+    assert.equal(parsed.promptName, 'validate-login');
+    assert.equal(parsed.docFile, 'docs/skills/login-validation.md');
+    assert.equal(parsed.total, 7);
+    assert.ok(Array.isArray(parsed.tools));
+    assert.ok(parsed.tools.includes('browser_open'));
+    assert.ok(parsed.tools.includes('browser_click'));
+    assert.ok(parsed.tools.includes('evidence_pack'));
+    assert.ok(!parsed.error);
+  });
+
+  test('skillName=validate-login & includeDetails=true 返回含 step/required 字段', async () => {
+    const deps = makeSystemDeps();
+    const result = await systemHandle('skill_tools_map', { skillName: 'validate-login', includeDetails: true }, deps);
+    const parsed = JSON.parse(result);
+    assert.equal(parsed.total, 7);
+    // includeDetails=true 时 tools 是对象数组
+    assert.equal(typeof parsed.tools[0], 'object');
+    assert.ok(parsed.tools[0].name);
+    assert.ok(typeof parsed.tools[0].step === 'number');
+    assert.ok(typeof parsed.tools[0].required === 'boolean');
+  });
+
+  test('skillName=submit-form 返回 7 个工具含 browser_form_validate', async () => {
+    const deps = makeSystemDeps();
+    const result = await systemHandle('skill_tools_map', { skillName: 'submit-form' }, deps);
+    const parsed = JSON.parse(result);
+    assert.equal(parsed.skillName, 'submit-form');
+    assert.equal(parsed.total, 7);
+    assert.ok(parsed.tools.includes('browser_form_validate'));
+    assert.ok(parsed.tools.includes('browser_form_fill'));
+  });
+
+  test('skillName=unknown 返回错误及可用 Skill 列表', async () => {
+    const deps = makeSystemDeps();
+    const result = await systemHandle('skill_tools_map', { skillName: 'unknown-skill' }, deps);
+    const parsed = JSON.parse(result);
+    assert.ok(parsed.error);
+    assert.ok(parsed.error.includes('Unknown skill'));
+    assert.ok(Array.isArray(parsed.availableSkills));
+    assert.ok(parsed.availableSkills.includes('validate-login'));
+    assert.ok(parsed.availableSkills.includes('submit-form'));
+  });
+
+  test('toolName=browser_open 反查返回 >=5 个 Skill', async () => {
+    const deps = makeSystemDeps();
+    const result = await systemHandle('skill_tools_map', { toolName: 'browser_open' }, deps);
+    const parsed = JSON.parse(result);
+    assert.equal(parsed.toolName, 'browser_open');
+    assert.ok(parsed.total >= 5, `expected >=5, got ${parsed.total}`);
+    assert.ok(parsed.skills.includes('validate-login'));
+    assert.ok(parsed.skills.includes('submit-form'));
+  });
+
+  test('toolName=evidence_pack 反查返回 6 个 Skill（不含 e2e-flow）', async () => {
+    const deps = makeSystemDeps();
+    const result = await systemHandle('skill_tools_map', { toolName: 'evidence_pack' }, deps);
+    const parsed = JSON.parse(result);
+    assert.equal(parsed.total, 6);
+    assert.ok(!parsed.skills.includes('e2e-flow'));
+  });
+
+  test('空入参返回错误及可用 Skill 列表', async () => {
+    const deps = makeSystemDeps();
+    const result = await systemHandle('skill_tools_map', {}, deps);
+    const parsed = JSON.parse(result);
+    assert.ok(parsed.error);
+    assert.ok(parsed.error.includes('至少需提供一项'));
+    assert.ok(Array.isArray(parsed.availableSkills));
+    assert.equal(parsed.availableSkills.length, 7);
+  });
+
+  test('null 入参也返回错误（不抛异常）', async () => {
+    const deps = makeSystemDeps();
+    const result = await systemHandle('skill_tools_map', null, deps);
+    const parsed = JSON.parse(result);
+    assert.ok(parsed.error);
+    assert.ok(Array.isArray(parsed.availableSkills));
+  });
+});
+
+// ============================================================
+// system.js handle — skill_consistency_check
+// ============================================================
+
+describe('system.js handle — skill_consistency_check', () => {
+  test('无参数校验全部 7 个 Skill 返回 passed:true', async () => {
+    const deps = makeSystemDeps();
+    const result = await systemHandle('skill_consistency_check', {}, deps);
+    const parsed = JSON.parse(result);
+    assert.equal(parsed.mode, 'strict');
+    assert.equal(parsed.summary.total, 7);
+    assert.equal(parsed.summary.passed, 7);
+    assert.equal(parsed.passed, true);
+    assert.ok(Array.isArray(parsed.skills));
+    assert.equal(parsed.skills.length, 7);
+    assert.ok(parsed.checkedAt, 'should have checkedAt timestamp');
+    assert.ok(parsed.availableToolsCount > 0, 'should have availableToolsCount');
+  });
+
+  test('mode=warn 即使有问题也返回 passed:true', async () => {
+    const deps = makeSystemDeps();
+    // 用一个不存在的 skillName 触发空结果（filterSkill 不匹配任何 Skill）
+    const result = await systemHandle('skill_consistency_check', { mode: 'warn', skillName: 'unknown-skill' }, deps);
+    const parsed = JSON.parse(result);
+    assert.equal(parsed.mode, 'warn');
+    // warn 模式下 passed 始终为 true
+    assert.equal(parsed.passed, true);
+  });
+
+  test('skillName=validate-login 仅校验单个 Skill', async () => {
+    const deps = makeSystemDeps();
+    const result = await systemHandle('skill_consistency_check', { skillName: 'validate-login' }, deps);
+    const parsed = JSON.parse(result);
+    assert.equal(parsed.summary.total, 1);
+    assert.equal(parsed.skills.length, 1);
+    assert.equal(parsed.skills[0].skillName, 'validate-login');
+    assert.equal(parsed.skills[0].passed, true);
+    assert.ok(Array.isArray(parsed.skills[0].missing));
+    assert.equal(parsed.skills[0].missing.length, 0);
+  });
+
+  test('返回结构含 mapDrift 字段（即使为空数组）', async () => {
+    const deps = makeSystemDeps();
+    const result = await systemHandle('skill_consistency_check', { skillName: 'submit-form' }, deps);
+    const parsed = JSON.parse(result);
+    assert.ok(Array.isArray(parsed.skills[0].mapDrift), 'should have mapDrift array');
+  });
+
+  test('返回结构含 nextSteps 数组', async () => {
+    const deps = makeSystemDeps();
+    const result = await systemHandle('skill_consistency_check', {}, deps);
+    const parsed = JSON.parse(result);
+    assert.ok(Array.isArray(parsed.nextSteps));
+    assert.ok(parsed.nextSteps.length > 0);
+    assert.ok(parsed.nextSteps.some(s => s.includes('skill_tools_map')));
+  });
+
+  test('null 入参不抛异常（按默认 mode=strict 全量校验）', async () => {
+    const deps = makeSystemDeps();
+    const result = await systemHandle('skill_consistency_check', null, deps);
+    const parsed = JSON.parse(result);
+    assert.equal(parsed.mode, 'strict');
+    assert.equal(parsed.summary.total, 7);
+    assert.equal(parsed.passed, true);
+  });
+});
+
+// ============================================================
 // system.js handle — 未知工具
 // ============================================================
 

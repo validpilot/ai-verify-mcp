@@ -39,7 +39,8 @@ export default defineConfig({
           items: [
             { text: '验证流程', link: '/guide/verification-flow' },
             { text: '视觉对比', link: '/guide/visual-compare' },
-            { text: '错误修复', link: '/guide/error-fix' }
+            { text: '错误修复', link: '/guide/error-fix' },
+            { text: 'Skill 使用指南', link: '/guide/skill-usage' }
           ]
         }
       ],
@@ -88,6 +89,7 @@ export default defineConfig({
           items: [
             { text: 'MCP 协议速查', link: '/reference/mcp-cheatsheet' },
             { text: '工具选择决策矩阵', link: '/reference/tool-decision-matrix' },
+            { text: 'Skill↔Tool 映射表', link: '/reference/skill-tools-map' },
             { text: '配置项说明', link: '/reference/config' },
             { text: 'CHANGELOG', link: '/reference/changelog' }
           ]

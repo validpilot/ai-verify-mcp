@@ -1,6 +1,6 @@
 # 工具总览
 
-AI-Verify MCP 提供 **134 个工具**（v1.8.0），按功能分为 22 大类。
+AI-Verify MCP 提供 **136 个工具**（v1.9.3），按功能分为 22 大类。
 
 ## 工具分类
 
@@ -26,9 +26,9 @@ AI-Verify MCP 提供 **134 个工具**（v1.8.0），按功能分为 22 大类�
 | Contract & Correlate | 5 | 契约基线、契约守护、三重检查、Trace 关联、关联检查 |
 | Error Analysis | 3 | 修复建议、错误摘要、调试调查 |
 | Memory & ATL | 3 | 记忆召回、ATL 学习、ATL 修复 |
-| Exploration & System | 7 | 快速探索、双链探索、健康检查、自检、项目审计、技能验证、CSS 变量 |
+| Exploration & System | 9 | 快速探索、双链探索、健康检查、自检、项目审计、技能验证、CSS 变量、Skill 映射查询、Skill 一致性校验 |
 | Chain & Business | 6 | 模板列表、评分报告、规范运行、业务闭环、登录绕过、状态差异 |
-| **合计** | **134** | |
+| **合计** | **136** | |
 
 ## 快速查找
 
@@ -94,7 +94,7 @@ AI-Verify MCP 提供 **134 个工具**（v1.8.0），按功能分为 22 大类�
 
 | 版本 | 工具数 | 主要变更 |
 |------|--------|---------|
-| v1.9.3 | 134 | 新增 MCP Prompts 原语（6 个工作流模板）+ 8 篇 Skill 文档 + 5 篇场景 Playbook + 42 个工具描述双语优化 |
+| v1.9.3 | 136 | 新增 MCP Prompts 原语（7 个工作流模板，含 submit-form）+ 8 篇 Skill 文档 + 5 篇场景 Playbook + 42 个工具描述双语优化 + 2 个 Skill-MCP 协调工具（skill_tools_map、skill_consistency_check） |
 | v1.8.0 | 134 | 新增 6 个安全扫描工具 + 3 个 bug 修复 |
 | v1.7.3 | 128 | 修复 8 个深度测试发现的 bug |
 | v1.7.0 | 128 | 验证码检测增强、API 推导 |

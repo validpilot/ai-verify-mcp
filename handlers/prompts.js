@@ -357,6 +357,70 @@ const PROMPTS = [
         }
       }];
     }
+  },
+
+  {
+    name: 'submit-form',
+    description: 'Validate any web form end-to-end: open page, detect validation rules, fill fields, submit, assert feedback, collect evidence. Covers registration, contact, search, and settings forms (not login-specific).',
+    arguments: [
+      { name: 'url', description: 'Target form page URL (e.g. https://example.com/register)', required: true },
+      { name: 'fields', description: 'Field-value mapping object. Keys can be CSS selectors (e.g. "#email") or field names (e.g. "email"). Example: { "#email": "user@test.com", "#password": "Pass1234!" }', required: true },
+      { name: 'formSelector', description: 'Form CSS selector (default: "form"). Specify when page has multiple forms.', required: false },
+      { name: 'submitSelector', description: 'Submit button selector (default: "button[type=submit]"). Specify when the submit button uses a different selector.', required: false },
+      { name: 'expectedText', description: 'Expected success text on the post-submit page (e.g. "Submitted successfully").', required: false },
+      { name: 'expectedUrlContains', description: 'Expected URL substring after submission (e.g. "thank-you" or "success").', required: false }
+    ],
+    buildMessages: (args) => {
+      const { url, fields, formSelector = 'form', submitSelector = "button[type='submit']", expectedText = '', expectedUrlContains = '' } = args;
+      const fieldsJson = JSON.stringify(fields);
+      return [{
+        role: 'user',
+        content: {
+          type: 'text',
+          text: [
+            `Validate the form submission flow for ${url} with the following 7-step tool chain. Execute each step in order and verify the expected outcome before proceeding to the next.`,
+            ``,
+            `**Form configuration**:`,
+            `- URL: ${url}`,
+            `- Form selector: ${formSelector}`,
+            `- Submit selector: ${submitSelector}`,
+            `- Fields: ${fieldsJson}`,
+            `- Expected text: ${expectedText || '(not specified)'}`,
+            `- Expected URL contains: ${expectedUrlContains || '(not specified)'}`,
+            ``,
+            `**Step 1: Open the form page**`,
+            `Call: \`browser_open({ url: "${url}" })\``,
+            `Expected: page loads without errors, form is visible`,
+            ``,
+            `**Step 2: Capture page snapshot**`,
+            `Call: \`browser_snapshot()\``,
+            `Expected: form elements (${formSelector} and its inputs) are present`,
+            ``,
+            `**Step 3: Detect form validation rules**`,
+            `Call: \`browser_form_validate({ url: "${url}", formSelector: "${formSelector}", checkRequired: true, checkPattern: true, checkLength: true })\``,
+            `Expected: list of fields with required/pattern/length rules, any missing-rule issues flagged`,
+            ``,
+            `**Step 4: Fill the form fields (do NOT auto-submit)**`,
+            `Call: \`browser_form_fill({ url: "${url}", fields: ${fieldsJson}, submit: false })\``,
+            `Expected: fieldsFilled matches the number of keys in fields, no errors`,
+            ``,
+            `**Step 5: Click the submit button**`,
+            `Call: \`browser_click({ selector: "${submitSelector}" })\``,
+            `Expected: click succeeds, page navigates or shows feedback`,
+            ``,
+            `**Step 6: Assert submission feedback**`,
+            `Call: \`browser_assert({ ${expectedUrlContains ? `urlContains: "${expectedUrlContains}", ` : ''}${expectedText ? `textContains: "${expectedText}", ` : ''}noErrors: true })\``,
+            `Expected: passed: true, all assertions pass (URL/text/noErrors)`,
+            ``,
+            `**Step 7: Collect evidence**`,
+            `Call: \`evidence_pack({ name: "form-submission" })\``,
+            `Expected: artifacts include form-before/after screenshots, trace, validation report`,
+            ``,
+            `If any step fails, use \`browser_errors\` and \`browser_network_detail\` to diagnose. Test both paths: ① valid data should submit successfully ② invalid data (empty required fields, wrong format) should be rejected with proper error messages.`
+          ].join('\n')
+        }
+      }];
+    }
   }
 ];
 
