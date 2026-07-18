@@ -1,12 +1,12 @@
 {
   "name": "browser_chain",
-  "description": "链式执行多个浏览器操作，每步操作后自动检查控制台错误和网络错误。发现错误可立即终止并返回失败步骤。支持强制执行模式，开启时强制进行错误检查且不可关闭。",
+  "description": "链式执行多个浏览器操作，每步操作后自动检查控制台错误和网络错误。发现错误可立即终止并返回失败步骤。支持强制执行模式，开启时强制进行错误检查且不可关闭。step.type 与 step.action 互为别名，二者至少传一个。",
   "inputSchema": {
     "type": "object",
     "properties": {
       "actions": {
         "type": "array",
-        "description": "操作步骤数组，每个步骤包含 type 和相关参数",
+        "description": "操作步骤数组，每个步骤包含 type（或 action 别名）和相关参数",
         "items": {
           "type": "object",
           "properties": {
@@ -22,7 +22,21 @@
                 "wait",
                 "evaluate"
               ],
-              "description": "操作类型"
+              "description": "操作类型（与 action 互为别名，优先使用 type）"
+            },
+            "action": {
+              "type": "string",
+              "enum": [
+                "click",
+                "type",
+                "hover",
+                "scroll",
+                "pressKey",
+                "select",
+                "wait",
+                "evaluate"
+              ],
+              "description": "操作类型（type 的别名，与 type 等效）"
             },
             "selector": {
               "type": "string",
@@ -65,8 +79,9 @@
               "description": "JS 表达式（evaluate 操作时使用）"
             }
           },
-          "required": [
-            "type"
+          "anyOf": [
+            { "required": ["type"] },
+            { "required": ["action"] }
           ]
         }
       },

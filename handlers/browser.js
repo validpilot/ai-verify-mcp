@@ -706,8 +706,10 @@ const { target } = await ensurePage();
     }
     const results = [];
     for (const step of steps) {
+      // step.type 与 step.action 互为别名，优先 type，回退 action
+      const stepType = step.type || step.action;
       try {
-        switch (step.type) {
+        switch (stepType) {
           case 'click':
             await target.click(step.selector, { timeout: 10000 });
             results.push({ type: 'click', selector: step.selector, success: true });
@@ -749,10 +751,10 @@ const { target } = await ensurePage();
             results.push({ type: 'select', selector: step.selector, success: true });
             break;
           default:
-            results.push({ type: step.type, success: false, error: `未知操作类型: ${step.type}` });
+            results.push({ type: stepType, success: false, error: `未知操作类型: ${stepType}` });
         }
       } catch (err) {
-        results.push({ type: step.type, selector: step.selector, success: false, error: err.message });
+        results.push({ type: stepType, selector: step.selector, success: false, error: err.message });
       }
     }
     const hasFailed = results.some(r => !r.success);
@@ -1295,9 +1297,11 @@ const { target } = await ensurePage();
 
     for (let i = 0; i < actions.length; i++) {
       const action = actions[i];
+      // step.type 与 step.action 互为别名，优先 type，回退 action
+      const stepType = action.type || action.action;
       const result = {
         index: i,
-        type: action.type,
+        type: stepType,
         success: false,
         consoleErrors: [],
         networkErrors: []
@@ -1306,7 +1310,7 @@ const { target } = await ensurePage();
       const stepCheckpoint = new Date().toISOString();
 
       try {
-        switch (action.type) {
+        switch (stepType) {
           case 'click':
             await target.click(action.selector, { timeout: 10000 });
             result.selector = action.selector;
@@ -1370,7 +1374,7 @@ const { target } = await ensurePage();
             result.success = true;
             break;
           default:
-            result.error = `未知操作类型: ${action.type}`;
+            result.error = `未知操作类型: ${stepType}`;
             result.success = false;
         }
 
@@ -1595,10 +1599,12 @@ const { target } = await ensurePage();
 
       for (let i = 0; i < steps.length; i++) {
         const step = steps[i];
-        const stepResult = { action: step.action, index: i };
+        // step.action 与 step.type 互为别名，优先 action，回退 type
+        const stepAction = step.action || step.type;
+        const stepResult = { action: stepAction, index: i };
 
         try {
-          switch (step.action) {
+          switch (stepAction) {
             case 'navigate': {
               if (!step.url) stepResult.error = 'navigate 需要 url';
               else await page.goto(step.url, { waitUntil: 'domcontentloaded', timeout });
@@ -1626,7 +1632,7 @@ const { target } = await ensurePage();
               break;
             }
             default:
-              stepResult.error = `不支持的操作: ${step.action}`;
+              stepResult.error = `不支持的操作: ${stepAction}`;
           }
         } catch (e) {
           stepResult.error = e.message;

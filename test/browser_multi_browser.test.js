@@ -109,7 +109,11 @@ describe('browser_matrix_test', () => {
     assert.ok(stepItems.properties.action.enum.includes('type'), '应支持 type');
     assert.ok(stepItems.properties.action.enum.includes('screenshot'), '应支持 screenshot');
     assert.ok(stepItems.properties.action.enum.includes('evaluate'), '应支持 evaluate');
-    assert.ok(Array.isArray(stepItems.required) && stepItems.required.includes('action'), 'action 应为必填');
+    // v1.9.3: action 与 type 互为别名，anyOf 让二者至少传一个
+    assert.ok(stepItems.properties.type, 'steps 每项应有 type（action 的别名）');
+    assert.ok(Array.isArray(stepItems.anyOf), 'steps items 应有 anyOf 声明（action/type 至少一个）');
+    const anyOfActions = stepItems.anyOf.map(a => a.required && a.required[0]).filter(Boolean);
+    assert.ok(anyOfActions.includes('action') && anyOfActions.includes('type'), 'anyOf 应同时接受 action 或 type');
   });
 
   test('handler 中存在 browser_matrix_test 处理逻辑', () => {

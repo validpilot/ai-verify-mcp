@@ -1,18 +1,30 @@
 {
   "name": "validation_flow",
-  "description": "多步流程验证工具，按步骤依次执行 navigate/click/type/wait/eval/screenshot 等操作，支持失败可配置继续执行。",
+  "description": "多步流程验证工具，按步骤依次执行 navigate/click/type/wait/eval/screenshot 等操作，支持失败可配置继续执行。step.action 与 step.type 互为别名，二者至少传一个；navigate 也支持别名 goto。",
   "inputSchema": {
     "type": "object",
     "properties": {
       "steps": {
         "type": "array",
-        "description": "验证步骤列表",
+        "description": "验证步骤列表，每个步骤的 action/type 字段互为别名，至少传一个",
         "items": {
           "type": "object",
           "properties": {
             "action": {
               "type": "string",
-              "description": "步骤操作类型：navigate/click/type/wait/eval/screenshot",
+              "description": "步骤操作类型：navigate/click/type/wait/eval/screenshot（与 type 互为别名，优先使用 action）",
+              "enum": [
+                "navigate",
+                "click",
+                "type",
+                "wait",
+                "eval",
+                "screenshot"
+              ]
+            },
+            "type": {
+              "type": "string",
+              "description": "步骤操作类型（action 的别名，与 action 等效）",
               "enum": [
                 "navigate",
                 "click",
@@ -43,8 +55,9 @@
               "description": "步骤名称，用于标识和错误报告"
             }
           },
-          "required": [
-            "action"
+          "anyOf": [
+            { "required": ["action"] },
+            { "required": ["type"] }
           ]
         }
       },

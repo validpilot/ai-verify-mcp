@@ -1,6 +1,6 @@
 {
   "name": "browser_matrix_test",
-  "description": "跨浏览器矩阵测试。在指定的多个浏览器引擎上依次执行相同的操作序列，返回各浏览器的执行结果对比。支持 chromium / firefox / webkit 任意组合。自动管理浏览器的创建和关闭，每个浏览器独立隔离。符合产品定位 v2.0 能力补齐方案 §P0-6。",
+  "description": "跨浏览器矩阵测试。在指定的多个浏览器引擎上依次执行相同的操作序列，返回各浏览器的执行结果对比。支持 chromium / firefox / webkit 任意组合。自动管理浏览器的创建和关闭，每个浏览器独立隔离。符合产品定位 v2.0 能力补齐方案 §P0-6。step.action 与 step.type 互为别名，二者至少传一个。",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -22,7 +22,7 @@
       },
       "steps": {
         "type": "array",
-        "description": "在每个浏览器上依次执行的操作步骤",
+        "description": "在每个浏览器上依次执行的操作步骤，每个步骤的 action/type 字段互为别名，至少传一个",
         "items": {
           "type": "object",
           "properties": {
@@ -35,7 +35,18 @@
                 "screenshot",
                 "evaluate"
               ],
-              "description": "操作类型: navigate / click / type / screenshot / evaluate"
+              "description": "操作类型: navigate / click / type / screenshot / evaluate（与 type 互为别名，优先使用 action）"
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "navigate",
+                "click",
+                "type",
+                "screenshot",
+                "evaluate"
+              ],
+              "description": "操作类型（action 的别名，与 action 等效）"
             },
             "target": {
               "type": "string",
@@ -54,8 +65,9 @@
               "description": "截图名称（screenshot 需要）"
             }
           },
-          "required": [
-            "action"
+          "anyOf": [
+            { "required": ["action"] },
+            { "required": ["type"] }
           ]
         }
       },

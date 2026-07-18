@@ -1,12 +1,12 @@
 {
   "name": "browser_batch",
-  "description": "批量执行多个浏览器操作，每个步骤包含type(操作类型: click/type/hover/scroll/screenshot等)、selector(选择器)、text(输入文本)等参数。支持最多20个操作。",
+  "description": "批量执行多个浏览器操作，每个步骤包含type(操作类型: click/type/hover/scroll/screenshot等)、selector(选择器)、text(输入文本)等参数。支持最多20个操作。step.type 与 step.action 互为别名，二者至少传一个。",
   "inputSchema": {
     "type": "object",
     "properties": {
       "steps": {
         "type": "array",
-        "description": "操作步骤数组，每个步骤包含type、selector、text等参数",
+        "description": "操作步骤数组，每个步骤包含 type（或 action 别名）、selector、text 等参数",
         "items": {
           "type": "object",
           "properties": {
@@ -22,7 +22,21 @@
                 "press_key",
                 "select"
               ],
-              "description": "操作类型"
+              "description": "操作类型（与 action 互为别名，优先使用 type）"
+            },
+            "action": {
+              "type": "string",
+              "enum": [
+                "click",
+                "type",
+                "hover",
+                "scroll",
+                "screenshot",
+                "wait",
+                "press_key",
+                "select"
+              ],
+              "description": "操作类型（type 的别名，与 type 等效）"
             },
             "selector": {
               "type": "string",
@@ -57,8 +71,9 @@
               "description": "截图名称（screenshot操作时使用）"
             }
           },
-          "required": [
-            "type"
+          "anyOf": [
+            { "required": ["type"] },
+            { "required": ["action"] }
           ]
         }
       },

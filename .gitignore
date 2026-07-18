@@ -18,9 +18,7 @@ reports/
 screenshots/
 traces/
 har/
-visual/actual/
-visual/diff/
-visual/baselines/
+visual/
 artifacts/
 coverage/
 test-reports/*
@@ -64,6 +62,8 @@ exploration-reports/
 
 # Temp directories
 temp/
+.tmp-*
+.tmp-tool-list.txt
 
 # npm packages
 *.tgz

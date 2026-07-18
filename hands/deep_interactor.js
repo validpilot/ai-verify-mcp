@@ -1100,9 +1100,12 @@ async function autoFillInputs(page, overrides = {}) {
     }
     for (let i = 0; i < inputs.length; i++) {
       const el = inputs[i];
+      // 将 id/name 声明移到 try 块外，避免 catch 块引用未定义变量导致 ReferenceError
+      let id = null;
+      let name = null;
       try {
-        const id = await el.getAttribute('id');
-        const name = await el.getAttribute('name');
+        id = await el.getAttribute('id');
+        name = await el.getAttribute('name');
         const placeholder = await el.getAttribute('placeholder') || '';
         const type = (await el.getAttribute('type') || 'text').toLowerCase();
         const tag = await el.evaluate(e => e.tagName.toLowerCase()).catch(() => 'input');

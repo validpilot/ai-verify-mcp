@@ -1,18 +1,29 @@
 {
   "name": "validation_chain",
-  "description": "完整功能链路闭环验证工具，按步骤依次执行 navigate/click/type/wait/validate 操作，每步自动检查控制台错误和网络错误，发现错误立即终止并返回详细的失败信息，输出完整的链路验证报告。支持强制执行5步链路验证，缺少关键步骤时拒绝执行。",
+  "description": "完整功能链路闭环验证工具，按步骤依次执行 navigate/click/type/wait/validate 操作，每步自动检查控制台错误和网络错误，发现错误立即终止并返回详细的失败信息，输出完整的链路验证报告。支持强制执行5步链路验证，缺少关键步骤时拒绝执行。step.type 与 step.action 互为别名，二者至少传一个。",
   "inputSchema": {
     "type": "object",
     "properties": {
       "steps": {
         "type": "array",
-        "description": "验证步骤列表，每步包含 type 和相关参数",
+        "description": "验证步骤列表，每步包含 type（或 action 别名）和相关参数",
         "items": {
           "type": "object",
           "properties": {
             "type": {
               "type": "string",
-              "description": "步骤操作类型：navigate/click/type/wait/validate",
+              "description": "步骤操作类型：navigate/click/type/wait/validate（与 action 互为别名，优先使用 type）",
+              "enum": [
+                "navigate",
+                "click",
+                "type",
+                "wait",
+                "validate"
+              ]
+            },
+            "action": {
+              "type": "string",
+              "description": "步骤操作类型（type 的别名，与 type 等效）",
               "enum": [
                 "navigate",
                 "click",
@@ -50,8 +61,9 @@
               "description": "单步超时时间（毫秒）"
             }
           },
-          "required": [
-            "type"
+          "anyOf": [
+            { "required": ["type"] },
+            { "required": ["action"] }
           ]
         }
       },

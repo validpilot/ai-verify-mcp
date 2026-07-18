@@ -77,6 +77,27 @@ All notable changes to this project will be documented in this file.
   - `test/browser_multi_browser.test.js` 多浏览器指示符断言兼容 "chromium, firefox, and webkit engines"（v1.9.3 英文摘要写法），不再仅认 "P0-6" / "多浏览器"
   - `tools/validation_start.json` description 由 "启动端到端验证流程"（9 字符）扩展为 "Start an end-to-end validation flow. 启动端到端验证流程，按给定场景列表对目标 URL 执行多步验证。"，对齐 v1.9.3 双语格式并满足 ≥10 字符最低要求
 
+- **`browser_form_fill` "name is not defined" ReferenceError（critical bug，发布前 134 工具全面测试发现）**：
+  - 现象：当 `browser_form_fill` 在 CSS 选择器模式下找不到可交互元素，回退到 `autoFillInputs` 函数时，抛出 `"name is not defined"` 二次 ReferenceError，掩盖原始错误
+  - 根因：`hands/deep_interactor.js` 的 `autoFillInputs` 函数（line 1088）中 `const id` 和 `const name` 声明在 `try` 块内（line 1104-1105）。当 `el.getAttribute('id')` 抛出异常（如元素 detached），`catch` 块（line 1154）引用未定义的 `name`/`id` 变量，导致二次 ReferenceError 传播到外层 catch，错误信息变成 `"name is not defined"`
+  - 修复：将 `let id = null; let name = null;` 声明移到 `try` 块外（line 1101-1112），catch 块可安全引用（即使 try 失败变量也为 null 而非 undefined）
+  - 验证：MCP 工具调用 `browser_form_fill` 测试通过，不再抛出 ReferenceError
+
+- **chain/flow 工具 step schema 不一致（critical issue，发布前 134 工具全面测试发现）**：
+  - 现象：5 个 chain/flow 工具的 step 字段命名不一致 —— `validation_flow` 只接受 `action`，`validation_chain`/`browser_chain`/`browser_batch` 只接受 `type`，`browser_matrix_test` 只接受 `action`，跨工具使用易混淆
+  - 根因：实现代码部分工具已支持双字段（如 `validation_flow` 的 `step.action || step.type`），但 schema 文档只声明一个字段；另一些工具（`browser_chain`/`browser_batch`/`browser_matrix_test`）实现和 schema 都只支持单字段
+  - 修复（schema）：5 个工具 schema 都添加 `anyOf: [{required: action}, {required: type}]` 让两者互为别名，description 文档化别名关系
+    - `tools/validation_flow.json`：补 `type` 别名
+    - `tools/validation_chain.json`：补 `action` 别名
+    - `tools/browser_chain.json`：补 `action` 别名
+    - `tools/browser_batch.json`：补 `action` 别名
+    - `tools/browser_matrix_test.json`：补 `type` 别名
+  - 修复（impl）：3 个工具的实现代码补充别名字段读取
+    - `handlers/browser.js` `browser_chain`：`stepType = action.type || action.action`
+    - `handlers/browser.js` `browser_batch`：`stepType = step.type || step.action`
+    - `handlers/browser.js` `browser_matrix_test`：`stepAction = step.action || step.type`
+  - 验证：MCP 工具调用 5 个工具均支持原始字段（向后兼容），validation_flow/chain 别名字段已生效，browser_chain/batch/matrix_test 别名字段需用户重启 MCP 服务加载新 impl 代码
+
 ### Stats
 
 - 新增模块：`handlers/prompts.js`（约 280 行，6 个 prompt 定义）
