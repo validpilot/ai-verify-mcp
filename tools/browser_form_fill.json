@@ -1,6 +1,6 @@
 {
   "name": "browser_form_fill",
-  "description": "批量填充表单字段并可选提交检测。支持两种字段指定方式：CSS选择器模式（key以#./[等开头）和字段名模式（key为input的name属性）。自动识别表单input/select/textarea，根据类型生成mock数据，支持手动覆盖字段值，提交后检测成功/失败状态。",
+  "description": "Batch fill form fields with optional auto-submit and result detection. Supports both CSS-selector mode (keys starting with #/./[) and field-name mode (input name attribute); auto-detects input/select/textarea and generates mock data by type.\n\n中文详情：\n- 用途：批量填充表单字段并可选提交检测，支持 CSS 选择器模式和字段名模式两种字段指定方式，自动识别 input/select/textarea\n- 何时使用：登录/注册表单批量填写时；多字段表单快速测试时；表单提交流程端到端验证时；需要 mock 数据填充表单时\n- 输出：{ ok: boolean, url: string, filledFields: array, submitResult: object, timestamp: string } — submitResult 含 { submitted: boolean, success: boolean, urlAfter: string }\n- 参数：\n  - url (string, 必填)：目标页面 URL\n  - selector (string, 可选)：表单选择器，默认 'form'\n  - fields (object, 可选)：手动指定的字段值，支持 CSS 选择器模式（key 以 #/./[//>/:/* 开头）和字段名模式（key 为 input 的 name 属性）\n  - submit (boolean, 可选)：填充后是否自动提交，默认 true\n  - submitSelector (string, 可选)：提交按钮选择器，默认自动查找 submit 按钮\n- 错误：URL 不可达抛出 'Navigation failed'；表单未找到抛出 'Form not found'；字段选择器无匹配会在 filledFields 中标记 missing\n- 示例：{\"url\":\"https://example.com/login\",\"fields\":{\"#email\":\"user@test.com\",\"#password\":\"pass123\"},\"submit\":true}",
   "inputSchema": {
     "type": "object",
     "properties": {

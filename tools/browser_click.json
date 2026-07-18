@@ -1,6 +1,6 @@
 {
   "name": "browser_click",
-  "description": "在真实浏览器中点击指定 CSS 选择器元素。当选择器匹配多个元素时，返回多元素提示而非超时，可通过 index 参数指定点击第几个元素。",
+  "description": "Click a DOM element matched by CSS selector in a real browser. Returns multi-element hint (not timeout) when selector matches multiple elements; use index to pick which one.\n\n中文详情：\n- 用途：在真实浏览器中模拟鼠标点击指定 CSS 选择器元素（按钮、链接、tab、复选框等）\n- 何时使用：触发导航或表单提交时；激活 UI 控件（展开菜单、切换 tab）时；验证按钮可点击性时；在 browser_snapshot 获取元素 ref 后进行交互时\n- 输出：{ ok: boolean, clickedSelector: string, beforeHash: string, afterHash: string, index: number } — afterHash 与 beforeHash 不同表示触发了页面变更\n- 参数：\n  - selector (string, 必填)：CSS 选择器，支持 Playwright 语法如 'button:has-text(\"Log In\")' 或 '#submit-btn'\n  - index (number, 可选)：当选择器匹配多个元素时，指定点击第几个（从 0 开始），默认点击第一个\n- 错误：选择器无匹配抛出 'element not found'；元素被遮挡抛出 'element not clickable'\n- 示例：{\"selector\":\"#submit-btn\",\"index\":0}",
   "inputSchema": {
     "type": "object",
     "properties": {

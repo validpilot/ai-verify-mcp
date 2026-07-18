@@ -1,6 +1,6 @@
 {
   "name": "api_probe",
-  "description": "API 端点探测工具。向目标 URL 发送多种 HTTP 方法（GET/POST/PUT/DELETE/PATCH/OPTIONS），分析响应状态、内容类型、CORS 配置。支持自定义请求头和请求体，适合 API 安全测试和端点发现。",
+  "description": "API endpoint prober: sends multiple HTTP methods (GET/POST/PUT/DELETE/PATCH/OPTIONS) to the target URL, analyzes response status, content-type, and CORS configuration. Supports custom headers and body, suitable for API security testing and endpoint discovery.\n\n中文详情：\n- 用途：API 端点探测工具，向目标 URL 发送多种 HTTP 方法，分析响应状态、内容类型和 CORS 配置，支持自定义请求头和请求体\n- 何时使用：API 安全测试时探测允许的方法；CORS 配置验证时；端点发现/枚举时；OPTIONS 预检请求行为验证时\n- 输出：{ ok: boolean, url: string, results: array, corsAnalysis: object } — results 每项含 { method, status, contentType, contentLength, allowed }; corsAnalysis 含 { enabled, allowedOrigins, allowCredentials }\n- 参数：\n  - url (string, 必填)：目标 API URL\n  - methods (array, 可选)：要测试的 HTTP 方法列表，默认 [\"GET\",\"POST\",\"PUT\",\"DELETE\",\"PATCH\",\"OPTIONS\"]\n  - headers (object, 可选)：自定义请求头，如 {\"Authorization\":\"Bearer token\",\"Content-Type\":\"application/json\"}\n  - body (string, 可选)：请求体（POST/PUT/PATCH 方法使用）\n  - checkCors (boolean, 可选)：是否分析 CORS 配置，默认 true\n- 错误：URL 不可达抛出 'Request failed'；methods 为空数组使用默认方法列表\n- 示例：{\"url\":\"https://api.example.com/users\",\"methods\":[\"GET\",\"POST\",\"OPTIONS\"],\"headers\":{\"Authorization\":\"Bearer token\"},\"checkCors\":true}",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -10,9 +10,18 @@
       },
       "methods": {
         "type": "array",
-        "items": { "type": "string" },
+        "items": {
+          "type": "string"
+        },
         "description": "要测试的 HTTP 方法列表，默认 ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS']",
-        "default": ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]
+        "default": [
+          "GET",
+          "POST",
+          "PUT",
+          "DELETE",
+          "PATCH",
+          "OPTIONS"
+        ]
       },
       "headers": {
         "type": "object",
@@ -28,6 +37,8 @@
         "default": true
       }
     },
-    "required": ["url"]
+    "required": [
+      "url"
+    ]
   }
 }

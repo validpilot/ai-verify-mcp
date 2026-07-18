@@ -1,6 +1,6 @@
 {
   "name": "browser_dom",
-  "description": "查询当前页面中指定 DOM 元素的可见性、文本、属性、样式和位置",
+  "description": "Query detailed DOM state of a single element matched by CSS selector: visibility, text, attributes, computed style, and bounding box position.\n\n中文详情：\n- 用途：查询指定 CSS 选择器元素的完整 DOM 状态，包括可见性、文本、属性、计算样式和位置坐标\n- 何时使用：点击/输入前确认元素存在且可见时；调试元素被遮挡问题时；验证元素属性（disabled/readonly/checked）时；获取元素位置坐标用于截图时\n- 输出：{ ok: boolean, selector: string, exists: boolean, visible: boolean, text: string, attributes: object, computedStyle: object, boundingBox: { x, y, width, height } }\n- 参数：\n  - selector (string, 必填)：要查询的 CSS 选择器\n- 错误：选择器无匹配返回 exists=false 但不抛出；选择器语法错误抛出 'Invalid selector'\n- 示例：{\"selector\":\"#submit-btn\"}",
   "inputSchema": {
     "type": "object",
     "properties": {

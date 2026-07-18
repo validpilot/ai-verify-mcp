@@ -109,11 +109,14 @@ describe('tools schema 目录结构', () => {
   });
 
   test('tool schema description 长度合理', () => {
+    // v1.9.3：description 双语优化（英文摘要 + 中文详情 + AWS 五要素 + 示例）后，
+    // 单条 description 自然长度上升至 500~1500 字符区间，阈值从 500 放宽至 1500
+    // 并覆盖全部工具文件（此前仅抽样前 10 个）
     const files = fs.readdirSync(TOOLS_DIR).filter(f => f.endsWith('.json'));
-    for (const file of files.slice(0, 10)) {
+    for (const file of files) {
       const schema = JSON.parse(fs.readFileSync(path.join(TOOLS_DIR, file), 'utf8'));
       assert.ok(schema.description.length >= 10, `${file} description 应至少10字符`);
-      assert.ok(schema.description.length <= 500, `${file} description 应不超过500字符`);
+      assert.ok(schema.description.length <= 1500, `${file} description 应不超过1500字符，实际 ${schema.description.length}`);
     }
   });
 

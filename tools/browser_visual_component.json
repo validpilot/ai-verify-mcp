@@ -1,6 +1,6 @@
 {
   "name": "browser_visual_component",
-  "description": "组件级视觉对比：一次调用完成截取指定 CSS 选择器的组件截图 → 与同名基线对比 → 返回 diffPixels、diffRatio、passed。如果基线不存在则自动创建基线，返回 baseline_created 标记。",
+  "description": "Component-level visual diff in one call: capture a screenshot of the CSS-selected component, compare against same-named baseline, return diffPixels/diffRatio/passed. Auto-creates the baseline if missing and returns baseline_created flag.\n\n中文详情：\n- 用途：组件级视觉对比，一次调用完成组件截图 → 与同名基线对比 → 返回差异指标；基线不存在时自动创建并返回 baseline_created 标记\n- 何时使用：组件库视觉回归时；卡片/弹窗/表格等独立组件 UI 验证时；多主题（light/dark）组件对比时；增量 UI 改动只对比受影响组件时\n- 输出：{ ok: boolean, name: string, selector: string, baselinePath: string, actualPath: string, diffPath: string, diffPixels: number, diffRatio: number, passed: boolean, baseline_created: boolean }\n- 参数：\n  - name (string, 必填)：组件基线名称，不含扩展名\n  - selector (string, 必填)：CSS 选择器，精确选择要对比的组件\n  - maxDiffPixelRatio (number, 可选)：允许的最大差异像素比例，默认 0.01\n  - sessionName (string, 可选)：浏览器会话名称，默认当前活跃会话\n- 错误：selector 无匹配抛出 'element not found'；选择器匹配多个元素抛出 'Selector matches multiple elements, refine it'\n- 示例：{\"name\":\"product-card\",\"selector\":\".product-card\",\"maxDiffPixelRatio\":0.005}",
   "inputSchema": {
     "type": "object",
     "properties": {

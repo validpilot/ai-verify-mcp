@@ -1,6 +1,6 @@
 {
   "name": "browser_type",
-  "description": "在真实浏览器中向指定 CSS 选择器输入文本",
+  "description": "Type text into a DOM element matched by CSS selector in a real browser, simulating real keyboard input.\n\n中文详情：\n- 用途：在真实浏览器中向指定 CSS 选择器元素输入文本（输入框、文本域、搜索框等）\n- 何时使用：填写登录表单用户名/密码时；搜索框输入查询词时；textarea 输入长文本时；测试输入框字符限制时\n- 输出：{ ok: boolean, typedSelector: string, textLength: number, timestamp: string }\n- 参数：\n  - selector (string, 必填)：CSS 选择器，支持 Playwright 语法\n  - text (string, 必填)：要输入的文本内容\n- 错误：选择器无匹配抛出 'element not found'；元素不可编辑抛出 'element not editable'\n- 示例：{\"selector\":\"#username\",\"text\":\"testuser@example.com\"}",
   "inputSchema": {
     "type": "object",
     "properties": {

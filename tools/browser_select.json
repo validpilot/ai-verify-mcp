@@ -1,6 +1,6 @@
 {
   "name": "browser_select",
-  "description": "在下拉框(select元素)中选择选项，支持按value值、按label文本、按索引选择。",
+  "description": "Select an option in a <select> dropdown by value, label text, or index.\n\n中文详情：\n- 用途：在下拉框（select 元素）中选择指定选项，支持按 value 值、按 label 文本、按索引三种方式\n- 何时使用：表单下拉选项选择时；测试 select 联动效果时；筛选条件选择时；下拉框默认值验证时\n- 输出：{ ok: boolean, selector: string, selectedValue: string, selectedLabel: string, selectedIndex: number, timestamp: string }\n- 参数：\n  - selector (string, 必填)：select 元素的 CSS 选择器\n  - value (string, 可选)：要选择的 option 的 value 值\n  - label (string, 可选)：要选择的 option 的显示文本\n  - index (number, 可选)：要选择的 option 的索引（从 0 开始）\n- 错误：selector 无匹配或非 select 元素抛出 'Not a select element'；value/label/index 都未提供抛出 'No selection criteria provided'；选项不存在抛出 'Option not found'\n- 示例：{\"selector\":\"#country\",\"value\":\"cn\"}",
   "inputSchema": {
     "type": "object",
     "properties": {

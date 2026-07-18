@@ -1,6 +1,6 @@
 {
   "name": "browser_navigate",
-  "description": "浏览器导航操作。支持前进(forward)、后退(back)、刷新(refresh)、重新加载(reload)操作。",
+  "description": "Navigate the browser: go forward, back, refresh, or reload the current page with configurable wait conditions.\n\n中文详情：\n- 用途：控制浏览器导航操作（前进/后退/刷新/重新加载当前页面）\n- 何时使用：在 browser_open 打开页面后需要控制加载状态时；表单提交后需要 reload 重置状态时；测试浏览器后退/前进按钮行为时；页面资源加载不完整需要 refresh 时\n- 输出：{ ok: boolean, url: string, action: string, timestamp: string }\n- 参数：\n  - action (string, 必填)：导航操作，可选 forward / back / refresh / reload，默认 refresh\n  - waitUntil (string, 可选)：等待条件，可选 domcontentloaded / load / networkidle，默认 domcontentloaded\n  - timeout (number, 可选)：超时毫秒数，默认 30000\n- 错误：超时抛出 'Timeout XXXXms exceeded'；无效 action 值抛出 'Invalid action'\n- 示例：{\"action\":\"refresh\",\"waitUntil\":\"networkidle\",\"timeout\":10000}",
   "inputSchema": {
     "type": "object",
     "properties": {

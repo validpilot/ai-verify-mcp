@@ -1,6 +1,6 @@
 {
   "name": "browser_visual_report",
-  "description": "列出视觉回归基线、actual、diff 产物和最近比较结果。",
+  "description": "List all visual regression artifacts (baselines, actuals, diffs) and recent comparison results in the project.\n\n中文详情：\n- 用途：列出视觉回归基线、actual、diff 产物文件和最近比较结果，便于人工审查\n- 何时使用：视觉回归测试后查看历史对比时；清理旧基线前盘点时；调试 visual_compare 结果时；报告汇总时\n- 输出：{ ok: boolean, baselines: array, actuals: array, diffs: array, recentResults: array, total: number } — 每项含 { name, path, size, createdAt }\n- 参数：无\n- 错误：无产物时返回空数组但 ok=true\n- 示例：{}",
   "inputSchema": {
     "type": "object",
     "properties": {}

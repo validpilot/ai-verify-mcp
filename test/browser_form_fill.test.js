@@ -125,6 +125,23 @@ describe('browser_form_fill — handler 实现', () => {
     assert.ok(src.includes('filled'), '应返回 filled');
     assert.ok(src.includes('submit'), '应返回 submit');
   });
+
+  test('CSS 选择器模式下防止 mock 数据覆盖用户值（关键 bug 修复）', () => {
+    // bug 描述：当 fields 使用 CSS 选择器模式（如 {"#user-name":"..."}）时，
+    // selector 模式填充后仍调用 autoFillForm，导致 mock 数据覆盖用户值。
+    // 修复方案：读取 selector 对应 input 的 name/id，同步到 nameFields，
+    // 让 autoFillForm 检测到 hasOverride=true，使用用户值而非生成 mock。
+    assert.ok(src.includes('selectorFilledNames'),
+      '应记录 selector 已填充字段的 name/id 映射');
+    assert.ok(src.includes('el.name || el.id'),
+      '应读取 selector 对应 input 的 name/id');
+    assert.ok(/for \(const \[selector, fieldName\] of Object\.entries\(selectorFilledNames\)\)/.test(src),
+      '应遍历 selectorFilledNames 同步到 nameFields');
+    assert.ok(/!\(fieldName in nameFields\)/.test(src),
+      '应避免覆盖用户已在 nameFields 中显式指定的字段');
+    assert.ok(/nameFields\[fieldName\] = selectorFields\[selector\]/.test(src),
+      '应将 selector 字段的用户值同步到 nameFields');
+  });
 });
 
 describe('browser_form_fill — 字段类型推断验证', () => {

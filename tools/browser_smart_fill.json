@@ -1,6 +1,6 @@
 {
   "name": "browser_smart_fill",
-  "description": "智能表单填充工具。根据字段类型自动生成符合格式的真实测试数据并填入指定输入框。支持 email、phone、name、address、idCard、number、text、url、date、password 等10+字段类型。每次调用生成随机数据，覆盖更多边界场景。符合产品定位 v2.0 能力补齐方案 §P0-2。",
+  "description": "Smart form filler: auto-generate format-valid realistic test data by field type and fill the target input. Supports 10+ types (email, phone, name, address, idCard, number, text, url, date, password); each call produces random data to cover edge cases.\n\n中文详情：\n- 用途：智能表单填充工具，根据字段类型自动生成符合格式的真实测试数据并填入指定输入框\n- 何时使用：注册表单需要合法邮箱/手机号时；地址表单需要格式正确数据时；密码字段需要符合复杂度要求时；批量生成测试数据覆盖边界场景时\n- 输出：{ ok: boolean, selector: string, fieldType: string, generatedValue: string, timestamp: string }\n- 参数：\n  - selector (string, 必填)：目标输入框的 CSS 选择器\n  - fieldType (string, 必填)：字段类型，可选 email/phone/name/address/idCard/number/text/url/date/password\n  - options (object, 可选)：生成选项，各字段类型有不同选项\n    - domain (string, 可选)：email 类型的域名\n    - min (number, 可选)：number 类型的最小值\n    - max (number, 可选)：number 类型的最大值\n    - minLen (number, 可选)：text 类型的最小长度\n    - maxLen (number, 可选)：text 类型的最大长度\n    - start (string, 可选)：date 类型的起始日期\n    - end (string, 可选)：date 类型的结束日期\n- 错误：selector 无匹配抛出 'element not found'；fieldType 非法抛出 'Invalid fieldType'；元素不可编辑抛出 'element not editable'\n- 示例：{\"selector\":\"#email\",\"fieldType\":\"email\",\"options\":{\"domain\":\"test.com\"}}",
   "inputSchema": {
     "type": "object",
     "properties": {

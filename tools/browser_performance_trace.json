@@ -1,6 +1,6 @@
 {
   "name": "browser_performance_trace",
-  "description": "记录完整的性能轨迹（Paint/Timing/Resource），输出 HAR 格式和结构化性能数据。支持 W3C Performance Timeline API，获取 FP/FCP/LCP/CLS 等核心指标。",
+  "description": "Record a complete performance trace (paint/timing/resource) and output HAR plus structured performance data. Supports W3C Performance Timeline API to capture FP/FCP/LCP/CLS core metrics.\n\n中文详情：\n- 用途：记录完整的性能轨迹（Paint/Timing/Resource），输出 HAR 格式和结构化性能数据，支持 W3C Performance Timeline API 获取 FP/FCP/LCP/CLS 等核心指标\n- 何时使用：性能瓶颈深度分析时；HAR 文件取证时；前端渲染瀑布图分析时；FCP/LCP 异常排查时\n- 输出：{ ok: boolean, tracePath: string, harPath: string, metrics: object, entries: array, duration: number } — metrics 含 fp/fcp/lcp/cls/tbt；entries 为 PerformanceEntry 列表\n- 参数：\n  - url (string, 可选)：要追踪性能的目标 URL，不提供则使用当前页面\n  - categories (array, 可选)：要记录的性能类别，默认 [\"navigation\",\"resource\",\"paint\",\"longtask\"]\n  - duration (number, 可选)：追踪持续时间（毫秒），默认 5000\n  - enableScreenshots (boolean, 可选)：是否在追踪期间定期截图，默认 false\n  - exportHar (boolean, 可选)：是否导出 HAR 格式数据，默认 true\n- 错误：浏览器未启动抛出 'Browser not launched'；duration 过大可能影响响应时间\n- 示例：{\"url\":\"https://example.com\",\"categories\":[\"navigation\",\"paint\",\"longtask\"],\"duration\":10000,\"exportHar\":true}",
   "inputSchema": {
     "type": "object",
     "properties": {

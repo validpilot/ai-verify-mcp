@@ -1,6 +1,6 @@
 {
   "name": "browser_form_validate",
-  "description": "自动检测表单字段规则（必填、格式、长度等），执行完整的表单验证流程。支持检测 HTML5 验证属性和自定义验证规则，输出详细验证报告。",
+  "description": "Auto-detect form field validation rules (required, pattern, length, etc.) and run a complete validation flow. Detects HTML5 validation attributes and outputs a detailed report per field.\n\n中文详情：\n- 用途：自动检测表单字段验证规则（必填、格式、长度等），执行完整表单验证流程并输出详细验证报告\n- 何时使用：测试表单校验规则实现是否正确时；提交空表单验证必填提示时；测试 email/url 格式校验时；验证最小/最大长度限制时\n- 输出：{ ok: boolean, url: string, formSelector: string, totalFields: number, fields: array, validationPassed: boolean } — 每项含 { selector, name, type, required, pattern, minLength, maxLength, valid, message }\n- 参数：\n  - url (string, 可选)：要检测表单的目标 URL，不提供则使用当前页面\n  - formSelector (string, 可选)：表单选择器，不提供则自动检测页面第一个表单\n  - validateSubmit (boolean, 可选)：是否尝试提交表单检测验证，默认 true\n  - checkRequired (boolean, 可选)：是否检测必填字段，默认 true\n  - checkPattern (boolean, 可选)：是否检测格式模式（email、url 等），默认 true\n  - checkLength (boolean, 可选)：是否检测长度限制，默认 true\n- 错误：页面无表单抛出 'No form found'；URL 不可达抛出 'Navigation failed'\n- 示例：{\"url\":\"https://example.com/register\",\"formSelector\":\"#signup-form\",\"checkRequired\":true}",
   "inputSchema": {
     "type": "object",
     "properties": {

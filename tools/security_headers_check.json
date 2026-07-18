@@ -1,6 +1,6 @@
 {
   "name": "security_headers_check",
-  "description": "检查 HTTP 安全响应头部。分析 CSP、X-Content-Type-Options、X-Frame-Options、HSTS、Referrer-Policy 等安全头部的存在性和配置正确性，检测 X-Powered-By/Server 等信息泄露。",
+  "description": "Check HTTP security response headers: analyze presence and correctness of CSP, X-Content-Type-Options, X-Frame-Options, HSTS, Referrer-Policy, and detect information leakage via X-Powered-By/Server.\n\n中文详情：\n- 用途：检查 HTTP 安全响应头部，分析 CSP、X-Content-Type-Options、X-Frame-Options、HSTS、Referrer-Policy 等头部的存在性和配置正确性，检测 X-Powered-By/Server 等信息泄露\n- 何时使用：上线前安全头部合规检查时；HTTPS/HSTS 配置验证时；点击劫持防护（X-Frame-Options）验证时；信息泄露排查时\n- 输出：{ ok: boolean, url: string, headers: object, missing: array, misconfigured: array, infoLeakage: array, score: number, recommendations: array }\n- 参数：\n  - url (string, 必填)：目标 URL\n- 错误：URL 不可达抛出 'Request failed'；非 HTTP(S) URL 抛出 'Invalid url'\n- 示例：{\"url\":\"https://example.com\"}",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -9,6 +9,8 @@
         "description": "目标 URL（必填）"
       }
     },
-    "required": ["url"]
+    "required": [
+      "url"
+    ]
   }
 }

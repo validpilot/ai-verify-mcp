@@ -1,6 +1,6 @@
 {
   "name": "browser_highlight",
-  "description": "高亮页面上的指定元素，便于人类观察和调试。元素会显示红色边框和阴影效果，持续到页面刷新。",
+  "description": "Highlight a specific element on the page with a colored border and shadow for human observation and debugging. Effect persists until page refresh.\n\n中文详情：\n- 用途：在页面上高亮显示指定元素（默认红色边框和阴影），便于人工观察和调试\n- 何时使用：调试元素定位问题时；演示/评审时强调某个元素；视觉走查时标记可疑元素；自动化失败后人工复核时\n- 输出：{ ok: boolean, selector: string, color: string, timestamp: string }\n- 参数：\n  - selector (string, 必填)：要高亮的元素选择器\n  - color (string, 可选)：高亮颜色，支持 CSS 颜色值，默认 red\n- 错误：selector 无匹配抛出 'element not found'；color 值非法会使用默认红色\n- 示例：{\"selector\":\".error-message\",\"color\":\"#ff6600\"}",
   "inputSchema": {
     "type": "object",
     "properties": {

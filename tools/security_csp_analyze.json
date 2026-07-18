@@ -1,6 +1,6 @@
 {
   "name": "security_csp_analyze",
-  "description": "深度分析 Content-Security-Policy 策略。解析 CSP 指令，检测 unsafe-inline、unsafe-eval、通配符 * 等不安全配置，评估 CSP 安全评分。",
+  "description": "Deep analysis of Content-Security-Policy: parse CSP directives, detect unsafe-inline/unsafe-eval/wildcard * and other unsafe configurations, and produce a CSP security score.\n\n中文详情：\n- 用途：深度分析 Content-Security-Policy 策略，解析 CSP 指令，检测不安全配置（unsafe-inline/unsafe-eval/通配符 * 等）并评估 CSP 安全评分\n- 何时使用：CSP 策略上线前评估时；XSS 防护层验证时；第三方脚本加载白名单审查时；CSP 报告异常排查时\n- 输出：{ ok: boolean, url: string, csp: string, directives: object, unsafeDirectives: array, score: number, recommendations: array }\n- 参数：\n  - url (string, 必填)：目标 URL\n- 错误：URL 不可达抛出 'Request failed'；响应无 CSP 头返回 score=0 但 ok=true\n- 示例：{\"url\":\"https://example.com\"}",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -9,6 +9,8 @@
         "description": "目标 URL（必填）"
       }
     },
-    "required": ["url"]
+    "required": [
+      "url"
+    ]
   }
 }

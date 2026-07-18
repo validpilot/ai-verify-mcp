@@ -1,6 +1,6 @@
 {
   "name": "browser_screenshot",
-  "description": "对真实浏览器当前页面截图并保存到 MCP 服务目录。默认遮挡密码、token、apiKey 等敏感输入框。",
+  "description": "Take a screenshot of the current page and save it to the MCP artifacts directory. Sensitive inputs (password, token, apiKey) are auto-redacted by default.\n\n中文详情：\n- 用途：对真实浏览器当前页面截图并保存为 PNG 文件到 screenshots 目录\n- 何时使用：验证页面渲染结果时；记录 bug 证据时；视觉对比前截取基线/实际图时；流程关键节点留证时\n- 输出：{ ok: boolean, path: string, name: string, timestamp: string } — path 为截图绝对路径\n- 参数：\n  - name (string, 可选)：截图文件名（不含扩展名），默认使用时间戳\n  - redactSelectors (array, 可选)：需要额外遮挡的 CSS 选择器列表，默认已遮挡 [type=password]、[name*=token]、[name*=apiKey]\n- 错误：浏览器未启动抛出 'Browser not launched'；截图失败抛出 'Screenshot failed'\n- 示例：{\"name\":\"login-page\",\"redactSelectors\":[\".credit-card\"]}",
   "inputSchema": {
     "type": "object",
     "properties": {

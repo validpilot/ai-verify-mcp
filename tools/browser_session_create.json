@@ -1,6 +1,6 @@
 {
   "name": "browser_session_create",
-  "description": "创建或复用一个命名浏览器会话。每个会话拥有独立浏览器上下文、cookie、localStorage、console、network、errors 和 events。",
+  "description": "Create or reuse a named browser session with isolated context, cookies, localStorage, console, network, errors, and events. Supports Chrome extension loading via persistent context.\n\n中文详情：\n- 用途：创建或复用一个命名浏览器会话，每个会话拥有独立的浏览器上下文、cookie、localStorage、console、network、errors 和 events\n- 何时使用：需要多账号/多角色并行测试时；测试需要不同浏览器上下文隔离时；加载 Chrome 扩展验证扩展行为时；验证不同会话状态（登录/未登录）时\n- 输出：{ ok: boolean, name: string, sessionId: string, url: string, created: boolean, headless: boolean, extensionLoaded: boolean }\n- 参数：\n  - name (string, 必填)：会话名称，如 free-user、pro-user\n  - sessionName (string, 可选)：会话名称别名\n  - url (string, 可选)：创建后打开的 URL\n  - headless (boolean, 可选)：是否无头模式，默认 false\n  - extensionPath (string, 可选)：要加载的 Chrome 扩展目录路径，提供后使用持久化上下文并强制 headless=false\n  - loadExtensionPath (string, 可选)：extensionPath 的别名\n  - timeout (number, 可选)：导航超时时间，默认 30000ms\n- 错误：name 为空抛出 'Session name is required'；扩展路径不存在抛出 'Extension path not found'；导航超时抛出 'Timeout XXXXms exceeded'\n- 示例：{\"name\":\"pro-user\",\"url\":\"https://example.com/dashboard\",\"headless\":false}",
   "inputSchema": {
     "type": "object",
     "properties": {

@@ -18,6 +18,8 @@ export default defineConfig({
       { text: '首页', link: '/' },
       { text: '快速开始', link: '/guide/getting-started' },
       { text: '工具列表', link: '/tools/overview' },
+      { text: 'Skill 指导', link: '/skills/index' },
+      { text: '场景手册', link: '/scenarios/ecommerce-checkout' },
       { text: 'MCP 速查', link: '/reference/mcp-cheatsheet' },
       { text: '常见问题', link: '/faq/troubleshooting' }
     ],
@@ -53,11 +55,39 @@ export default defineConfig({
           ]
         }
       ],
+      '/skills/': [
+        {
+          text: 'Skill 指导',
+          items: [
+            { text: '总览', link: '/skills/index' },
+            { text: '登录流程验证', link: '/skills/login-validation' },
+            { text: '表单提交验证', link: '/skills/form-submission' },
+            { text: '视觉回归', link: '/skills/visual-regression' },
+            { text: '安全审计', link: '/skills/security-audit' },
+            { text: '性能审计', link: '/skills/performance-audit' },
+            { text: '端到端流程', link: '/skills/e2e-flow' },
+            { text: '调试排查', link: '/skills/debug-investigation' }
+          ]
+        }
+      ],
+      '/scenarios/': [
+        {
+          text: '场景手册',
+          items: [
+            { text: '电商下单全链路', link: '/scenarios/ecommerce-checkout' },
+            { text: 'SaaS 注册引导', link: '/scenarios/saas-onboarding' },
+            { text: '后台权限矩阵', link: '/scenarios/admin-dashboard' },
+            { text: 'SEO+性能+A11y 审计', link: '/scenarios/seo-lighthouse' },
+            { text: '部署后回归验证', link: '/scenarios/regression-after-deploy' }
+          ]
+        }
+      ],
       '/reference/': [
         {
           text: '参考',
           items: [
             { text: 'MCP 协议速查', link: '/reference/mcp-cheatsheet' },
+            { text: '工具选择决策矩阵', link: '/reference/tool-decision-matrix' },
             { text: '配置项说明', link: '/reference/config' },
             { text: 'CHANGELOG', link: '/reference/changelog' }
           ]

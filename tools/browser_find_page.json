@@ -1,6 +1,6 @@
 {
   "name": "browser_find_page",
-  "description": "智能发现页面：根据目标关键词（login/signup/home/dashboard/admin/settings/profile等）快速定位页面。检测方式按优先级：①URL路径匹配；②页面标题匹配；③CSS选择器匹配；④SPA按钮文本匹配；⑤导航区域文本匹配；⑥页面可见文本匹配。支持SPA应用（React/Vue/Angular）的按钮导航发现。返回匹配方式、匹配分数、相关链接和按钮（含selector可直接click）、建议导航URL。参数navigate=true可自动导航到发现的页面。",
+  "description": "Smart page discovery: locate target page (login/signup/home/dashboard/admin/settings/profile/etc.) by priority chain (URL path > title > CSS selector > SPA button text > nav region > visible text), returns matched links and suggested navigation URL; optionally auto-navigate.\n\n中文详情：\n- 用途：根据目标页面关键词（login/signup/home/dashboard/admin/settings/profile 等）快速定位页面，支持 SPA 应用的按钮导航发现\n- 何时使用：测试入口页（登录/注册/后台）未直接知晓 URL 时；SPA 应用通过按钮导航时；导航回归测试时；权限切换后定位目标页时\n- 输出：{ ok: boolean, target: string, matched: boolean, matchMethod: string, score: number, links: array, buttons: array, suggestedUrl: string, navigated: boolean }\n- 参数：\n  - target (string, 必填)：目标页面类型，可选 login/signup/home/dashboard/admin/settings/profile/search/cart/checkout/forgot-password/reset-password/logout/all\n  - navigate (boolean, 可选)：是否自动导航到发现的页面，默认 false\n  - baseUrl (string, 可选)：基础 URL，用于尝试常见路径，不指定时从当前 URL 推导\n- 错误：target 值非法抛出 'Invalid target'；未匹配且 navigate=true 时返回 matched=false\n- 示例：{\"target\":\"login\",\"navigate\":true,\"baseUrl\":\"https://example.com\"}",
   "inputSchema": {
     "type": "object",
     "properties": {

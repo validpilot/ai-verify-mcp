@@ -1,6 +1,6 @@
 {
   "name": "browser_visual_check",
-  "description": "自动UI问题扫描：无需基线，直接在当前页面扫描常见的UI问题（文字不可见、元素重叠、z-index遮挡、点击区域过小、空白区域、溢出、图片alt缺失、对比度不足、响应式断点等）。输出自然语言描述的问题清单。",
+  "description": "No-baseline automated UI issue scan: scans the current page for common UI problems (invisible text, overlapping elements, z-index occlusion, small click targets, blank regions, overflow, missing image alt, contrast issues, responsive breakpoints) and returns a natural-language issue list.\n\n中文详情：\n- 用途：无需基线直接扫描当前页面常见 UI 问题（文字不可见、元素重叠、z-index 遮挡、点击区域过小、空白区域、溢出、图片 alt 缺失、对比度不足、响应式断点等），输出自然语言描述的问题清单\n- 何时使用：UI 走查时快速发现问题；上线前 UI 健康检查；多 viewport 响应式验证；可访问性基础扫描（对比度/alt 缺失）时\n- 输出：{ ok: boolean, totalIssues: number, issues: array, summary: string } — 每项含 { severity, category, description, selector, recommendation }\n- 参数：\n  - includeAccessibility (boolean, 可选)：是否包含可访问性检查（图片 alt 缺失、对比度检测），默认 true\n  - includeResponsive (boolean, 可选)：是否包含响应式检查，默认 false\n  - viewports (array, 可选)：响应式检查的 viewport 列表，可选 mobile/tablet/desktop，仅当 includeResponsive=true 时生效，默认 [\"mobile\",\"tablet\"]\n  - severity (string, 可选)：最低报告级别，可选 blocking/major/minor，默认 major\n- 错误：浏览器未启动抛出 'Browser not launched'；viewport 无效抛出 'Invalid viewport'\n- 示例：{\"includeAccessibility\":true,\"includeResponsive\":true,\"viewports\":[\"mobile\",\"desktop\"],\"severity\":\"major\"}",
   "inputSchema": {
     "type": "object",
     "properties": {

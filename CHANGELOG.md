@@ -2,6 +2,101 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.9.3] - 2026-07-18
+
+### Added
+
+- **MCP Prompts 原语实现**：新增 `handlers/prompts.js` 模块，将 6 个核心 Skill 以斜杠命令形式暴露给 MCP 客户端
+  - `/validate-login` — 登录流程验证工作流（参数：url, username, password, successIndicator）
+  - `/audit-performance` — 性能审计工作流（参数：url, formFactor, throttling）
+  - `/audit-security` — 安全审计工作流（参数：url, injectionUrl）
+  - `/visual-regression` — 视觉回归工作流（参数：url, baselineName, selector, maxDiffPixelRatio）
+  - `/debug-page` — 调试排查工作流（参数：url, symptom, expected, focus）
+  - `/e2e-flow` — 端到端流程工作流（参数：url, flowName, flowDescription）
+  - 每个 prompt 返回多步工作流指令文本，由 AI 模型按序执行
+  - 在支持 MCP Prompts 的客户端（Claude Desktop、Cursor、Trae）中输入 `/` 即可看到命令
+
+- **8 篇 Skill 指导文档**：新增 `docs/skills/` 目录
+  - `index.md` — Skill 总览，含 Skill↔Tools↔Evidence 层级图、场景选择表
+  - `login-validation.md` — 登录流程验证（7 步工具链 + 完整示例）
+  - `form-submission.md` — 表单提交验证（含字段规则检测）
+  - `visual-regression.md` — 视觉回归（3 条工具链：全页/组件/无基线扫描）
+  - `security-audit.md` — 安全审计（5 步扫描 + 分级风险报告）
+  - `performance-audit.md` — 性能审计（Lighthouse + Core Web Vitals + 内存检测）
+  - `e2e-flow.md` — 端到端流程（2 条工具链：简单链路 + 多用例验收）
+  - `debug-investigation.md` — 调试排查（7 步调试闭环）
+
+- **5 篇场景化 Playbook**：新增 `docs/scenarios/` 目录
+  - `ecommerce-checkout.md` — 电商下单全链路
+  - `saas-onboarding.md` — SaaS 注册引导
+  - `admin-dashboard.md` — 后台权限矩阵
+  - `seo-lighthouse.md` — SEO + 性能 + A11y 综合审计
+  - `regression-after-deploy.md` — 部署后回归验证
+
+- **工具选择决策矩阵**：新增 `docs/reference/tool-decision-matrix.md`
+  - "我想做 X"决策树
+  - 134 工具按 22 大类速查
+  - 推荐工具链组合表
+  - MCP Prompts 速查表
+
+### Changed
+
+- **42 个核心工具 description 双语优化**：采用"英文摘要 + 中文详情"格式，补充 AWS 五要素（用途/何时使用/输出/参数/错误）+ 示例
+  - Browser 导航 & 页面（10 个）
+  - Browser 交互（10 个）
+  - Browser 视觉（10 个）
+  - Security（6 个）
+  - Browser 性能 & A11y（5 个）
+  - Validation（1 个：validation_run）
+
+- **VitePress 文档站点导航增强**：
+  - nav 新增"Skill 指导"和"场景手册"入口
+  - sidebar 新增 `/skills/`（8 篇）和 `/scenarios/`（5 篇）板块
+  - `/reference/` 板块新增"工具选择决策矩阵"
+
+- **`docs/tools/overview.md` 更新**：
+  - 版本号 v1.8.0 → v1.9.3
+  - "按场景选择"区域补充 Skill 文档链接
+  - 版本历史表新增 v1.9.3 条目
+  - 相关文档区域新增 Skill、场景、决策矩阵链接
+
+- **`package.json` files 字段扩充**：新增 `docs/skills/` 和 `docs/scenarios/`，确保 npm 发包包含新文档
+
+### Fixed
+
+- **`browser_form_fill` CSS 选择器模式 mock 数据覆盖用户值（critical bug）**：
+  - 现象：当 `fields` 参数使用 CSS 选择器模式（keys 以 `#` / `.` / `[` 开头，如 `{"#user-name":"standard_user"}`）时，工具内部 `autoFillForm` 的 mock 数据生成器会用 mock 值（如 `"李芳"` / `"5CePhQs^"`）覆盖用户指定的值，导致登录失败
+  - 根因：`handlers/system.js` 中 selector 模式填充成功后仍调用 `deepInteractor.autoFillForm`，传入空的 `nameFields`，导致 autoFillForm 扫描表单时所有字段 `hasOverride=false`，走 mock 数据生成分支并逐字段填充覆盖
+  - 修复：selector 模式填充成功后，读取每个 selector 对应 input 的 `name`/`id`，将其同步到 `nameFields`（带用户指定的值）。autoFillForm 后续扫描表单时检测到 `hasOverride=true`，使用用户值而非生成 mock
+  - 影响：恢复 `login-validation` / `form-submission` / `debug-investigation` 三个 Skill 文档官方推荐用法的正常工作
+  - 验证：saucedemo.com 真实浏览器测试通过（browser_form_fill → browser_click → browser_assert 3/3 断言通过，登录跳转到 /inventory.html，0 错误）
+  - 新增单元测试：`test/browser_form_fill.test.js` 增加 "CSS 选择器模式下防止 mock 数据覆盖用户值（关键 bug 修复）" 测试用例
+
+- **测试基础设施对齐 v1.9.3 双语 description 格式**：
+  - `test/tools.test.js` description 长度阈值 500 → 1500（双语 AWS 五要素 + 示例自然长度 500~1500 字符），并将抽样 `files.slice(0, 10)` 改为全量校验
+  - `test/browser_multi_browser.test.js` 多浏览器指示符断言兼容 "chromium, firefox, and webkit engines"（v1.9.3 英文摘要写法），不再仅认 "P0-6" / "多浏览器"
+  - `tools/validation_start.json` description 由 "启动端到端验证流程"（9 字符）扩展为 "Start an end-to-end validation flow. 启动端到端验证流程，按给定场景列表对目标 URL 执行多步验证。"，对齐 v1.9.3 双语格式并满足 ≥10 字符最低要求
+
+### Stats
+
+- 新增模块：`handlers/prompts.js`（约 280 行，6 个 prompt 定义）
+- 新增文档：13 篇（8 Skill + 5 场景）+ 1 篇决策矩阵
+- 修改工具 JSON：42 个 description 字段双语优化
+- server.js：增加约 15 行（import + handler 注册 + capabilities），不触碰现有工具调用逻辑
+- package.json：version 1.9.2 → 1.9.3，files 字段新增 2 个目录
+
+### Coverage
+
+- 1181 个单元测试全部通过（0 失败），较 v1.9.2 新增 1 个测试用例（browser_form_fill CSS 选择器模式 mock 覆盖防护）
+- `mcp_self_test` 通过：health.version=1.9.3，registeredCount=134，missing/invalid=[]，flow 5/5 通过，toolTests 9/9 通过
+- 真实浏览器验证：saucedemo.com 登录流程（browser_form_fill → browser_click → browser_assert）3/3 断言通过，0 错误
+
+### Technical Highlights
+
+- **MCP Prompts 原语**是 v1.9.3 的核心技术亮点，将 Skill 模板以斜杠命令形式暴露给客户端，让 AI 模型可以"按需调用"完整工作流，而非"逐个工具调用"
+- **Skill 文档与 Prompts 一一对应**：8 篇 Skill 文档中有 6 篇对应 6 个 prompt，形成"文档 + 命令"双入口
+- **AWS 五要素 + 双语描述**：工具描述质量提升直接影响 AI 模型调用决策准确性
+
 ## [1.9.2] - 2026-07-18
 
 ### Fixed

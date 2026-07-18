@@ -13,6 +13,8 @@ const { StdioServerTransport } = require('@modelcontextprotocol/sdk/server/stdio
 const {
   CallToolRequestSchema,
   ListToolsRequestSchema,
+  ListPromptsRequestSchema,
+  GetPromptRequestSchema,
   InitializedNotificationSchema,
   CancelledNotificationSchema
 } = require('@modelcontextprotocol/sdk/types.js');
@@ -104,6 +106,7 @@ const handlerMemory = require('./handlers/memory');
 const handlerDataCompare = require('./handlers/data_compare');
 const handlerDualChain = require('./handlers/dual_chain');
 const handlerSecurity = require('./handlers/security');
+const handlerPrompts = require('./handlers/prompts');
 
 const allHandlers = [
   handlerBrowser, handlerSession, handlerEvidence, handlerNetwork,
@@ -1988,21 +1991,22 @@ async function runLighthouseAudit(args = {}) {
       throw new Error('lighthouse 模块已加载但未导出函数，请检查 lighthouse 版本兼容性');
     }
 
-    const lhCacheDir = path.join(__dirname, '.lighthouse-cache');
-    fs.mkdirSync(lhCacheDir, { recursive: true });
+    // 不传 userDataDir：让 chrome-launcher 每次创建临时目录并自动清理。
+    // 固定 userDataDir 会在 Chrome 崩溃后残留 lockfile，导致下次启动时 DevTools 端口无法绑定（ECONNREFUSED）。
     const chrome = await chromeLauncher.launch({
       chromePath,
-      chromeFlags: ['--headless', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage'],
-      userDataDir: lhCacheDir
+      chromeFlags: ['--headless=new', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage'],
     });
 
     const categories = args.categories || ['performance', 'accessibility', 'best_practices', 'seo'];
+    // 转换为 Lighthouse 接受的 category 名（schema 用下划线 best_practices，Lighthouse 用连字符 best-practices）
+    const lighthouseCategories = categories.map(cat => cat === 'best_practices' ? 'best-practices' : cat);
     const formFactor = args.formFactor || 'desktop';
 
     const options = {
       logLevel: 'error',
       output: 'json',
-      onlyCategories: categories,
+      onlyCategories: lighthouseCategories,
       port: chrome.port,
       formFactor,
       screenEmulation: { mobile: formFactor === 'mobile' },
@@ -3834,9 +3838,18 @@ async function callTool(name, args = {}) {
 
 // 创建MCP Server实例
 function createMcpServer() {
-  const server = new Server({ name: 'ai-verify-mcp', version: VERSION }, { capabilities: { tools: {} } });
-  
+  const server = new Server({ name: 'ai-verify-mcp', version: VERSION }, { capabilities: { tools: {}, prompts: { listChanged: false } } });
+
   server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools }));
+
+  // MCP Prompts 原语：将核心 Skill 以斜杠命令形式暴露给客户端
+  server.setRequestHandler(ListPromptsRequestSchema, async () => ({
+    prompts: handlerPrompts.listPrompts()
+  }));
+  server.setRequestHandler(GetPromptRequestSchema, async (request) => {
+    const { name, arguments: args } = request.params;
+    return handlerPrompts.getPrompt(name, args || {});
+  });
   server.setRequestHandler(CallToolRequestSchema, async request => {
     const { name, arguments: args } = request.params;
     if (!toolNames.has(name)) return { isError: true, content: [{ type: 'text', text: `未知工具：${name}` }] };
@@ -4013,7 +4026,7 @@ async function startHttpMode() {
           id,
           result: {
             protocolVersion: '2024-11-05',
-            capabilities: { tools: {} },
+            capabilities: { tools: {}, prompts: { listChanged: false } },
             serverInfo: { name: 'ai-verify-mcp', version: VERSION }
           }
         };

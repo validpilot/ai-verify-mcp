@@ -1,6 +1,6 @@
 {
   "name": "browser_scroll",
-  "description": "滚动页面或元素到指定位置，支持 scrollIntoView 和像素滚动",
+  "description": "Scroll the page or to a specific element. Supports scrollIntoView for targeting an element and pixel-based x/y scrolling with auto/smooth behavior.\n\n中文详情：\n- 用途：滚动页面到指定位置，支持滚动到指定元素（scrollIntoView）或按像素值（x/y）滚动\n- 何时使用：需要触发懒加载内容时；将目标元素滚动到可视区域时；测试无限滚动分页时；截图前确保元素可见时\n- 输出：{ ok: boolean, scrollX: number, scrollY: number, scrolledTo: string, timestamp: string }\n- 参数：\n  - selector (string, 可选)：要滚动到的目标元素选择器，与 scrollIntoView 配合使用\n  - scrollIntoView (boolean, 可选)：是否滚动到 selector 指定的元素，默认 true（指定 selector 时）\n  - x (number, 可选)：横向滚动像素值（不指定 selector 时使用）\n  - y (number, 可选)：纵向滚动像素值（不指定 selector 时使用）\n  - behavior (string, 可选)：滚动行为，可选 auto/smooth，默认 auto\n- 错误：selector 无匹配抛出 'element not found'；selector 与 x/y 同时提供时以 selector 为优先\n- 示例：{\"selector\":\"#footer\",\"behavior\":\"smooth\"}",
   "inputSchema": {
     "type": "object",
     "properties": {

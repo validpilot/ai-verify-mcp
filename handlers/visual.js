@@ -485,20 +485,69 @@ const { target } = await ensurePage(args);
       .map(v => viewportSizes[v])
       .filter(Boolean);
 
+    const originalViewport = target.viewportSize();
+    const responsiveDir = path.join(VISUAL_DIR, 'responsive');
+    fs.mkdirSync(responsiveDir, { recursive: true });
     const screenshots = [];
+    const layoutAnalysis = [];
     for (const vp of targets) {
       await target.setViewportSize({ width: vp.width, height: vp.height });
       await new Promise(r => setTimeout(r, 300));
       const buf = await target.screenshot({ type: 'png', fullPage: args.fullPage !== false });
+      // 保存截图到文件，避免 base64 截断导致数据损坏
+      const fileName = `${safeArtifactName(url)}-${vp.width}x${vp.height}-${Date.now()}.png`;
+      const filePath = path.join(responsiveDir, fileName);
+      fs.writeFileSync(filePath, buf);
+
+      // 布局分析：检测溢出和元素可见性
+      const layout = await target.evaluate(() => {
+        const docEl = document.documentElement;
+        const body = document.body;
+        const allEls = document.querySelectorAll('*');
+        let visibleCount = 0;
+        allEls.forEach(el => {
+          const rect = el.getBoundingClientRect();
+          if (rect.width > 0 && rect.height > 0) visibleCount++;
+        });
+        return {
+          scrollWidth: Math.max(docEl.scrollWidth, body ? body.scrollWidth : 0),
+          scrollHeight: Math.max(docEl.scrollHeight, body ? body.scrollHeight : 0),
+          clientWidth: docEl.clientWidth,
+          clientHeight: docEl.clientHeight,
+          hasHorizontalScroll: docEl.scrollWidth > docEl.clientWidth,
+          hasVerticalScroll: docEl.scrollHeight > docEl.clientHeight,
+          elementCount: allEls.length,
+          visibleCount,
+        };
+      }).catch(() => null);
+
       screenshots.push({
         viewport: vp.label,
         width: vp.width,
         height: vp.height,
-        data: buf.toString('base64').slice(0, 500),
+        filePath,
+        fileSize: buf.length,
       });
+      if (layout) {
+        layoutAnalysis.push({ viewport: vp.label, width: vp.width, height: vp.height, ...layout, hasOverflow: layout.hasHorizontalScroll || layout.hasVerticalScroll });
+      }
     }
 
-    return text(JSON.stringify({ url, viewportCount: screenshots.length, screenshots, nextSteps: ['运行 browser_screenshot 确认页面截图', '使用 browser_visual_compare 对比差异', '生成 browser_visual_report 视觉报告'], suggestions: [{ type: 'next', tool: 'browser_screenshot', reason: '确认页面截图' }, { type: 'next', tool: 'browser_visual_compare', reason: '对比视觉差异' }, { type: 'next', tool: 'browser_visual_report', reason: '生成视觉报告' }], paidUpgradeHint: '需要高级视觉分析能力？升级到 Pro 版本获取完整功能。' }, null, 2));
+    // 恢复原始视口大小
+    if (originalViewport) {
+      await target.setViewportSize(originalViewport);
+    }
+
+    // 布局差异分析
+    const elementCounts = layoutAnalysis.map(l => l.elementCount);
+    const layoutDiff = layoutAnalysis.length >= 2 ? {
+      elementCountVariation: Math.max(...elementCounts) - Math.min(...elementCounts),
+      viewportsWithOverflow: layoutAnalysis.filter(l => l.hasOverflow).map(l => l.viewport),
+      viewportsWithHorizontalScroll: layoutAnalysis.filter(l => l.hasHorizontalScroll).map(l => l.viewport),
+      hasResponsiveIssues: layoutAnalysis.some(l => l.hasHorizontalScroll),
+    } : null;
+
+    return text(JSON.stringify({ url, viewportCount: screenshots.length, screenshots, layoutAnalysis, layoutDiff, nextSteps: ['运行 browser_screenshot 确认页面截图', '使用 browser_visual_compare 对比差异', '生成 browser_visual_report 视觉报告'], suggestions: [{ type: 'next', tool: 'browser_screenshot', reason: '确认页面截图' }, { type: 'next', tool: 'browser_visual_compare', reason: '对比视觉差异' }, { type: 'next', tool: 'browser_visual_report', reason: '生成视觉报告' }], paidUpgradeHint: '需要高级视觉分析能力？升级到 Pro 版本获取完整功能。' }, null, 2));
   }
 
   return mcpError(`未知工具（visual）: ${name}`, { error: 'UNKNOWN_TOOL', toolName: name });

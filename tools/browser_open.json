@@ -1,6 +1,6 @@
 {
   "name": "browser_open",
-  "description": "打开真实可视化浏览器并导航到目标 URL。支持多种浏览器引擎。符合产品定位 v2.0 能力补齐方案 §P0-6。",
+  "description": "Launch a real (visible by default) browser instance and navigate to the target URL. Supports chromium, firefox, and webkit engines.\n\n中文详情：\n- 用途：启动真实可视化浏览器并导航到指定 URL，是所有浏览器交互测试的入口\n- 何时使用：开始一个新的浏览器测试会话时；需要可视化观察页面行为时；切换浏览器引擎做兼容性验证时；调试需要看到真实渲染时\n- 输出：{ ok: boolean, url: string, browserType: string, headless: boolean, sessionId: string, title: string, timestamp: string }\n- 参数：\n  - url (string, 必填)：要打开的页面 URL\n  - browserType (string, 可选)：浏览器引擎，可选 chromium / firefox / webkit，默认 chromium\n  - headless (boolean, 可选)：是否无头模式，默认 false（可视化验证建议 false）\n- 错误：URL 缺失或格式非法抛出 'Invalid url'；浏览器启动失败抛出 'Browser launch failed'\n- 示例：{\"url\":\"https://example.com/login\",\"browserType\":\"chromium\",\"headless\":false}",
   "inputSchema": {
     "type": "object",
     "properties": {

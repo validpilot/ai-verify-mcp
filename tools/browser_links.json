@@ -1,6 +1,6 @@
 {
   "name": "browser_links",
-  "description": "提取当前页面所有导航链接和按钮，并按类型分类（导航菜单、首页、登录、注册、管理、设置、用户、搜索、退出、帮助等）。支持SPA应用的按钮提取（不仅是a标签），支持关键词筛选和外部链接过滤。返回链接总数、按钮数、分类统计和可视区域信息。",
+  "description": "Extract all navigation links and buttons from the current page, classify them by type (nav, login, signup, admin, settings, search, logout, help, etc.), and return counts plus visible-area info. Supports SPA button discovery beyond <a> tags.\n\n中文详情：\n- 用途：提取当前页面所有导航链接和按钮，按类型分类（导航/首页/登录/注册/管理/设置/搜索/退出/帮助等），并返回分类统计\n- 何时使用：需要快速了解站点可用入口时；导航测试前枚举链接清单时；验证菜单完整性时；SPA 应用发现按钮路由时\n- 输出：{ ok: boolean, totalLinks: number, totalButtons: number, categories: object, links: array, buttons: array } — 各 link/button 含 selector、text、href、category、visible\n- 参数：\n  - filter (string, 可选)：关键词筛选，只返回 URL/文本包含该关键词的链接或按钮\n  - includeExternal (boolean, 可选)：是否包含外部链接，默认 false\n  - maxLinks (number, 可选)：最大返回链接数，默认 100\n- 错误：浏览器未启动抛出 'Browser not launched'；maxLinks 过大可能导致响应变慢\n- 示例：{\"filter\":\"login\",\"includeExternal\":false,\"maxLinks\":100}",
   "inputSchema": {
     "type": "object",
     "properties": {

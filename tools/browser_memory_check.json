@@ -1,6 +1,6 @@
 {
   "name": "browser_memory_check",
-  "description": "内存泄漏检测：通过 Performance API 检测 detached DOM 节点数量、事件监听器泄漏风险、JS 堆大小（heap size）和 DOM 节点总数，返回泄漏风险评估和优化建议。",
+  "description": "Memory leak detection: via Performance API, measures detached DOM node count, event-listener leak risk, JS heap size, and total DOM node count, returning a leak-risk assessment and optimization suggestions.\n\n中文详情：\n- 用途：内存泄漏检测，通过 Performance API 检测 detached DOM 节点数量、事件监听器泄漏风险、JS 堆大小和 DOM 节点总数，返回泄漏风险评估和优化建议\n- 何时使用：SPA 长时间运行内存增长排查时；路由切换后 DOM 节点未释放验证时；事件监听器泄漏排查时；上线前内存基线评估时\n- 输出：{ ok: boolean, heapSize: number, heapUsed: number, domNodeCount: number, detachedDomCount: number, listenerLeakRisk: boolean, riskLevel: string, recommendations: array }\n- 参数：\n  - sessionName (string, 可选)：浏览器会话名称，默认当前活跃会话\n- 错误：浏览器未启动抛出 'Browser not launched'；Performance API 不可用抛出 'Performance API not available'\n- 示例：{\"sessionName\":\"long-running-session\"}",
   "inputSchema": {
     "type": "object",
     "properties": {

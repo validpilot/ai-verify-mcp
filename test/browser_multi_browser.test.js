@@ -58,8 +58,14 @@ describe('browser_open — 多浏览器支持', () => {
   });
 
   test('scheme 描述中提及产品定位 v2.0', () => {
+    // v1.9.3：description 双语优化后，多浏览器支持能力以 "chromium, firefox, and webkit engines"
+    // 或 "多浏览器" 字样表达；P0-6 是历史任务编号，新版已不再使用
     const schema = JSON.parse(fs.readFileSync(path.join(TOOLS_DIR, 'browser_open.json'), 'utf8'));
-    assert.ok(schema.description.includes('P0-6') || schema.description.includes('多浏览器'), '描述应提及多浏览器支持能力');
+    const desc = schema.description;
+    assert.ok(
+      desc.includes('P0-6') || desc.includes('多浏览器') || /chromium.*firefox.*webkit/i.test(desc),
+      '描述应提及多浏览器支持能力（多浏览器 / chromium+firefox+webkit）'
+    );
   });
 });
 

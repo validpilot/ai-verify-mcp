@@ -1,6 +1,6 @@
 {
   "name": "browser_visual_baseline",
-  "description": "为当前页面或指定元素创建视觉回归基线 PNG，默认全页截图并遮挡密码、token、apiKey 等敏感输入。",
+  "description": "Create a visual regression baseline PNG for the current page or a specific element. Defaults to full-page screenshot and auto-masks sensitive inputs (password, token, apiKey).\n\n中文详情：\n- 用途：为当前页面或指定元素创建视觉回归基线 PNG，作为后续 visual_compare 的对比基准\n- 何时使用：首次建立视觉回归基线时；UI 升级后重置基线时；多 viewport 视觉测试前建立基准时；组件级视觉对比前创建基线时\n- 输出：{ ok: boolean, name: string, path: string, selector: string|null, fullPage: boolean, timestamp: string }\n- 参数：\n  - name (string, 必填)：基线名称，不含扩展名\n  - selector (string, 可选)：CSS 选择器；指定后只截取该元素\n  - fullPage (boolean, 可选)：是否全页截图，默认 true；selector 存在时忽略\n  - maskSelectors (array, 可选)：截图前额外遮挡/脱敏的 CSS 选择器列表\n  - sessionName (string, 可选)：浏览器会话名称，默认当前活跃会话\n- 错误：name 为空抛出 'Name is required'；selector 无匹配抛出 'element not found'；浏览器未启动抛出 'Browser not launched'\n- 示例：{\"name\":\"login-page-baseline\",\"fullPage\":true,\"maskSelectors\":[\".ad-banner\"]}",
   "inputSchema": {
     "type": "object",
     "properties": {

@@ -55,8 +55,10 @@ AI-Verify MCP 提供 **134 个工具**（v1.8.0），按功能分为 22 大类�
 
 ### 按场景选择
 
+> 💡 **新功能**：v1.9.3 新增 [Skill 指导](../skills/index) 和 [场景手册](../scenarios/ecommerce-checkout)，提供"场景 → 工具链 → 步骤"的标准用法手册。下方为快速参考，详细用法请参考对应 Skill 文档。
+
 **快速验证页面：**
-`validation_quick_run` → 一键 7 项检查
+`validation_quick_run` → 一键 7 项检查 → 详见 [Skill 指导](../skills/index)
 
 **完整验证流程：**
 `validation_start` → `browser_open` → `browser_screenshot` → `browser_errors` → `validation_report`
@@ -92,6 +94,7 @@ AI-Verify MCP 提供 **134 个工具**（v1.8.0），按功能分为 22 大类�
 
 | 版本 | 工具数 | 主要变更 |
 |------|--------|---------|
+| v1.9.3 | 134 | 新增 MCP Prompts 原语（6 个工作流模板）+ 8 篇 Skill 文档 + 5 篇场景 Playbook + 42 个工具描述双语优化 |
 | v1.8.0 | 134 | 新增 6 个安全扫描工具 + 3 个 bug 修复 |
 | v1.7.3 | 128 | 修复 8 个深度测试发现的 bug |
 | v1.7.0 | 128 | 验证码检测增强、API 推导 |
@@ -99,6 +102,9 @@ AI-Verify MCP 提供 **134 个工具**（v1.8.0），按功能分为 22 大类�
 
 ## 相关文档
 
+- [Skill 指导总览](../skills/index) — 场景化工具链用法手册
+- [场景手册](../scenarios/ecommerce-checkout) — 跨 Skill 业务场景 Playbook
+- [工具选择决策矩阵](../reference/tool-decision-matrix) — "我想做 X"决策树
 - [浏览器工具](./browser)
 - [视觉验证](./visual)
 - [系统工具](./system)

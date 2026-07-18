@@ -1,6 +1,6 @@
 {
   "name": "browser_snapshot",
-  "description": "获取当前真实浏览器页面的 URL、标题、可见文本、表单元素与按钮快照",
+  "description": "Capture a structured snapshot of the current page: URL, title, visible text, form fields, and actionable buttons for AI-driven element targeting.\n\n中文详情：\n- 用途：获取当前页面的结构化快照，包含 URL、标题、可见文本、表单元素和按钮清单\n- 何时使用：交互前需要了解页面当前结构时；定位元素前获取可点击清单时；表单填写前查看字段时；流程断点处记录页面状态时\n- 输出：{ ok: boolean, url: string, title: string, visibleText: string, forms: array, buttons: array, inputs: array, timestamp: string } — forms/buttons/inputs 各项含 selector、text、attributes 等定位信息\n- 参数：无\n- 错误：浏览器未启动抛出 'Browser not launched'；页面未加载完成可能返回不完整快照\n- 示例：{}",
   "inputSchema": {
     "type": "object",
     "properties": {}

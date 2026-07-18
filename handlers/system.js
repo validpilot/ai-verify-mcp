@@ -154,11 +154,18 @@ const _traceResult = buildTraceChain(args);
 
     // 先处理 CSS 选择器模式的字段（直接用 Playwright 定位）
     const selectorResults = [];
+    // selector → input.name/id 映射，用于同步到 nameFields 防止 autoFillForm 用 mock 数据覆盖用户值
+    const selectorFilledNames = {};
     for (const [selector, value] of Object.entries(selectorFields)) {
       try {
         const locator = target.locator(selector).first();
         await locator.fill(String(value), { timeout: 10000 });
         selectorResults.push({ selector, value, filled: true });
+        // 读取该 selector 对应 input 的 name/id，避免 autoFillForm 用 mock 数据覆盖用户指定的值
+        try {
+          const fieldName = await locator.evaluate(el => el.name || el.id || '').catch(() => '');
+          if (fieldName) selectorFilledNames[selector] = fieldName;
+        } catch (_) { /* ignore read error — 字段已填，仅无法同步 name */ }
       } catch (e) {
         const msg = String(e?.message || e);
         if (/timeout|Timeout/i.test(msg)) {
@@ -166,6 +173,14 @@ const _traceResult = buildTraceChain(args);
         } else {
           selectorResults.push({ selector, value, filled: false, error: msg });
         }
+      }
+    }
+
+    // 将 selector 已填充的字段同步到 nameFields（用用户指定的值），防止 autoFillForm 用 mock 数据覆盖
+    // 原理：autoFillForm 扫描表单时检测到 hasOverride=true，会使用 override 值而非生成 mock
+    for (const [selector, fieldName] of Object.entries(selectorFilledNames)) {
+      if (!(fieldName in nameFields)) {
+        nameFields[fieldName] = selectorFields[selector];
       }
     }
 

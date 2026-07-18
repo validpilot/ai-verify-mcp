@@ -1,6 +1,6 @@
 {
   "name": "browser_hover",
-  "description": "鼠标悬浮到指定元素上，用于触发 hover 效果、tooltip、下拉菜单等",
+  "description": "Hover the mouse over a DOM element matched by CSS selector to trigger hover effects, tooltips, and dropdown menus.\n\n中文详情：\n- 用途：将鼠标悬浮到指定 CSS 选择器元素上，触发 hover 效果、tooltip、下拉菜单等交互\n- 何时使用：测试二级菜单展开时；验证 tooltip 显示内容时；触发 hover 状态样式变化时；测试 hover 触发的异步加载时\n- 输出：{ ok: boolean, hoveredSelector: string, timestamp: string }\n- 参数：\n  - selector (string, 必填)：目标元素的 CSS 选择器\n- 错误：选择器无匹配抛出 'element not found'；元素不可见抛出 'element not visible'\n- 示例：{\"selector\":\".user-menu-trigger\"}",
   "inputSchema": {
     "type": "object",
     "properties": {

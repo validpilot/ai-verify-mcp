@@ -1,6 +1,6 @@
 {
   "name": "security_xss_scan",
-  "description": "XSS 漏洞扫描。向目标 URL 注入 26 种 XSS payload（含 script 标签、事件处理器、SVG、模板注入等），检测响应体中是否未转义地包含 payload。",
+  "description": "XSS vulnerability scanner: injects 26 XSS payloads (script tags, event handlers, SVG, template injection, etc.) into the target URL and detects unescaped payload reflection in the response body.\n\n中文详情：\n- 用途：XSS 漏洞扫描，向目标 URL 注入 26 种 XSS payload（script 标签、事件处理器、SVG、模板注入等），检测响应体中是否未转义地包含 payload\n- 何时使用：搜索/评论/反馈等输入点上线前扫描时；URL 参数反射型 XSS 验证时；模板引擎转义回归时；OWASP A03 注入类风险验证时\n- 输出：{ ok: boolean, url: string, totalPayloads: number, vulnerable: boolean, findings: array } — 每项含 { payload, reflected: boolean, context: string, evidence }\n- 参数：\n  - url (string, 必填)：目标 URL，可包含查询参数如 http://example.com/page?q=test\n- 错误：URL 无查询参数抛出 'No injectable parameters found'；URL 不可达抛出 'Request failed'\n- 示例：{\"url\":\"https://example.com/search?q=test\"}",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -9,6 +9,8 @@
         "description": "目标 URL，可包含查询参数如 http://example.com/page?q=test（必填）"
       }
     },
-    "required": ["url"]
+    "required": [
+      "url"
+    ]
   }
 }

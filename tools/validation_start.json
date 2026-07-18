@@ -1,6 +1,6 @@
 {
   "name": "validation_start",
-  "description": "启动端到端验证流程",
+  "description": "Start an end-to-end validation flow. 启动端到端验证流程，按给定场景列表对目标 URL 执行多步验证。",
   "inputSchema": {
     "type": "object",
     "properties": {
