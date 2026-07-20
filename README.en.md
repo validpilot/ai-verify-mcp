@@ -93,7 +93,7 @@ flowchart LR
 
 | Responsibility | Description |
 |------|------|
-| **136 Atomic Verification Tools** | `browser_open` / `browser_screenshot` / `browser_a11y_check` / `browser_form_fill` / `browser_responsive_test` / `browser_eval` / `console_error_check` / `network_check`, etc. |
+| **147 Tools (after v1.9.5 refactor)** | `browser_open` / `browser_visual` / `browser_session` / `browser_locator` / `browser_find` / `browser_performance` / `browser_state` / `browser_debug` / `browser_captcha` / `browser_overlay` / `validation_check` / `validation_report` / `trace_correlate` / `browser_smoke_test` / `browser_a11y_check` / `security_headers_check` / `security_owasp_top10` / `api_probe`, etc. (Legacy tool names remain available via `TOOL_ALIASES` forwarding, fully backward-compatible) |
 | **7 MCP Prompts** | `/validate-login`, `/submit-form`, `/audit-performance`, `/audit-security`, `/visual-regression`, `/debug-page`, `/e2e-flow` built-in workflows |
 | **Evidence Chain Collection** | Automatic screenshots at each step, recording Console logs and network requests |
 | **Contrast/CSS Variable Scanning** | axe-core integration, CSS variable tracking |

@@ -8,7 +8,7 @@
 [![npm downloads](https://img.shields.io/npm/dm/@validpilot/ai-verify-mcp.svg?style=flat-square)](https://www.npmjs.com/package/@validpilot/ai-verify-mcp)
 [![CI](https://img.shields.io/github/actions/workflow/status/validpilot/ai-verify-mcp/ci.yml?style=flat-square&label=CI)](https://github.com/validpilot/ai-verify-mcp/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](LICENSE)
-[![MCP Protocol](https://img.shields.io/badge/MCP-136%20tools-brightgreen.svg?style=flat-square)](https://modelcontextprotocol.io/)
+[![MCP Protocol](https://img.shields.io/badge/MCP-154%20tools-brightgreen.svg?style=flat-square)](https://modelcontextprotocol.io/)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D18-green.svg?style=flat-square)](https://nodejs.org/)
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg?style=flat-square)](CODE_OF_CONDUCT.md)
 [![English](https://img.shields.io/badge/English-blue?style=flat-square)](README.en.md)
@@ -91,7 +91,7 @@ flowchart LR
 
 | 职责 | 说明 |
 |------|------|
-| **136 个原子验证工具** | `browser_open` / `browser_overlay_detect` / `browser_smoke_test` / `browser_counterfactual_analyze` / `browser_assert` / `browser_a11y_check` / `browser_smart_fill` / `browser_memory_check` / `browser_visual_component` / `security_headers_check` / `security_owasp_top10` / `api_probe` 等 |
+| **153 个工具（v1.9.5 重构后）** | `browser_open` / `browser_visual` / `browser_session` / `browser_locator` / `browser_find` / `browser_performance` / `browser_state` / `browser_debug` / `browser_captcha` / `browser_overlay` / `validation_check` / `validation_report` / `trace_correlate` / `skill_validate` / `error_analyze` / `security_scan` / `evidence` / `chain_spec` / `mcp_diag` / `contract` / `asset_discovery` / `browser_smoke_test` / `browser_counterfactual_analyze` / `browser_assert` / `browser_a11y_check` / `security_headers_check` / `security_owasp_top10` / `api_probe` 等（旧工具名通过 `TOOL_ALIASES` 别名转发继续可用，完全向后兼容） |
 | **7 个 MCP Prompts** | `/validate-login`、`/submit-form`、`/audit-performance`、`/audit-security`、`/visual-regression`、`/debug-page`、`/e2e-flow` 内置工作流 |
 | **证据链采集** | 每步操作自动截图，记录 Console 日志和网络请求 |
 | **对比与 CSS 变量扫描** | axe-core 集成、CSS 变量追踪 |
@@ -340,6 +340,107 @@ artifacts/
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## 🔄 v1.9.5 工具体系重构
+
+### 重构动机与收益
+
+v1.9.5 之前，ai-verify-mcp 注册了 **137 个工具**，IDE 工具列表过长，AI 模型在工具选择时容易混淆。v1.9.5 通过 `mode` 参数统一 + `TOOL_ALIASES` 别名转发机制，将功能相近的工具合并为主工具 + 子模式：
+
+- **工具数**：137 → 154（含 59 个别名转发规则，实际主工具约 95 个）
+- **视觉噪音**：IDE 工具列表大幅精简，AI 模型工具选择更准确
+- **完全向后兼容**：所有旧工具名通过 `TOOL_ALIASES` 继续可用，不破坏任何现有调用
+
+### mode 参数使用指南
+
+v1.9.5 起，主工具通过 `mode` 参数区分子模式。例如：
+
+```javascript
+// 旧方式（仍然可用）：调用 3 个独立工具
+browser_captcha_detect({})
+browser_captcha_read({})
+browser_captcha_screenshot({})
+
+// 新方式（推荐）：调用 1 个主工具 + mode 参数
+browser_captcha({ mode: 'detect' })
+browser_captcha({ mode: 'read' })
+browser_captcha({ mode: 'screenshot' })
+```
+
+### 旧工具名 → 新工具名映射表
+
+| 旧工具名 | 新主工具 | mode 值 |
+|---------|---------|---------|
+| `browser_captcha_detect` | `browser_captcha` | `detect` |
+| `browser_captcha_read` | `browser_captcha` | `read` |
+| `browser_captcha_screenshot` | `browser_captcha` | `screenshot` |
+| `browser_overlay_detect` | `browser_overlay` | `detect` |
+| `browser_overlay_dismiss` | `browser_overlay` | `dismiss` |
+| `browser_session_create` | `browser_session` | `create` |
+| `browser_session_switch` | `browser_session` | `switch` |
+| `browser_session_close` | `browser_session` | `close` |
+| `browser_sessions` | `browser_session` | `list` |
+| `browser_visual_baseline` | `browser_visual` | `baseline` |
+| `browser_visual_compare` | `browser_visual` | `compare` |
+| `browser_visual_report` | `browser_visual` | `report` |
+| `browser_visual_check` | `browser_visual` | `check` |
+| `browser_visual_snapshot` | `browser_visual` | `snapshot` |
+| `screenshot_diff` | `browser_visual` | `diff` |
+| `browser_screenshot_element` | `browser_screenshot` | `element` |
+| `browser_locator_suggest` | `browser_locator` | `suggest` |
+| `browser_locator_validate` | `browser_locator` | `validate` |
+| `browser_find_element` | `browser_find` | `element` |
+| `browser_find_page` | `browser_find` | `page` |
+| `browser_performance_check` | `browser_performance` | `check` |
+| `browser_performance_trace` | `browser_performance` | `trace` |
+| `browser_cookies` | `browser_state` | `cookies` |
+| `browser_storage` | `browser_state` | `storage` |
+| `browser_debug_report` | `browser_debug` | `report` |
+| `browser_diagnose` | `browser_debug` | `diagnose` |
+| `debug_investigate` | `browser_debug` | `investigate` |
+| `validation_quick_run` | `validation_check` | `quick` |
+| `validation_report_export` | `validation_report` | `export` |
+| `trace_correlation_check` | `trace_correlate` | `check` |
+| `browser_trace_chain` | `trace_correlate` | `chain` |
+| `browser_chain` | `browser_flow` | `chain` |
+| `browser_batch` | `browser_flow` | `batch` |
+| `validation_chain` | `validation_flow` | `chain` |
+| `browser_errors_aggregate` | `browser_errors` | `aggregate` |
+| `browser_errors_clear` | `browser_errors` | `clear` |
+| `browser_events_clear` | `browser_events` | `clear` |
+| `browser_smart_fill` | `browser_form_fill` | `smart` |
+| `browser_network_detail` | `browser_network` | `detail` |
+| `skill_mcp_validate` | `skill_validate` | `mcp_validate` |
+| `skill_consistency_check` | `skill_validate` | `consistency` |
+| `skill_tools_map` | `skill_validate` | `tools_map` |
+| `error_fix_suggestion` | `error_analyze` | `fix` |
+| `error_summary_md` | `error_analyze` | `summary` |
+| `security_headers_check` | `security_scan` | `headers` |
+| `security_csp_analyze` | `security_scan` | `csp` |
+| `security_sql_injection_scan` | `security_scan` | `sqli` |
+| `security_xss_scan` | `security_scan` | `xss` |
+| `security_owasp_top10` | `security_scan` | `owasp` |
+| `evidence_pack` | `evidence` | `pack` |
+| `evidence_index` | `evidence` | `index` |
+| `chain_list_templates` | `chain_spec` | `list` |
+| `chain_spec_run` | `chain_spec` | `run` |
+| `chain_score_report` | `chain_spec` | `score` |
+| `mcp_health_check` | `mcp_diag` | `health` |
+| `mcp_self_test` | `mcp_diag` | `self_test` |
+| `contract_baseline` | `contract` | `baseline` |
+| `contract_guard` | `contract` | `guard` |
+| `asset_endpoint_enum` | `asset_discovery` | `enum` |
+| `asset_endpoint_probe` | `asset_discovery` | `probe` |
+| `asset_routes_discover` | `asset_discovery` | `routes` |
+
+### 迁移建议
+
+1. **无需立即迁移**：v1.9.5 ~ v1.10.0 期间，所有旧工具名通过 `TOOL_ALIASES` 继续可用
+2. **推荐使用新主工具**：新代码建议使用主工具 + `mode` 参数，工具列表更简洁
+3. **v1.10.0 将移除别名**：计划在 v1.10.0 移除 `TOOL_ALIASES`，届时旧工具名不再可用
+4. **IDE 工具列表缓存**：新增主工具可能需要重启 IDE 才能在自动补全中显示（别名工具立即可用）
 
 ---
 

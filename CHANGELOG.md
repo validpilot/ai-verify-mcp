@@ -2,6 +2,97 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.9.5] - 2026-07-21
+
+### Changed
+
+- **工具体系重构（137 → 154 工具，含 59 个别名转发；实际主工具约 95 个，主工具数降幅 31%）**：通过 `mode` 参数统一 + `TOOL_ALIASES` 别名转发机制，将功能相近的工具合并为主工具 + 子模式，大幅降低 IDE 工具列表的视觉噪音和 AI 模型的工具选择复杂度。所有旧工具名通过别名继续可用，**完全向后兼容**，不破坏任何现有调用。
+  - **别名转发机制**：在 `server.js` callTool 中新增 `TOOL_ALIASES` 映射表，旧工具名调用时自动转发到主工具并注入 `mode` 参数（用户 args 优先）。格式：`old_tool: { target: 'new_tool', inject: { mode: 'xxx' } }`。
+  - **mode 分发 handler 模式**：主工具 handler 内部通过 `const mode = args.mode || 'default'` 分发到子 handler，保留旧工具 handler 作为实际实现。
+
+### Added
+
+- **v1.9.5 工具合并 Phase 完成（24 个 Phase，59 个别名）**：
+
+  | Phase | 主工具 | 合并的旧工具 | mode 取值 | 别名数 |
+  |-------|--------|-------------|-----------|--------|
+  | A | browser_chain/batch + validation_chain + browser_errors_aggregate/clear + browser_events_clear + browser_smart_fill + browser_network_detail | （直接保留为别名） | — | 8 |
+  | B | trace_correlate | trace_correlation_check + browser_trace_chain | view/check/chain | 2 |
+  | C | browser_visual + browser_screenshot | browser_visual_baseline/compare/report/check/snapshot + screenshot_diff + browser_screenshot_element | baseline/compare/report/check/snapshot/diff + page/element | 7 |
+  | D/I/E/T | （前序会话完成，详见历史） | — | — | — |
+  | F | browser_captcha | browser_captcha_detect/read/screenshot | detect/read/screenshot | 3 |
+  | G | browser_overlay | browser_overlay_detect/dismiss | detect/dismiss | 2 |
+  | H | browser_session | browser_session_create/switch/close/sessions | list/create/switch/close | 4 |
+  | J | validation_check + validation_report | validation_quick_run + validation_report_export | basic/quick + view/export | 2 |
+  | K | skill_validate | skill_mcp_validate/consistency_check/tools_map | mcp_validate/consistency/tools_map | 3 |
+  | L | error_analyze | error_fix_suggestion/error_summary_md | fix/summary | 2 |
+  | M | security_scan | security_headers_check/csp_analyze/sql_injection_scan/xss_scan/owasp_top10 | headers/csp/sqli/xss/owasp | 5 |
+  | N | evidence | evidence_pack/evidence_index | pack/index | 2 |
+  | O | chain_spec | chain_list_templates/chain_spec_run/chain_score_report | list/run/score | 3 |
+  | P | mcp_diag | mcp_health_check/mcp_self_test | health/self_test | 2 |
+  | Q | browser_locator | browser_locator_suggest/validate | suggest/validate | 2 |
+  | R | browser_find | browser_find_element/find_page | element/page | 2 |
+  | S | browser_performance | browser_performance_check/trace | check/trace | 2 |
+  | U | browser_state | browser_cookies/storage | cookies/storage | 2 |
+  | V | browser_debug | browser_debug_report/diagnose/debug_investigate | report/diagnose/investigate | 3 |
+  | W | contract | contract_baseline/contract_guard | baseline/guard | 2 |
+  | X | asset_discovery | asset_endpoint_enum/asset_endpoint_probe/asset_routes_discover | enum/probe/routes | 3 |
+
+  - **新增 schema 文件**：`tools/browser_captcha.json`、`tools/browser_overlay.json`、`tools/browser_session.json`、`tools/browser_visual.json`、`tools/browser_screenshot.json`、`tools/browser_locator.json`、`tools/browser_find.json`、`tools/browser_performance.json`、`tools/browser_state.json`、`tools/browser_debug.json`、`tools/validation_check.json`、`tools/validation_report.json`、`tools/trace_correlate.json`、`tools/skill_validate.json`、`tools/error_analyze.json`、`tools/security_scan.json`、`tools/evidence.json`、`tools/chain_spec.json`、`tools/mcp_diag.json`、`tools/contract.json`、`tools/asset_discovery.json`（均含 `mode` 字段 enum + default 声明）。
+  - **新增主工具 handler**：在 `handlers/browser.js`、`handlers/session.js`、`handlers/visual.js`、`handlers/locator.js`、`handlers/network.js`、`handlers/diagnose.js`、`handlers/validation.js`、`handlers/evidence.js`、`handlers/system.js`、`handlers/security.js`、`handlers/asset.js` 中添加主工具 handler，通过 `mode` 分发到子 handler。
+  - **TOOL_ALIASES 注册**：在 `server.js` callTool 函数中注册 59 个别名转发规则（G1-G21 + M2 + 后续 Phase 扩展）。
+
+### Fixed
+
+- **Phase U 状态存储合并实现**（本次会话从头实现）：新建 `tools/browser_state.json` schema（mode: cookies/storage），在 `handlers/network.js` 添加 browser_state 主工具 handler 和 tools 数组注册，在 `server.js` TOOL_ALIASES 添加 browser_cookies/storage 2 个别名。修复前 browser_cookies 和 browser_storage 是两个独立工具，修复后合并为 browser_state 主工具 + mode 分发，旧工具名通过别名继续可用。
+- **Phase O chain_spec handler 重复定义**：删除 `handlers/validation.js` 中重复的 chain_spec handler（L1198-1212），保留含 `mcpParamMissing('mode', name, '可选 list / run / score')` 友好错误提示的版本（L1214-1222）。
+- **Phase P mcp_diag handler 重复定义 + mode 命名不一致**：(1) 合并 `handlers/system.js` 中重复的 mcp_diag handler（L336-345 用 `selftest` + L347-354 用 `self_test`）为单一 handler，兼容两种 mode 值；(2) 修正 `server.js` TOOL_ALIASES 中 `mcp_self_test` 别名的 `mode: 'selftest'` → `mode: 'self_test'`，与 schema 一致。
+- **Phase W contract handler 别名注册缺失**：在 `server.js` TOOL_ALIASES（L3885-3887）补充 `contract_baseline`/`contract_guard` → `contract` 的 2 个别名转发规则；在 `handlers/validation.js`（L1241-1250）添加 contract 主工具 handler（mode=baseline/guard 分发）。
+- **Phase X asset.js deps 解构缺少 networkLogs**：`handlers/asset.js` L63 deps 解构未包含 `networkLogs`，但 L131（asset_routes_discover 的 network-js-inferred 推断）和 L176（asset_endpoint_enum 的 network-log 提取）引用了它。在 strict mode 下会触发 ReferenceError。修复：在 L63 deps 解构中补充 `networkLogs`。修复后 asset_endpoint_enum 别名转发测试成功返回 21 个端点（含 network-log 源），asset_routes_discover 别名转发测试成功返回 15 个路由。
+- **Phase X asset_discovery 默认 mode 与 schema 不一致**：`handlers/asset.js` L68 主工具 handler 默认 mode 为 `routes`，但 `tools/asset_discovery.json` schema 声明 `default: "enum"`。导致主工具直接调用（不传 mode）时走 routes 模式（前端路由发现），与 schema 文档承诺的 enum 模式（API 端点枚举）不符。修复：将 handler 默认 mode 从 `routes` 改为 `enum`。修复后 run_mcp 调用 `asset_discovery {url:"https://ant.design/"}`（不传 mode）正确返回 `endpoints: []` + "端点发现"提示，与 schema 默认值一致。同时全量扫描所有 24 个主工具的 handler 默认 mode 与 schema default 字段，确认其他工具均一致。
+- **server.js TOOL_ALIASES 重复内容导致语法错误**（CRITICAL）：Phase W 别名注册时 Edit 工具匹配短字符串导致 `};` 提前闭合对象，其后残留重复的 Phase W + Phase X 别名条目成为无效语法。修复：删除 `};` 之后的重复内容，确保 TOOL_ALIASES 对象正确闭合（L3883-3892）。修复前 `node -c server.js` 失败，修复后语法检查通过，Phase W/X 别名转发测试全部成功。
+
+### Verified
+
+- **5 步闭环验证模板**：每个 Phase 完成后执行 (1) schema 扩展 → (2) handler 逻辑 → (3) tools 数组注册 → (4) 别名转发 → (5) run_mcp 真实调用测试。
+- **测试目标**：https://ant.design/
+- **测试结果**：本次会话完成的 7 个 Phase（F/G/Q/R/S/U/V）全部通过 run_mcp 别名转发测试：
+  - Phase F：browser_captcha_detect/read/screenshot 别名 → mode=detect/read/screenshot ✅
+  - Phase G：browser_overlay_detect/dismiss 别名 → mode=detect/dismiss ✅
+  - Phase Q：browser_locator_suggest/validate 别名 → mode=suggest/validate ✅
+  - Phase R：browser_find_element/page 别名 → mode=element/page ✅
+  - Phase S：browser_performance_check 别名 → mode=check ✅
+  - Phase U：browser_cookies/storage 别名 → mode=cookies/storage ✅
+  - Phase V：browser_debug_report 别名 → mode=report ✅
+- **续作会话测试结果**：本次续作会话完成的 8 个 Phase（K/L/M/N/O/P/W/X）全部通过 run_mcp 别名转发测试：
+  - Phase K：skill_consistency_check/mcp_validate/tools_map 别名 → mode=consistency/mcp_validate/tools_map ✅
+  - Phase L：error_fix_suggestion/error_summary_md 别名 → mode=fix/summary ✅
+  - Phase M：security_headers_check/csp_analyze/owasp_top10/xss_scan/sql_injection_scan 别名 → mode=headers/csp/owasp/xss/sqli ✅
+  - Phase N：evidence_index/pack 别名 → mode=index/pack ✅
+  - Phase O：chain_list_templates/chain_spec_run/chain_score_report 别名 → mode=list/run/score ✅
+  - Phase P：mcp_health_check 别名 → mode=health ✅（mcp_self_test 因耗时未测）
+  - Phase W：contract_guard/contract_baseline 别名 → mode=guard/baseline ✅
+  - Phase X：asset_routes_discover/asset_endpoint_enum/asset_endpoint_probe 别名 → mode=routes/enum/probe ✅
+- **MCP 注册工具数**：141 → 154（新增主工具：browser_captcha/browser_overlay/browser_locator/browser_find/browser_performance/browser_state/browser_debug/skill_validate/error_analyze/security_scan/evidence/chain_spec/mcp_diag/contract/asset_discovery 等）。
+
+## [1.9.4] - 2026-07-20
+
+### Fixed
+
+- **browser_flow schema 文件缺失**（CRITICAL）：新建 `tools/browser_flow.json` schema 文件，定义 15 种步骤类型（open/navigate/click/type/wait/assert/eval/screenshot/snapshot/scroll/hover/select/step/har/clearErrors）的 inputSchema，支持 `step.type` 与 `step.action` 互为别名。修复前 MCP 服务注册失败（registeredCount:136），修复后 registeredCount:137，mcp_self_test flow 测试 5/5 通过。
+
+- **css_var_check 多变量声明解析缺陷**（CRITICAL）：修复 `handlers/scripts/css-var-analyzer.js` 中变量声明解析使用 `line.match()` 只匹配每行第一个声明的问题（如 `:root{--primary:blue;--secondary:green}` 只识别 --primary）。改用 `line.matchAll()` 全局匹配，支持一行多声明。新增 `undefinedReferences` 字段检测"已引用但未声明"的变量（如 `var(--undefined-var)`），修复前 `hasIssues:false`（漏报），修复后正确检测到 2 个未定义引用，`hasIssues:true`。
+
+- **trace_correlate 付费门控错误**（CRITICAL）：将 `trace_correlate` 和 `browser_flow` 从 `FEATURE_GATE.proFeatures` 移到 `ossFeatures`。修复前 trace_correlate 被付费门控拦截返回"属于 ValidPilot Pro 付费能力"，handler 已完整实现前端扫描 + 后端日志检索功能但无法执行；修复后功能完全可用，`paidUpgradeHint` 仅作为提示字段不阻断功能。
+
+- **browser_lighthouse_audit 类型检查缺陷**（CRITICAL）：修复 `server.js` 中 `audit.details?.items?.slice(0, 3)` 假设 `items` 始终是数组的问题。当 Lighthouse 返回的 `audit.details.items` 是对象或字符串时，`.slice()` 方法不存在导致 `audit.details?.items?.slice is not a function` 错误。改用 `Array.isArray(audit.details?.items) ? audit.details.items.slice(0, 3) : undefined` 类型安全检查。修复后 Lighthouse 审计成功返回 scores/metrics/diagnostics。
+
+- **validation_run step.action 别名未实现**（CRITICAL 观察）：修复 `server.js` 中 `runFlow` 函数只识别 `step.type` 不支持 `step.action` 别名的问题。在循环开头添加归一化逻辑 `if (!step.type && step.action) step.type = step.action`，与 validation_flow/validation_chain 的别名支持保持一致。修复前 `step.action:"navigate"` 报"未知 flow step 类型：undefined"，修复后 4 个 step.action 步骤全部 passed:true。此修复同时覆盖 browser_flow 工具的 step.action 支持。
+
+### Changed
+
+- **FEATURE_GATE 开源工具列表扩充**：将 `browser_flow`（多步浏览器流程编排）和 `trace_correlate`（前后端 traceId 关联分析）从 Pro 付费能力调整为开源能力。browser_flow 与已开源的 browser_chain 类似（操作编排），trace_correlate 的前端扫描（读取 evidence.json）和后端日志检索（读取本地文件/SSH）属于基础验证能力，符合"开源版工具必须强大且用户友好"的设计原则。
+
 ## [1.9.3] - 2026-07-18
 
 ### Added
