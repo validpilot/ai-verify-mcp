@@ -1,9 +1,15 @@
 {
   "name": "browser_network",
-  "description": "获取真实浏览器运行过程中采集到的网络请求记录，支持按 URL、方法、状态码和 checkpoint 过滤。",
+  "description": "网络请求管理工具（v1.9.5 起合并 browser_network_detail）。通过 mode 参数区分子模式：list（默认，获取网络请求记录列表，支持按 URL/方法/状态码/checkpoint 过滤）/ detail（查看网络请求详情，包括请求头、响应头、请求体、响应体摘要、耗时和失败原因，等价于已废弃的 browser_network_detail）。",
   "inputSchema": {
     "type": "object",
     "properties": {
+      "mode": {
+        "type": "string",
+        "description": "网络请求模式：list（默认，获取请求列表）/ detail（查看请求详情，等价于已废弃的 browser_network_detail）",
+        "enum": ["list", "detail"],
+        "default": "list"
+      },
       "contains": {
         "type": "string",
         "description": "URL 过滤关键字，兼容旧参数"

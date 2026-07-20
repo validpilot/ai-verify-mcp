@@ -1,0 +1,62 @@
+{
+  "name": "browser_performance",
+  "description": "性能分析工具（v1.9.5 起合并 browser_performance_check/trace）。通过 mode 参数区分子模式：check（默认，采集当前页面性能指标并按预算评估）/ trace（记录完整性能轨迹并输出 HAR 和结构化数据）。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "mode": {
+        "type": "string",
+        "description": "性能模式：check（默认，采集性能指标并按预算评估）/ trace（记录完整性能轨迹）",
+        "enum": ["check", "trace"],
+        "default": "check"
+      },
+      "budgets": {
+        "type": "object",
+        "description": "预算阈值，支持 domContentLoaded、load、fcp、lcp、cls、longTaskCount、resourceCount、slowRequestMs（mode=check 时使用）",
+        "properties": {
+          "domContentLoaded": { "type": "number" },
+          "load": { "type": "number" },
+          "fcp": { "type": "number" },
+          "lcp": { "type": "number" },
+          "cls": { "type": "number" },
+          "longTaskCount": { "type": "number" },
+          "resourceCount": { "type": "number" },
+          "slowRequestMs": { "type": "number" }
+        }
+      },
+      "slowRequestMs": {
+        "type": "number",
+        "description": "慢请求阈值毫秒，默认 1000；可覆盖 budgets.slowRequestMs（mode=check 时使用）"
+      },
+      "sessionName": {
+        "type": "string",
+        "description": "浏览器会话名称，默认当前活跃会话（mode=check 时使用）"
+      },
+      "url": {
+        "type": "string",
+        "description": "要追踪性能的目标 URL。如果不提供则使用当前页面（mode=trace 时使用）"
+      },
+      "categories": {
+        "type": "array",
+        "description": "要记录的性能类别，默认 [\"navigation\",\"resource\",\"paint\",\"longtask\"]（mode=trace 时使用）",
+        "items": { "type": "string" },
+        "default": ["navigation", "resource", "paint", "longtask"]
+      },
+      "duration": {
+        "type": "number",
+        "description": "追踪持续时间（毫秒），默认 5000（mode=trace 时使用）",
+        "default": 5000
+      },
+      "enableScreenshots": {
+        "type": "boolean",
+        "description": "是否在追踪期间定期截图，默认 false（mode=trace 时使用）",
+        "default": false
+      },
+      "exportHar": {
+        "type": "boolean",
+        "description": "是否导出 HAR 格式数据，默认 true（mode=trace 时使用）",
+        "default": true
+      }
+    }
+  }
+}

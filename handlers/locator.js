@@ -6,8 +6,10 @@
 const { mcpError, mcpParamMissing } = require('../core/mcp-error');
 
 const tools = [
+  "browser_find",
   "browser_find_element",
   "browser_find_page",
+  "browser_locator",
   "browser_locator_suggest",
   "browser_locator_validate"
 ];
@@ -18,6 +20,19 @@ async function handle(name, args, deps) {
   let { page, browser, browserSessionId, consoleLogs, networkLogs, pageErrors, currentCheckpoint, eventCheckpoint, lastAction, sessions, activeSessionName, sessionCounter, traceLogs, traceActive, currentTraceName, backendProbeResults, instrumentationEnabled, imageErrors, lastImageErrorCheckpoint, validationResults, lastQualityChecks, lastValidationRun, requestStartTimes, stateManager } = deps;
   const { MAX_SESSIONS, SCREENSHOT_DIR, HAR_DIR, VISUAL_DIR, VISUAL_BASELINE_DIR, VISUAL_ACTUAL_DIR, VISUAL_DIFF_DIR, VALIDATIONS_DIR, REPORT_DIR, LOG_FILE, PROJECT_ROOT, TOOLS_DIR, logger, ensurePage, text, log, resetRuntimeLogs, getPageLinks, postActionErrorCheck, probeKnownEndpoints, getUnifiedErrors, closeBrowserSession, listBrowserSessions, filterNetwork, filterNetworkDetails, getStorageSnapshot, buildDebugReport, captureStepEvidence, waitForCondition, assertPage, runFlow, installInstrumentation, getBrowserEvents, clearBrowserEvents, startTrace, stopTrace, getArtifacts, clearArtifacts, ensureArtifactsDir, getBackendProbeEndpoints, isCloudApiProbeTarget, screenshotWithRedaction, safeArtifactName, analyzeScreenshotForErrors, exportHar, runFullAudit, visualBaseline, visualCompare, visualReport, runA11yCheck, runPerformanceCheck, runLighthouseAudit, findElement, findPage, suggestLocator, validateLocator, mcpHealthCheck, projectAudit, mcpSelfTest, runValidationCheck, runValidationPlan, runValidationElement, runValidationFlow, buildValidationReport, exportValidationReport, runValidationQuickRun, runDeployVerify, investigateDebug, runBrowserFullRegression, traverseMenu, fetchBackendLogs, buildTraceChain, detectSilentFailures, redact, redactString, isSensitiveKey, trimTraceLogs, genSpanId, genTraceId, browserOperator, evidenceCollector, deepInteractor, errorAggregator, path, fs, execSync, callTool } = deps;
   try {
+  // ====== browser_find ======
+  // v1.9.5 起合并 browser_find_element/find_page
+  if (name === 'browser_find') {
+    const mode = args.mode || 'element';
+    if (mode === 'element') {
+      return handle('browser_find_element', args, deps);
+    }
+    if (mode === 'page') {
+      return handle('browser_find_page', args, deps);
+    }
+    return mcpParamMissing('mode', name);
+  }
+
   // ====== browser_find_element ======
   if (name === 'browser_find_element') {
 const { target } = await ensurePage();
@@ -71,6 +86,19 @@ const { target } = await ensurePage();
       paidUpgradeHint: '需要跨页面智能追踪、多标签页管理、页面状态实时同步？升级到 Pro 版本获取高级页面管理能力。'
     };
     return text(JSON.stringify(resultData, null, 2));
+  }
+
+  // ====== browser_locator ======
+  // v1.9.5 起合并 browser_locator_suggest/validate
+  if (name === 'browser_locator') {
+    const mode = args.mode || 'suggest';
+    if (mode === 'suggest') {
+      return handle('browser_locator_suggest', args, deps);
+    }
+    if (mode === 'validate') {
+      return handle('browser_locator_validate', args, deps);
+    }
+    return mcpParamMissing('mode', name);
   }
 
   // ====== browser_locator_suggest ======

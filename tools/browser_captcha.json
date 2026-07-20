@@ -1,0 +1,51 @@
+{
+  "name": "browser_captcha",
+  "description": "验证码处理工具（v1.9.5 起合并 browser_captcha_detect/read/screenshot）。通过 mode 参数区分子模式：detect（默认，检测验证码类型和复杂度）/ read（OCR 识别验证码文本）/ screenshot（精准截取验证码区域保存 PNG）。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "mode": {
+        "type": "string",
+        "description": "验证码模式：detect（默认，检测验证码类型和复杂度）/ read（OCR 识别验证码文本）/ screenshot（精准截取验证码区域保存 PNG）",
+        "enum": ["detect", "read", "screenshot"],
+        "default": "detect"
+      },
+      "url": {
+        "type": "string",
+        "description": "目标页面 URL，可选（所有模式通用）"
+      },
+      "captchaSelector": {
+        "type": "string",
+        "description": "验证码图片的 CSS 选择器，可选（所有模式通用，不提供则自动检测）"
+      },
+      "detectMode": {
+        "type": "string",
+        "description": "检测模式：auto（自动检测）、image（仅图片验证码）、slider（仅滑块验证码）、click（仅点选验证码）（mode=detect 时使用）",
+        "default": "auto"
+      },
+      "captchaIndex": {
+        "type": "number",
+        "description": "验证码图片索引（当页面有多个验证码时使用，从 0 开始）（mode=read 时使用）"
+      },
+      "padding": {
+        "type": "number",
+        "description": "截图边界 padding，默认 4px（mode=screenshot 时使用）",
+        "default": 4
+      },
+      "savePath": {
+        "type": "string",
+        "description": "自定义保存路径，可选（mode=screenshot 时使用）"
+      },
+      "autoRefresh": {
+        "type": "boolean",
+        "description": "如果截图尺寸过小，是否自动刷新验证码并重试（mode=screenshot 时使用）",
+        "default": true
+      },
+      "minSize": {
+        "type": "number",
+        "description": "最小截图尺寸（像素），低于此值认为截图失败（mode=screenshot 时使用）",
+        "default": 100
+      }
+    }
+  }
+}

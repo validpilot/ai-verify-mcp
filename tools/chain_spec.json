@@ -1,0 +1,93 @@
+{
+  "name": "chain_spec",
+  "description": "链路规格工具（v1.9.5 起合并 chain_list_templates/chain_spec_run/chain_score_report）。通过 mode 参数区分子模式：list（默认，列出所有内置链路模板）/ run（按链路规格执行业务链路验证）/ score（对 chain_spec_run 结果输出 5 维评分报告）。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "mode": {
+        "type": "string",
+        "description": "链路模式：list（默认，列出所有内置链路模板）/ run（执行链路规格验证）/ score（生成 5 维评分报告）",
+        "enum": ["list", "run", "score"],
+        "default": "list"
+      },
+      "runId": {
+        "type": "string",
+        "description": "链路运行 ID。mode=run 不传则自动生成；mode=score 可选，用于标识评分对应的运行"
+      },
+      "name": {
+        "type": "string",
+        "description": "链路名称，可作为 runId 兜底（mode=run 时使用）"
+      },
+      "template": {
+        "type": "string",
+        "description": "内置链路模板名，如 marketplace-purchase、login-basic、credits-balance。指定后自动加载模板的 steps/stateSources/expectations/targetUrl，再用传入参数覆盖（mode=run 时使用）"
+      },
+      "targetUrl": {
+        "type": "string",
+        "description": "执行链路前先打开的页面 URL。指定 template 时可覆盖模板的 targetUrl（mode=run 时使用）"
+      },
+      "steps": {
+        "type": "array",
+        "description": "链路步骤列表，按顺序执行（mode=run 时使用）",
+        "items": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": [
+                "navigate", "goto", "reload", "refresh", "click", "type", "fill",
+                "press", "wait", "eval", "apiRequest", "api", "assert", "validate",
+                "stateCapture", "captureState", "stateCompare", "compareState"
+              ],
+              "description": "步骤类型"
+            },
+            "action": { "type": "string", "description": "type 的别名" },
+            "name": { "type": "string", "description": "步骤名称" },
+            "url": { "type": "string", "description": "navigate/goto/apiRequest 使用的 URL" },
+            "path": { "type": "string", "description": "apiRequest 使用的相对 API 路径" },
+            "method": { "type": "string", "description": "apiRequest 使用的 HTTP 方法，默认 GET" },
+            "headers": { "type": "object", "description": "apiRequest 使用的请求头" },
+            "selector": { "type": "string", "description": "click/type/press/wait/assert 使用的 CSS selector" },
+            "value": { "description": "输入值或等待毫秒数" },
+            "key": { "type": "string", "description": "press 使用的按键" },
+            "expression": { "type": "string", "description": "eval/assert/validate 使用的 JS 表达式" },
+            "bodyContains": { "type": "string", "description": "assert/validate 时断言 body 文本包含指定内容" },
+            "textContains": { "type": "string", "description": "assert/validate 时断言 selector 文本包含指定内容" },
+            "sources": { "type": "array", "description": "stateCapture/stateCompare 使用的状态源" },
+            "expectations": { "type": "array", "description": "stateCompare 或 apiRequest 使用的断言" },
+            "expectedStatus": { "type": "number", "description": "apiRequest 期望 HTTP 状态码" },
+            "body": { "description": "apiRequest 请求体" },
+            "compareTo": { "type": "string", "description": "stateCompare 引用的快照 ID" },
+            "timeout": { "type": "number", "description": "单步超时时间，默认 10000ms" },
+            "waitAfter": { "type": "number", "description": "单步执行后额外等待毫秒数" },
+            "evidence": { "type": "boolean", "description": "是否为该步骤采集证据" }
+          },
+          "required": ["type"]
+        }
+      },
+      "stateSources": {
+        "type": "array",
+        "description": "整条链路执行前后要采集并对比的状态源（mode=run 时使用）"
+      },
+      "expectations": {
+        "type": "array",
+        "description": "整条链路最终状态断言（mode=run 时使用）"
+      },
+      "networkFilter": {
+        "type": "object",
+        "description": "网络请求过滤条件（mode=run 时使用）"
+      },
+      "failFast": { "type": "boolean", "description": "步骤失败后是否立即停止，默认 true（mode=run 时使用）" },
+      "failOnRuntimeError": { "type": "boolean", "description": "每步出现 Console/PageError/Network 错误时是否判失败，默认 true（mode=run 时使用）" },
+      "evidence": { "type": "boolean", "description": "是否每个成功步骤都采集证据，默认 false（mode=run 时使用）" },
+      "evidenceOnFail": { "type": "boolean", "description": "失败步骤是否采集证据，默认 true（mode=run 时使用）" },
+      "finalEvidence": { "type": "boolean", "description": "链路结束时是否采集最终证据，默认 false（mode=run 时使用）" },
+      "screenshot": { "type": "boolean", "description": "采集证据时是否截图，默认 true（mode=run 时使用）" },
+      "snapshot": { "type": "boolean", "description": "采集证据时是否保存 DOM 摘要，默认 true（mode=run 时使用）" },
+      "settleMs": { "type": "number", "description": "每步完成后的默认稳定等待时间，默认 300ms（mode=run 时使用）" },
+      "timeout": { "type": "number", "description": "打开 targetUrl 的超时时间，默认 30000ms（mode=run 时使用）" },
+      "chainResult": { "type": "object", "description": "chain_spec_run 的完整返回结果对象（mode=score 时使用）" },
+      "result": { "type": "object", "description": "chainResult 的别名（mode=score 时使用）" }
+    }
+  }
+}

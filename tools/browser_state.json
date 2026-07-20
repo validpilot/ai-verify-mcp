@@ -1,0 +1,82 @@
+{
+  "name": "browser_state",
+  "description": "查看和管理浏览器状态（Cookie 与 Web Storage）。v1.9.5 起合并 browser_cookies 与 browser_storage。mode=cookies 时支持获取/设置/清除 Cookie；mode=storage 时查看 localStorage、sessionStorage、cookies 快照。调试登录态、Token、状态持久化问题的首选工具。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "mode": {
+        "type": "string",
+        "description": "工作模式：cookies（Cookie 管理，默认）、storage（Web Storage 快照）",
+        "enum": [
+          "cookies",
+          "storage"
+        ],
+        "default": "cookies"
+      },
+      "action": {
+        "type": "string",
+        "description": "Cookie 操作类型（仅 mode=cookies 生效）：get（获取Cookie，默认）、clear（清除所有Cookie）、set（设置Cookie）",
+        "enum": [
+          "get",
+          "clear",
+          "set"
+        ],
+        "default": "get"
+      },
+      "domain": {
+        "type": "string",
+        "description": "按域名筛选Cookie，如 .example.com（仅 mode=cookies + action=get 时生效）"
+      },
+      "name": {
+        "type": "string",
+        "description": "按名称筛选Cookie（仅 mode=cookies + action=get 时生效）"
+      },
+      "cookie": {
+        "type": "object",
+        "description": "要设置的Cookie对象（仅 mode=cookies + action=set 时生效），包含 name、value 属性，可选 domain、path、expires 等",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Cookie名称"
+          },
+          "value": {
+            "type": "string",
+            "description": "Cookie值"
+          },
+          "domain": {
+            "type": "string",
+            "description": "Cookie域名"
+          },
+          "path": {
+            "type": "string",
+            "description": "Cookie路径，默认/"
+          },
+          "expires": {
+            "type": "number",
+            "description": "过期时间戳（秒）"
+          },
+          "httpOnly": {
+            "type": "boolean",
+            "description": "是否仅HTTP访问"
+          },
+          "secure": {
+            "type": "boolean",
+            "description": "是否仅HTTPS传输"
+          },
+          "sameSite": {
+            "type": "string",
+            "description": "SameSite策略"
+          }
+        },
+        "required": [
+          "name",
+          "value"
+        ]
+      },
+      "scope": {
+        "type": "string",
+        "description": "Storage 范围（仅 mode=storage 生效）：localStorage、sessionStorage、cookies 或 all，默认 all"
+      }
+    }
+  }
+}

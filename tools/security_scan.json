@@ -1,0 +1,20 @@
+{
+  "name": "security_scan",
+  "description": "安全扫描工具（v1.9.5 起合并 security_headers_check/security_owasp_top10/security_sql_injection_scan/security_xss_scan/security_csp_analyze）。通过 mode 参数区分子模式：headers（默认，HTTP 安全头检查，等价于已废弃的 security_headers_check）/ owasp（OWASP Top 10 安全检查，等价于 security_owasp_top10）/ sqli（SQL 注入漏洞扫描，等价于 security_sql_injection_scan）/ xss（XSS 漏洞扫描，等价于 security_xss_scan）/ csp（Content-Security-Policy 深度分析，等价于 security_csp_analyze）。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "mode": {
+        "type": "string",
+        "description": "安全扫描模式：headers（默认，HTTP 安全头检查）/ owasp（OWASP Top 10 检查）/ sqli（SQL 注入扫描）/ xss（XSS 漏洞扫描）/ csp（CSP 策略分析）",
+        "enum": ["headers", "owasp", "sqli", "xss", "csp"],
+        "default": "headers"
+      },
+      "url": {
+        "type": "string",
+        "description": "目标 URL（必填）。sqli/xss 模式可包含查询参数如 http://example.com/page?id=1"
+      }
+    },
+    "required": ["url"]
+  }
+}

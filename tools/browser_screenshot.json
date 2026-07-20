@@ -4,16 +4,30 @@
   "inputSchema": {
     "type": "object",
     "properties": {
+      "mode": {
+        "type": "string",
+        "description": "截图模式：page（默认，整页截图）/ element（元素截图，等价于已废弃的 browser_screenshot_element，需指定 selector）",
+        "enum": ["page", "element"],
+        "default": "page"
+      },
       "name": {
         "type": "string",
         "description": "截图文件名，不含扩展名"
       },
       "redactSelectors": {
         "type": "array",
-        "description": "需要额外遮挡的 CSS 选择器列表",
+        "description": "需要额外遮挡的 CSS 选择器列表（mode=page 时使用）",
         "items": {
           "type": "string"
         }
+      },
+      "selector": {
+        "type": "string",
+        "description": "目标元素的 CSS 选择器（mode=element 时必填）"
+      },
+      "padding": {
+        "type": "number",
+        "description": "截图区域周围的 padding，单位像素，默认 0（mode=element 时使用）"
       }
     }
   }

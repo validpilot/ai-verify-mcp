@@ -1,0 +1,105 @@
+{
+  "name": "browser_visual",
+  "description": "视觉回归与 UI 检查工具（v1.9.5 起合并 browser_visual_baseline/compare/report/check/snapshot + screenshot_diff）。通过 mode 参数区分子模式：baseline（默认，建立视觉基线 PNG）/ compare（截取实际图与基线对比，生成 diff）/ report（列出所有视觉产物）/ check（无基线 UI 问题扫描）/ snapshot（三级快照：截图+DOM+CSS）/ diff（手动指定两张截图对比，等价于已废弃的 screenshot_diff）。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "mode": {
+        "type": "string",
+        "description": "视觉模式：baseline（默认，建立基线）/ compare（与基线对比）/ report（列出视觉产物）/ check（UI 问题扫描）/ snapshot（三级快照）/ component（组件级元素视觉比对，需指定 name 和 selector）/ diff（手动对比两张截图，等价于 screenshot_diff）",
+        "enum": ["baseline", "compare", "report", "check", "snapshot", "component", "diff"],
+        "default": "baseline"
+      },
+      "name": {
+        "type": "string",
+        "description": "基线/对比/产物名称，不含扩展名（mode=baseline/compare/component/diff 时使用；mode=component 时必填）"
+      },
+      "selector": {
+        "type": "string",
+        "description": "可选 CSS 选择器；指定后只截取该元素（mode=baseline/compare/snapshot/diff 时使用；mode=component 时必填）"
+      },
+      "maxDiffPixelRatio": {
+        "type": "number",
+        "description": "组件级视觉比对允许的最大差异像素比例，默认 0.01（mode=component 时使用）"
+      },
+      "fullPage": {
+        "type": "boolean",
+        "description": "是否全页截图，默认 true；selector 存在时忽略（mode=baseline/compare/snapshot 时使用）"
+      },
+      "maskSelectors": {
+        "type": "array",
+        "description": "截图前额外遮挡/脱敏的 CSS 选择器列表，用于忽略动态区域（mode=baseline/compare 时使用）",
+        "items": {
+          "type": "string"
+        }
+      },
+      "sessionName": {
+        "type": "string",
+        "description": "浏览器会话名称，默认当前活跃会话（mode=baseline/compare/snapshot/component 时使用）"
+      },
+      "includeAccessibility": {
+        "type": "boolean",
+        "description": "是否包含可访问性检查，默认 true（mode=check 时使用）",
+        "default": true
+      },
+      "includeResponsive": {
+        "type": "boolean",
+        "description": "是否包含响应式检查，默认 false（mode=check 时使用）",
+        "default": false
+      },
+      "viewports": {
+        "type": "array",
+        "description": "响应式检查的 viewport 列表（mode=check 时使用）",
+        "items": {
+          "type": "string",
+          "enum": ["mobile", "tablet", "desktop"]
+        },
+        "default": ["mobile", "tablet"]
+      },
+      "severity": {
+        "type": "string",
+        "enum": ["blocking", "major", "minor"],
+        "description": "最低报告级别（mode=check 时使用），默认 major",
+        "default": "major"
+      },
+      "includeMetadata": {
+        "type": "boolean",
+        "description": "是否包含完整元数据，默认 true（mode=snapshot 时使用）",
+        "default": true
+      },
+      "detectIssues": {
+        "type": "boolean",
+        "description": "是否自动检测 UI 问题，默认 true（mode=snapshot/check 时使用）",
+        "default": true
+      },
+      "viewportWidth": {
+        "type": "integer",
+        "description": "自定义 viewport 宽度（mode=snapshot 时使用）"
+      },
+      "viewportHeight": {
+        "type": "integer",
+        "description": "自定义 viewport 高度（mode=snapshot 时使用）"
+      },
+      "baselinePath": {
+        "type": "string",
+        "description": "基线截图路径（mode=diff 时使用）"
+      },
+      "actualPath": {
+        "type": "string",
+        "description": "实际截图路径（mode=diff 时使用）"
+      },
+      "beforePath": {
+        "type": "string",
+        "description": "baselinePath 的别名（mode=diff 时使用）"
+      },
+      "afterPath": {
+        "type": "string",
+        "description": "actualPath 的别名（mode=diff 时使用）"
+      },
+      "threshold": {
+        "type": "number",
+        "description": "差异阈值，默认 0.01（mode=diff 时使用）"
+      }
+    }
+  }
+}

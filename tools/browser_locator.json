@@ -1,0 +1,31 @@
+{
+  "name": "browser_locator",
+  "description": "选择器定位工具（v1.9.5 起合并 browser_locator_suggest/validate）。通过 mode 参数区分子模式：suggest（默认，基于已有 selector 命中元素或 target 文本生成稳定推荐选择器）/ validate（验证选择器稳定性，统计匹配数量并输出评分和风险）。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "mode": {
+        "type": "string",
+        "description": "定位模式：suggest（默认，生成推荐选择器）/ validate（验证选择器稳定性）",
+        "enum": ["suggest", "validate"],
+        "default": "suggest"
+      },
+      "selector": {
+        "type": "string",
+        "description": "已有选择器。mode=suggest 时基于命中元素属性生成推荐；mode=validate 时为必填，要验证的选择器"
+      },
+      "target": {
+        "type": "string",
+        "description": "无 selector 时按可见文本查找目标元素（mode=suggest 时使用）"
+      },
+      "sessionName": {
+        "type": "string",
+        "description": "浏览器会话名称（所有模式通用）"
+      }
+    },
+    "anyOf": [
+      { "required": ["selector"] },
+      { "required": ["target"] }
+    ]
+  }
+}

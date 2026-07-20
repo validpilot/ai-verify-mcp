@@ -10,6 +10,7 @@ const tools = [
   "browser_console",
   "browser_errors",
   "browser_errors_clear",
+  "browser_state",
   "browser_storage",
   "browser_cookies"
 ];
@@ -21,7 +22,22 @@ async function handle(name, args, deps) {
   const { MAX_SESSIONS, SCREENSHOT_DIR, HAR_DIR, VISUAL_DIR, VISUAL_BASELINE_DIR, VISUAL_ACTUAL_DIR, VISUAL_DIFF_DIR, VALIDATIONS_DIR, REPORT_DIR, LOG_FILE, PROJECT_ROOT, TOOLS_DIR, logger, ensurePage, text, log, resetRuntimeLogs, getPageLinks, postActionErrorCheck, probeKnownEndpoints, getUnifiedErrors, closeBrowserSession, listBrowserSessions, filterNetwork, filterNetworkDetails, getStorageSnapshot, buildDebugReport, captureStepEvidence, waitForCondition, assertPage, runFlow, installInstrumentation, getBrowserEvents, clearBrowserEvents, startTrace, stopTrace, getArtifacts, clearArtifacts, ensureArtifactsDir, getBackendProbeEndpoints, isCloudApiProbeTarget, screenshotWithRedaction, safeArtifactName, analyzeScreenshotForErrors, exportHar, runFullAudit, visualBaseline, visualCompare, visualReport, runA11yCheck, runPerformanceCheck, runLighthouseAudit, findElement, findPage, suggestLocator, validateLocator, mcpHealthCheck, projectAudit, mcpSelfTest, runValidationCheck, runValidationPlan, runValidationElement, runValidationFlow, buildValidationReport, exportValidationReport, runValidationQuickRun, runDeployVerify, investigateDebug, runBrowserFullRegression, traverseMenu, fetchBackendLogs, buildTraceChain, detectSilentFailures, redact, redactString, isSensitiveKey, trimTraceLogs, genSpanId, genTraceId, browserOperator, evidenceCollector, deepInteractor, errorAggregator, path, fs, execSync, callTool } = deps;
   try {
   // ====== browser_network ======
+  // v1.9.5 起合并 browser_network_detail（mode=detail）
   if (name === 'browser_network') {
+    const mode = args.mode || 'list';
+
+    // mode=detail：等价于已废弃的 browser_network_detail
+    if (mode === 'detail') {
+      return text(JSON.stringify({
+        mode: 'detail',
+        ...filterNetworkDetails(args),
+        nextSteps: ['使用 browser_errors 查看聚合错误', '使用 browser_performance_check 分析性能'],
+        suggestions: [{ type: 'next', tool: 'browser_errors', reason: '查看聚合错误信息' }],
+        paidUpgradeHint: '需要网络请求拦截和修改、Mock API 响应、性能瓶颈智能分析？升级到 Pro 版本获取高级网络调试能力。'
+      }, null, 2));
+    }
+
+    // mode=list（默认）：原有逻辑
     const records = filterNetwork(networkLogs, args);
     const includeDetails = args.includeDetails === true;
     const processed = records.map(item => {
@@ -104,7 +120,30 @@ const level = args.level && args.level !== 'all' ? args.level : null;
   }
 
   // ====== browser_errors ======
+  // v1.9.5 起合并 browser_errors_aggregate（mode=aggregate）和 browser_errors_clear（mode=clear）
   if (name === 'browser_errors') {
+    const mode = args.mode || 'view';
+
+    // mode=clear：等价于已废弃的 browser_errors_clear
+    if (mode === 'clear') {
+      resetRuntimeLogs();
+      return text(JSON.stringify({
+        cleared: true,
+        mode: 'clear',
+        checkpoint: currentCheckpoint,
+        nextSteps: ['使用 browser_screenshot 进行截图验证', '使用 browser_smoke_test 执行冒烟测试'],
+        paidUpgradeHint: '需要自动错误清理与跟踪、历史错误趋势分析？升级到 Pro 版本获取智能错误管理能力。'
+      }, null, 2));
+    }
+
+    // mode=aggregate：等价于已废弃的 browser_errors_aggregate
+    if (mode === 'aggregate') {
+      const evidence = args.evidence || (args.includeCurrentPage === false ? {} : (await evidenceCollector.collectEvidence(args)).evidence);
+      const aggResult = errorAggregator.aggregateErrors(evidence, args);
+      return text(JSON.stringify({ mode: 'aggregate', ...aggResult }, null, 2));
+    }
+
+    // mode=view（默认）：原有逻辑
     const result = getUnifiedErrors(args);
 
     // 从 Playwright page 实时获取最新的 console 错误和 pageerror
@@ -237,6 +276,19 @@ const level = args.level && args.level !== 'all' ? args.level : null;
       nextSteps: ['使用 browser_screenshot 进行截图验证', '使用 browser_smoke_test 执行冒烟测试'],
       paidUpgradeHint: '需要自动错误清理与跟踪、历史错误趋势分析？升级到 Pro 版本获取智能错误管理能力。'
     }, null, 2));
+  }
+
+  // ====== browser_state ======
+  // v1.9.5 起合并 browser_cookies/browser_storage
+  if (name === 'browser_state') {
+    const mode = args.mode || 'cookies';
+    if (mode === 'cookies') {
+      return handle('browser_cookies', args, deps);
+    }
+    if (mode === 'storage') {
+      return handle('browser_storage', args, deps);
+    }
+    return mcpParamMissing('mode', name);
   }
 
   // ====== browser_storage ======

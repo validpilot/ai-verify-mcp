@@ -1,9 +1,15 @@
 {
   "name": "browser_form_fill",
-  "description": "Batch fill form fields with optional auto-submit and result detection. Supports both CSS-selector mode (keys starting with #/./[) and field-name mode (input name attribute); auto-detects input/select/textarea and generates mock data by type.\n\n中文详情：\n- 用途：批量填充表单字段并可选提交检测，支持 CSS 选择器模式和字段名模式两种字段指定方式，自动识别 input/select/textarea\n- 何时使用：登录/注册表单批量填写时；多字段表单快速测试时；表单提交流程端到端验证时；需要 mock 数据填充表单时\n- 输出：{ ok: boolean, url: string, filledFields: array, submitResult: object, timestamp: string } — submitResult 含 { submitted: boolean, success: boolean, urlAfter: string }\n- 参数：\n  - url (string, 必填)：目标页面 URL\n  - selector (string, 可选)：表单选择器，默认 'form'\n  - fields (object, 可选)：手动指定的字段值，支持 CSS 选择器模式（key 以 #/./[//>/:/* 开头）和字段名模式（key 为 input 的 name 属性）\n  - submit (boolean, 可选)：填充后是否自动提交，默认 true\n  - submitSelector (string, 可选)：提交按钮选择器，默认自动查找 submit 按钮\n- 错误：URL 不可达抛出 'Navigation failed'；表单未找到抛出 'Form not found'；字段选择器无匹配会在 filledFields 中标记 missing\n- 示例：{\"url\":\"https://example.com/login\",\"fields\":{\"#email\":\"user@test.com\",\"#password\":\"pass123\"},\"submit\":true}",
+  "description": "表单填充工具（v1.9.5 起合并 browser_smart_fill）。通过 mode 参数区分子模式：basic（默认，批量填充表单字段并可选提交检测，支持 CSS 选择器模式和字段名模式）/ smart（智能填充单个字段，按 fieldType 自动生成符合格式的测试数据，等价于已废弃的 browser_smart_fill）。\n\n中文详情：\n- 用途：批量或智能填充表单字段并可选提交检测\n- 何时使用：登录/注册表单批量填写时；多字段表单快速测试时；表单提交流程端到端验证时；需要 mock 数据填充表单时\n- 输出：basic 模式返回 { ok, url, filledFields, submitResult, timestamp }；smart 模式返回 { success, selector, fieldType, value }\n- 参数：\n  - mode (string, 可选)：basic（默认）/ smart\n  - url (string, basic 模式必填)：目标页面 URL\n  - selector (string, 可选)：表单选择器（basic 模式）或字段选择器（smart 模式必填）\n  - fields (object, basic 模式可选)：手动指定的字段值\n  - fieldType (string, smart 模式必填)：字段类型（email/phone/name/address/idCard/number/text/url/date/password）\n  - options (object, smart 模式可选)：数据生成选项\n  - submit (boolean, 可选)：basic 模式填充后是否自动提交，默认 true\n  - submitSelector (string, 可选)：提交按钮选择器",
   "inputSchema": {
     "type": "object",
     "properties": {
+      "mode": {
+        "type": "string",
+        "description": "填充模式：basic（默认，批量填充表单）/ smart（智能填充单个字段，自动生成符合 fieldType 的测试数据，等价于已废弃的 browser_smart_fill）",
+        "enum": ["basic", "smart"],
+        "default": "basic"
+      },
       "url": {
         "type": "string",
         "description": "目标页面URL（必填）"
@@ -25,6 +31,15 @@
       "submitSelector": {
         "type": "string",
         "description": "提交按钮选择器，默认自动查找 submit 按钮"
+      },
+      "fieldType": {
+        "type": "string",
+        "description": "smart 模式必填：字段类型（email/phone/name/address/idCard/number/text/url/date/password）",
+        "enum": ["email", "phone", "name", "address", "idCard", "number", "text", "url", "date", "password"]
+      },
+      "options": {
+        "type": "object",
+        "description": "smart 模式可选：数据生成选项（如 locale、format 等）"
       }
     },
     "required": [

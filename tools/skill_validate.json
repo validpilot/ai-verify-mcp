@@ -1,0 +1,41 @@
+{
+  "name": "skill_validate",
+  "description": "Skill 与 MCP 工具一致性校验与映射查询。v1.9.5 起合并 skill_consistency_check / skill_mcp_validate / skill_tools_map。mode=consistency 批量校验所有 Skill 引用的工具是否与 tools/ 目录一致；mode=mcp_validate 校验单个 Skill 定义的工具依赖是否与 MCP 服务器一致；mode=tools_map 查询 Skill↔Tool 双向映射。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "mode": {
+        "type": "string",
+        "description": "工作模式：consistency（批量校验全部 Skill，默认）、mcp_validate（校验单个 Skill，需传 skillName）、tools_map（查询 Skill↔Tool 映射，需传 skillName 或 toolName）",
+        "enum": [
+          "consistency",
+          "mcp_validate",
+          "tools_map"
+        ],
+        "default": "consistency"
+      },
+      "skillName": {
+        "type": "string",
+        "description": "Skill 名称（mode=mcp_validate 时必填；mode=consistency 时可选，仅校验单个 Skill；mode=tools_map 时与 toolName 至少传一项）"
+      },
+      "toolName": {
+        "type": "string",
+        "description": "工具名称（仅 mode=tools_map 生效），返回引用该工具的所有 Skill"
+      },
+      "includeDetails": {
+        "type": "boolean",
+        "default": false,
+        "description": "是否包含每个工具的 step/required/description 等详情（仅 mode=tools_map 生效）"
+      },
+      "strictMode": {
+        "type": "string",
+        "description": "校验严格度（mode=consistency 和 mode=mcp_validate 生效）：strict=缺失工具时报错（passed:false），warn=仅警告不阻断",
+        "enum": [
+          "strict",
+          "warn"
+        ],
+        "default": "strict"
+      }
+    }
+  }
+}

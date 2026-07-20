@@ -6,6 +6,7 @@
 const { mcpError, mcpParamMissing } = require('../core/mcp-error');
 
 const tools = [
+  "browser_debug",
   "browser_diagnose",
   "browser_anti_bot_detect",
   "browser_debug_report",
@@ -13,6 +14,7 @@ const tools = [
   "browser_quick_fix",
   "browser_verify_fix",
   "browser_errors_aggregate",
+  "error_analyze",
   "error_fix_suggestion",
   "error_summary_md",
   "debug_investigate"
@@ -24,6 +26,22 @@ async function handle(name, args, deps) {
   let { page, browser, browserSessionId, consoleLogs, networkLogs, pageErrors, currentCheckpoint, eventCheckpoint, lastAction, sessions, activeSessionName, sessionCounter, traceLogs, traceActive, currentTraceName, backendProbeResults, instrumentationEnabled, imageErrors, lastImageErrorCheckpoint, validationResults, lastQualityChecks, lastValidationRun, requestStartTimes, stateManager } = deps;
   const { MAX_SESSIONS, SCREENSHOT_DIR, HAR_DIR, VISUAL_DIR, VISUAL_BASELINE_DIR, VISUAL_ACTUAL_DIR, VISUAL_DIFF_DIR, VALIDATIONS_DIR, REPORT_DIR, LOG_FILE, PROJECT_ROOT, TOOLS_DIR, logger, ensurePage, text, log, resetRuntimeLogs, getPageLinks, postActionErrorCheck, probeKnownEndpoints, getUnifiedErrors, closeBrowserSession, listBrowserSessions, filterNetwork, filterNetworkDetails, getStorageSnapshot, buildDebugReport, captureStepEvidence, waitForCondition, assertPage, runFlow, installInstrumentation, getBrowserEvents, clearBrowserEvents, startTrace, stopTrace, getArtifacts, clearArtifacts, ensureArtifactsDir, getBackendProbeEndpoints, isCloudApiProbeTarget, screenshotWithRedaction, safeArtifactName, analyzeScreenshotForErrors, exportHar, runFullAudit, visualBaseline, visualCompare, visualReport, runA11yCheck, runPerformanceCheck, runLighthouseAudit, findElement, findPage, suggestLocator, validateLocator, mcpHealthCheck, projectAudit, mcpSelfTest, runValidationCheck, runValidationPlan, runValidationElement, runValidationFlow, buildValidationReport, exportValidationReport, runValidationQuickRun, runDeployVerify, investigateDebug, runBrowserFullRegression, traverseMenu, fetchBackendLogs, buildTraceChain, detectSilentFailures, redact, redactString, isSensitiveKey, trimTraceLogs, genSpanId, genTraceId, browserOperator, evidenceCollector, deepInteractor, errorAggregator, path, fs, execSync, callTool } = deps;
   try {
+  // ====== browser_debug ======
+  // v1.9.5 起合并 browser_debug_report/browser_diagnose/debug_investigate
+  if (name === 'browser_debug') {
+    const mode = args.mode || 'report';
+    if (mode === 'report') {
+      return handle('browser_debug_report', args, deps);
+    }
+    if (mode === 'diagnose') {
+      return handle('browser_diagnose', args, deps);
+    }
+    if (mode === 'investigate') {
+      return handle('debug_investigate', args, deps);
+    }
+    return mcpParamMissing('mode', name);
+  }
+
   // ====== browser_diagnose ======
   if (name === 'browser_diagnose') {
 const { target } = await ensurePage();
@@ -1299,6 +1317,19 @@ const { target } = await ensurePage();
   if (name === 'browser_errors_aggregate') {
 const evidence = args.evidence || (args.includeCurrentPage === false ? {} : (await evidenceCollector.collectEvidence(args)).evidence);
     return text(JSON.stringify(errorAggregator.aggregateErrors(evidence, args), null, 2));
+  }
+
+  // ====== error_analyze ======
+  // v1.9.5 起合并 error_fix_suggestion/error_summary_md
+  if (name === 'error_analyze') {
+    const mode = args.mode || 'fix';
+    if (mode === 'fix') {
+      return handle('error_fix_suggestion', args, deps);
+    }
+    if (mode === 'summary') {
+      return handle('error_summary_md', args, deps);
+    }
+    return mcpParamMissing('mode', name);
   }
 
   // ====== error_fix_suggestion ======

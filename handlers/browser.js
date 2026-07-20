@@ -104,6 +104,7 @@ const tools = [
   "browser_scroll",
   "browser_press_key",
   "browser_snapshot",
+  "browser_flow",
   "browser_batch",
   "browser_eval",
   "browser_dom",
@@ -122,8 +123,10 @@ const tools = [
   "browser_aria_type",
   "browser_smart_fill",
   "browser_matrix_test",
+  "browser_overlay",
   "browser_overlay_detect",
   "browser_overlay_dismiss",
+  "browser_captcha",
   "browser_captcha_detect",
   "browser_captcha_screenshot",
   "browser_captcha_read"
@@ -138,7 +141,10 @@ async function handle(name, args, deps) {
   // ====== browser_open ======
   if (name === 'browser_open') {
     const { target, reused, sessionId } = await ensurePage(args);
-    deps.page = target;
+    page = target;
+    try { browser = target.context().browser() || browser; } catch (e) { /* persistent context */ }
+    deps.page = page;
+    deps.browser = browser;
     const beforeUrl = target.url();
     if (args.url && beforeUrl !== args.url) {
       const timeout = args.timeout || 15000;
@@ -1044,8 +1050,95 @@ const { target } = await ensurePage();
   }
 
   // ====== browser_flow ======
+  // v1.9.5 起合并 browser_chain（mode=chain）和 browser_batch（mode=batch）
   if (name === 'browser_flow') {
-const { target } = await ensurePage(args);
+    const { target } = await ensurePage(args);
+    const mode = args.mode || 'flow';
+
+    if (mode === 'chain') {
+      // chain 模式：等价于已废弃的 browser_chain
+      // 步骤类型映射：pressKey/press_key → step，evaluate → eval
+      const rawSteps = args.steps || args.actions || [];
+      const mappedSteps = rawSteps.map((s) => {
+        const stepType = s.type || s.action;
+        let mappedType = stepType;
+        if (stepType === 'pressKey' || stepType === 'press_key') mappedType = 'step';
+        else if (stepType === 'evaluate') mappedType = 'eval';
+        return { ...s, type: mappedType };
+      });
+      // stopOnError=true（默认）等价于 continueOnError=false
+      const stopOnError = args.stopOnError !== false;
+      const chainArgs = {
+        steps: mappedSteps,
+        continueOnError: !stopOnError,
+        clearErrors: args.clearErrors !== false
+      };
+      const result = await runFlow(target, chainArgs);
+      // chain 模式额外提供 consoleErrors/networkErrors 汇总（兼容 browser_chain 输出结构）
+      const consoleErrors = (result.errors?.console || []).map((e) => ({
+        type: e.type || 'error',
+        text: (e.text || '').slice(0, 200)
+      }));
+      const networkErrors = (result.errors?.network || [])
+        .filter((e) => e.status >= 400)
+        .map((e) => ({ url: (e.url || '').slice(0, 100), status: e.status }));
+      const completedActions = result.results ? result.results.filter((r) => r.ok !== false).length : 0;
+      const failedStepIndex = result.results ? result.results.findIndex((r) => r.ok === false) : -1;
+      return text(JSON.stringify({
+        success: result.passed,
+        mode: 'chain',
+        totalActions: mappedSteps.length,
+        completedActions,
+        failedActionIndex: failedStepIndex >= 0 ? failedStepIndex : null,
+        actionResults: result.results,
+        consoleErrors,
+        networkErrors,
+        errorMessage: failedStepIndex >= 0 ? `第 ${failedStepIndex + 1} 步操作失败` : null,
+        errors: result.errors
+      }, null, 2));
+    }
+
+    if (mode === 'batch') {
+      // batch 模式：等价于已废弃的 browser_batch，受 maxSteps 限制
+      const steps = args.steps || [];
+      const maxSteps = args.maxSteps || 20;
+      if (steps.length > maxSteps) {
+        return text(JSON.stringify({
+          error: `批量操作受限：最多 ${maxSteps} 个操作，当前 ${steps.length} 个`,
+          maxSteps,
+          actualSteps: steps.length
+        }, null, 2));
+      }
+      // 步骤类型映射：press_key → step，evaluate → eval
+      const mappedSteps = steps.map((s) => {
+        const stepType = s.type || s.action;
+        let mappedType = stepType;
+        if (stepType === 'press_key' || stepType === 'pressKey') mappedType = 'step';
+        else if (stepType === 'evaluate') mappedType = 'eval';
+        return { ...s, type: mappedType };
+      });
+      const batchArgs = {
+        steps: mappedSteps,
+        continueOnError: true,  // batch 模式默认继续执行
+        clearErrors: args.clearErrors !== false
+      };
+      const result = await runFlow(target, batchArgs);
+      const results = result.results || [];
+      const hasFailed = results.some((r) => r.ok === false);
+      return text(JSON.stringify({
+        mode: 'batch',
+        total: mappedSteps.length,
+        results,
+        hasFailed,
+        passed: result.passed,
+        errors: result.errors,
+        nextSteps: hasFailed
+          ? ['使用 browser_counterfactual_analyze 分析失败步骤的根因', '检查失败步骤的选择器或参数是否正确']
+          : ['使用 browser_snapshot 确认批量操作后的页面状态', '使用 browser_errors 检查批量操作后的错误']
+      }, null, 2));
+    }
+
+    // 默认 flow 模式
     return text(JSON.stringify(await runFlow(target, args), null, 2));
   }
 
@@ -1058,6 +1151,12 @@ const { target } = await ensurePage(args);
   // ====== browser_events ======
   if (name === 'browser_events') {
 const { target } = await ensurePage(args);
+    const mode = args.mode || 'view';
+    if (mode === 'clear') {
+      // v1.9.5 起合并 browser_events_clear（mode=clear）
+      const result = await clearBrowserEvents(target);
+      return text(JSON.stringify({ mode: 'clear', ...result }, null, 2));
+    }
     return text(JSON.stringify(await getBrowserEvents(target, args), null, 2));
   }
 
@@ -1663,6 +1762,19 @@ const { target } = await ensurePage();
     return { content: [{ type: 'text', text: JSON.stringify({ results, summary }, null, 2) }] };
   }
 
+  // ====== browser_overlay ======
+  // v1.9.5 起合并 browser_overlay_detect/dismiss
+  if (name === 'browser_overlay') {
+    const mode = args.mode || 'detect';
+    if (mode === 'detect') {
+      return handle('browser_overlay_detect', args, deps);
+    }
+    if (mode === 'dismiss') {
+      return handle('browser_overlay_dismiss', args, deps);
+    }
+    return mcpParamMissing('mode', name);
+  }
+
   // ====== browser_overlay_detect ======
   if (name === 'browser_overlay_detect') {
     const { target } = await ensurePage();
@@ -1953,6 +2065,22 @@ const { target } = await ensurePage();
     }
     
     return text(JSON.stringify(resultData, null, 2));
+  }
+
+  // ====== browser_captcha ======
+  // v1.9.5 起合并 browser_captcha_detect/read/screenshot
+  if (name === 'browser_captcha') {
+    const mode = args.mode || 'detect';
+    if (mode === 'detect') {
+      return handle('browser_captcha_detect', args, deps);
+    }
+    if (mode === 'read') {
+      return handle('browser_captcha_read', args, deps);
+    }
+    if (mode === 'screenshot') {
+      return handle('browser_captcha_screenshot', args, deps);
+    }
+    return mcpParamMissing('mode', name);
   }
 
   // ====== browser_captcha_detect ======

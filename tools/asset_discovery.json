@@ -1,0 +1,60 @@
+{
+  "name": "asset_discovery",
+  "description": "v1.9.5 起合并 asset_routes_discover / asset_endpoint_enum / asset_endpoint_probe 三大资产发现工具。通过 mode 参数切换：routes=前端路由发现；enum=API 端点枚举；probe=端点主动探测。需要先 browser_open 打开页面。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "mode": {
+        "type": "string",
+        "enum": ["routes", "enum", "probe"],
+        "default": "enum",
+        "description": "发现模式：routes=前端路由发现（DOM/hash/JS bundle 静态分析）；enum=API 端点枚举（被动分析）；probe=端点主动探测（GET/HEAD 请求）"
+      },
+      "maxScripts": {
+        "type": "number",
+        "default": 10,
+        "description": "[routes/enum] 最多抓取解析的外部 JS bundle 数量（上限 30），用于控制耗时"
+      },
+      "basePath": {
+        "type": "string",
+        "default": "/api",
+        "description": "[probe] API 基础路径"
+      },
+      "probeCategories": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": ["auth", "user", "order", "config", "admin", "system", "all"]
+        },
+        "default": ["all"],
+        "description": "[probe] 探测类别：auth=认证；user=用户；order=订单；config=配置；admin=管理端；system=系统；all=全部"
+      },
+      "customEndpoints": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "[probe] 自定义探测端点列表"
+      },
+      "method": {
+        "type": "string",
+        "enum": ["GET", "HEAD"],
+        "default": "HEAD",
+        "description": "[probe] 探测方法：HEAD 更快但可能被拦截；GET 更可靠"
+      },
+      "timeout": {
+        "type": "number",
+        "default": 5000,
+        "description": "[probe] 单个请求超时时间（毫秒）"
+      },
+      "maxConcurrent": {
+        "type": "number",
+        "default": 5,
+        "description": "[probe] 最大并发请求数"
+      },
+      "includeHidden": {
+        "type": "boolean",
+        "default": false,
+        "description": "[probe] 是否包含隐藏端点（如 .env, /admin, /backup 等）"
+      }
+    }
+  }
+}

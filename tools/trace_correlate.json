@@ -1,19 +1,25 @@
 {
   "name": "trace_correlate",
-  "description": "traceId 深度关联：根据 traceIds 反查前端证据包和后端日志，实现前后端联调闭环。前端扫描 evidence.json 中匹配的 traceId，后端可从本地日志文件或 SSH 远程日志检索，输出完整调用链。",
+  "description": "traceId 深度关联工具（v1.9.5 起合并 browser_trace_chain 和 trace_correlation_check）。通过 mode 参数区分子模式：view（默认，根据 traceIds 反查前端证据包和后端日志，实现前后端联调闭环）/ check（校验浏览器请求和后端日志是否共享同一 traceId/runId，输出 trace 覆盖率和关联性评分，等价于已废弃的 trace_correlation_check）/ chain（全链路调用链追溯，从 traceId 或时间点追溯前端→API→后端的完整请求链路，等价于已废弃的 browser_trace_chain）。",
   "inputSchema": {
     "type": "object",
     "properties": {
+      "mode": {
+        "type": "string",
+        "description": "关联模式：view（默认，traceId 深度关联）/ check（trace 覆盖率校验，等价于 trace_correlation_check）/ chain（全链路调用链追溯，等价于 browser_trace_chain）",
+        "enum": ["view", "check", "chain"],
+        "default": "view"
+      },
       "traceIds": {
         "type": "array",
-        "description": "要关联的 traceId 列表",
+        "description": "要关联的 traceId 列表（mode=view 时使用）",
         "items": {
           "type": "string"
         }
       },
       "traceId": {
         "type": "string",
-        "description": "单个 traceId（与 traceIds 二选一）"
+        "description": "单个 traceId（与 traceIds 二选一，mode=view/chain 时使用）"
       },
       "backendLogPath": {
         "type": "string",
@@ -28,6 +34,26 @@
         "type": "number",
         "description": "每个 traceId 返回的后端日志行数上限，默认 10",
         "default": 10
+      },
+      "since": {
+        "type": "string",
+        "description": "只检查此 ISO 时间点之后的请求（mode=check 时使用），默认使用当前 checkpoint"
+      },
+      "urlContains": {
+        "type": "string",
+        "description": "只检查 URL 包含此字符串的请求（mode=check 时使用）"
+      },
+      "url": {
+        "type": "string",
+        "description": "URL 包含过滤（mode=chain 时使用）"
+      },
+      "statusMin": {
+        "type": "number",
+        "description": "最小 HTTP 状态码过滤（mode=chain 时使用，如 400 只显示错误请求）"
+      },
+      "includeBackendLogs": {
+        "type": "boolean",
+        "description": "是否同时从后端服务器 grep 日志（mode=chain 时使用，需要 SSH 免密）"
       }
     }
   }

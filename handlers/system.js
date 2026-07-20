@@ -3,17 +3,19 @@
 // Handler: system
 // Extracted from server.js callTool switch statements
 
-const { mcpError } = require('../core/mcp-error');
+const { mcpError, mcpParamMissing } = require('../core/mcp-error');
 
 const tools = [
   "project_audit",
   "css_var_check",
+  "skill_validate",
   "skill_mcp_validate",
   "browser_trace_chain",
   "browser_full_regression",
   "browser_form_fill",
   "browser_links",
   "browser_traverse_menu",
+  "mcp_diag",
   "mcp_health_check",
   "mcp_self_test",
   "skill_tools_map",
@@ -41,6 +43,25 @@ const cssAnalyzer = require('./scripts/css-var-analyzer');
     }
     const _cssResult = cssAnalyzer.analyzeCSS(css, args.filePath || 'inline');
     return text(JSON.stringify({ ..._cssResult, nextSteps: ['使用 project_audit 执行项目审计', '使用 browser_screenshot 截图验证'], paidUpgradeHint: '需要自动 CSS 变量分析、样式冲突检测、主题一致性检查？升级到 Pro 版本获取智能 CSS 分析能力。' }, null, 2));
+  }
+
+  // ====== skill_validate ======
+  // v1.9.5 起合并 skill_consistency_check / skill_mcp_validate / skill_tools_map
+  if (name === 'skill_validate') {
+    const mode = args.mode || 'consistency';
+    if (mode === 'consistency') {
+      const { strictMode = 'strict', skillName: filterSkill } = args;
+      return handle('skill_consistency_check', { mode: strictMode, skillName: filterSkill }, deps);
+    }
+    if (mode === 'mcp_validate') {
+      const { skillName, strictMode = 'strict' } = args;
+      return handle('skill_mcp_validate', { skillName, mode: strictMode }, deps);
+    }
+    if (mode === 'tools_map') {
+      const { skillName, toolName, includeDetails } = args;
+      return handle('skill_tools_map', { skillName, toolName, includeDetails }, deps);
+    }
+    return text(JSON.stringify({ error: `未知 mode: ${mode}，可选 consistency / mcp_validate / tools_map` }, null, 2));
   }
 
   // ====== skill_mcp_validate ======
@@ -115,7 +136,33 @@ const _traceResult = buildTraceChain(args);
   }
 
   // ====== browser_form_fill ======
+  // v1.9.5 起合并 browser_smart_fill（mode=smart）
   if (name === 'browser_form_fill') {
+    const mode = args.mode || 'basic';
+
+    // mode=smart：等价于已废弃的 browser_smart_fill
+    if (mode === 'smart') {
+      const { target } = await ensurePage(args);
+      if (!args.selector) {
+        return { content: [{ type: 'text', text: JSON.stringify({ success: false, mode: 'smart', error: 'smart 模式需要 selector 参数' }, null, 2) }] };
+      }
+      const dataGen = require('../hands/data_generator');
+      const fieldType = args.fieldType || 'text';
+      if (!dataGen.isSupported(fieldType)) {
+        return { content: [{ type: 'text', text: JSON.stringify({ success: false, mode: 'smart', error: `不支持的字段类型: ${fieldType}。支持: ${dataGen.getSupportedTypes().join(', ')}` }, null, 2) }] };
+      }
+      const generatedValue = dataGen.generate(fieldType, args.options || {});
+      const el = await target.$(args.selector);
+      if (!el) {
+        return { content: [{ type: 'text', text: JSON.stringify({ success: false, mode: 'smart', error: `元素未找到: ${args.selector}` }, null, 2) }] };
+      }
+      await el.click();
+      await el.fill('');
+      await el.fill(generatedValue);
+      return { content: [{ type: 'text', text: JSON.stringify({ success: true, mode: 'smart', selector: args.selector, fieldType, value: generatedValue }, null, 2) }] };
+    }
+
+    // mode=basic（默认）：原有逻辑
     const { target } = await ensurePage();
     const url = args.url;
     if (!url) return mcpParamMissing('url', name, '请提供目标页面 URL');
@@ -282,6 +329,19 @@ const _traceResult = buildTraceChain(args);
   if (name === 'browser_traverse_menu') {
   const _menuResult = await traverseMenu(args);
   return text(JSON.stringify({ ..._menuResult, nextSteps: ['使用 browser_snapshot 查看菜单后页面', '使用 browser_find_element 查找菜单内容'], paidUpgradeHint: '需要智能菜单遍历、自动生成菜单结构图、多级菜单深度测试？升级到 Pro 版本获取智能菜单分析能力。' }, null, 2));
+  }
+
+  // ====== mcp_diag ======
+  // v1.9.5 起合并 mcp_health_check/mcp_self_test
+  if (name === 'mcp_diag') {
+    const mode = args.mode || 'health';
+    if (mode === 'health') {
+      return handle('mcp_health_check', args, deps);
+    }
+    if (mode === 'self_test' || mode === 'selftest') {
+      return handle('mcp_self_test', args, deps);
+    }
+    return text(JSON.stringify({ error: `未知的 mode 值：${mode}`, validModes: ['health', 'self_test'] }, null, 2));
   }
 
   // ====== mcp_health_check ======

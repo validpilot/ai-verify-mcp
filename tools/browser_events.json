@@ -1,9 +1,15 @@
 {
   "name": "browser_events",
-  "description": "查看 browser_instrument 捕获的运行时事件流，支持按事件类型、URL、方法、状态码过滤。输出会自动脱敏。",
+  "description": "运行时事件管理工具（v1.9.5 起合并 browser_events_clear）。通过 mode 参数区分子模式：view（默认，查看 browser_instrument 捕获的事件流，支持按类型/URL/方法/状态码过滤）/ clear（清空运行时事件并创建新的事件 checkpoint）。",
   "inputSchema": {
     "type": "object",
     "properties": {
+      "mode": {
+        "type": "string",
+        "description": "事件管理模式：view（默认，查看事件流）/ clear（清空事件并创建新 checkpoint，等价于已废弃的 browser_events_clear）",
+        "enum": ["view", "clear"],
+        "default": "view"
+      },
       "type": {
         "type": "string",
         "description": "事件类型，如 fetch_start/fetch_end/xhr_end/click/input/console/window_error/unhandledrejection/route/storage_set"

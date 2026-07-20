@@ -6,6 +6,7 @@
 const { mcpError } = require('../core/mcp-error');
 
 const tools = [
+  "asset_discovery",
   "asset_routes_discover",
   "asset_endpoint_enum"
 ];
@@ -59,7 +60,21 @@ function extractEndpointsFromText(str, limit = 500) {
 }
 
 async function handle(name, args, deps) {
-  const { text, log, resetRuntimeLogs, path, fs, ensurePage } = deps;
+  const { text, log, resetRuntimeLogs, path, fs, ensurePage, callTool, networkLogs } = deps;
+
+    // ====== asset_discovery ======
+    // v1.9.5 起合并 asset_routes_discover / asset_endpoint_enum / asset_endpoint_probe
+    if (name === 'asset_discovery') {
+      const mode = args.mode || 'enum';
+      if (mode === 'routes') return handle('asset_routes_discover', args, deps);
+      if (mode === 'enum') return handle('asset_endpoint_enum', args, deps);
+      if (mode === 'probe') {
+        // asset_endpoint_probe 在 correlate.js 中，直接 require 调用避免 callTool 别名循环
+        const handlerCorrelate = require('./correlate');
+        return handlerCorrelate.handle('asset_endpoint_probe', args, deps);
+      }
+      return text(JSON.stringify({ error: `未知 mode: ${mode}，可选 routes / enum / probe` }, null, 2));
+    }
 
     // ====== asset_routes_discover ======
     if (name === 'asset_routes_discover') {

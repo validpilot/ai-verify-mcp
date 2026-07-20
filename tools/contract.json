@@ -1,0 +1,59 @@
+{
+  "name": "contract",
+  "description": "API 契约工具。v1.9.5 起合并 contract_guard / contract_baseline。mode=guard 从前端实际消费的 API 响应中自动提取字段结构，生成 consumer contract（消费者契约），防止后端 API 漂移；mode=baseline 进行契约基线管理（保存/加载/对比/列出/删除）。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "mode": {
+        "type": "string",
+        "description": "工作模式：guard（生成/校验消费者契约，默认）、baseline（基线管理）",
+        "enum": [
+          "guard",
+          "baseline"
+        ],
+        "default": "guard"
+      },
+      "endpoints": {
+        "type": "array",
+        "description": "要直接调用并生成契约的端点列表（仅 mode=guard），每项包含 path/url/method/headers/body",
+        "items": {
+          "type": "object",
+          "properties": {
+            "path": { "type": "string", "description": "相对路径，如 /api/marketplace/items" },
+            "url": { "type": "string", "description": "完整 URL" },
+            "method": { "type": "string", "description": "HTTP 方法，默认 GET" },
+            "headers": { "type": "object", "description": "自定义请求头" },
+            "body": { "description": "请求体" }
+          }
+        }
+      },
+      "fromNetwork": { "type": "boolean", "description": "是否从已捕获的 network 日志中提取 API 响应生成契约（仅 mode=guard），默认 true", "default": true },
+      "since": { "type": "string", "description": "从 network 日志提取的时间起点（仅 mode=guard），默认当前 checkpoint" },
+      "urlContains": { "type": "string", "description": "只处理 URL 包含此字符串的请求（仅 mode=guard）" },
+      "saveBaseline": { "type": "boolean", "description": "是否将本次生成的 contracts 保存为基线（仅 mode=guard），默认 false", "default": false },
+      "compareBaseline": { "type": "boolean", "description": "是否与已保存的基线对比（仅 mode=guard），默认 false", "default": false },
+      "autoDiscover": { "type": "boolean", "description": "是否自动从 network 日志发现 API 端点（仅 mode=guard），默认 false", "default": false },
+      "action": {
+        "type": "string",
+        "description": "基线操作类型（仅 mode=baseline）：list=列出所有基线、save=保存当前 contracts 为基线、load=加载指定基线、compare=对比当前 contracts 与基线、delete=删除基线",
+        "enum": ["list", "save", "load", "compare", "delete"],
+        "default": "list"
+      },
+      "name": { "type": "string", "description": "基线名称（仅 mode=baseline），默认 'default'" },
+      "baselineName": { "type": "string", "description": "基线名称（仅 mode=guard），默认 'default'" },
+      "contracts": {
+        "type": "array",
+        "description": "save/compare 操作时传入的 contracts 列表（仅 mode=baseline），通常来自 contract_guard 的输出",
+        "items": {
+          "type": "object",
+          "properties": {
+            "endpoint": { "type": "string" },
+            "method": { "type": "string" },
+            "status": { "type": "number" },
+            "schema": { "type": "object" }
+          }
+        }
+      }
+    }
+  }
+}

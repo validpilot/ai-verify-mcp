@@ -1,9 +1,15 @@
 {
   "name": "validation_check",
-  "description": "执行单项浏览器健康检查：可打开 URL、等待条件、执行断言、截图留证，并统计本轮错误。支持 deploy_verify 类型执行部署验证（API端点检查、Console错误检查、CSS变量检查、静态资源检查）。",
+  "description": "单项验证检查工具（v1.9.5 起合并 validation_quick_run）。通过 mode 参数区分子模式：basic（默认，执行完整浏览器健康检查：打开 URL、等待条件、执行断言、截图留证、统计错误）/ quick（低 Token 快速验证，等价于已废弃的 validation_quick_run）。仍支持 check_type=deploy_verify 执行部署验证。",
   "inputSchema": {
     "type": "object",
     "properties": {
+      "mode": {
+        "type": "string",
+        "description": "检查模式：basic（默认，完整浏览器健康检查）/ quick（低 Token 快速验证，等价于已废弃的 validation_quick_run）",
+        "enum": ["basic", "quick"],
+        "default": "basic"
+      },
       "name": {
         "type": "string",
         "description": "检查名称"

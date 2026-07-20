@@ -7,6 +7,7 @@
 const { mcpError, mcpParamMissing } = require('../core/mcp-error');
 
 const tools = [
+  'security_scan',
   'security_headers_check',
   'security_csp_analyze',
   'security_sql_injection_scan',
@@ -459,6 +460,18 @@ async function handle(name, args, deps) {
   }
 
   try {
+    // ====== security_scan ======
+    // v1.9.5 起合并 security_headers_check / security_csp_analyze / security_sql_injection_scan / security_xss_scan / security_owasp_top10
+    if (name === 'security_scan') {
+      const mode = args.mode || 'headers';
+      if (mode === 'headers') return handle('security_headers_check', args, deps);
+      if (mode === 'csp') return handle('security_csp_analyze', args, deps);
+      if (mode === 'sqli') return handle('security_sql_injection_scan', args, deps);
+      if (mode === 'xss') return handle('security_xss_scan', args, deps);
+      if (mode === 'owasp') return handle('security_owasp_top10', args, deps);
+      return mcpParamMissing('mode', name, '可选 headers / csp / sqli / xss / owasp');
+    }
+
     // ====== security_headers_check ======
     if (name === 'security_headers_check') {
       const url = args.url;

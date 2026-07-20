@@ -16,6 +16,7 @@ const tools = [
   "browser_step",
   "browser_trace_start",
   "browser_trace_stop",
+  "evidence",
   "evidence_pack",
   "evidence_index",
   "trace_correlate"
@@ -356,10 +357,18 @@ async function handle(name, args, deps) {
 
   // === Destructure deps into local scope (replacing globalThis bridge) ===
   let { page, browser, browserSessionId, consoleLogs, networkLogs, pageErrors, currentCheckpoint, eventCheckpoint, lastAction, sessions, activeSessionName, sessionCounter, traceLogs, traceActive, currentTraceName, backendProbeResults, instrumentationEnabled, imageErrors, lastImageErrorCheckpoint, validationResults, lastQualityChecks, lastValidationRun, requestStartTimes, stateManager } = deps;
-  const { MAX_SESSIONS, SCREENSHOT_DIR, HAR_DIR, VISUAL_DIR, VISUAL_BASELINE_DIR, VISUAL_ACTUAL_DIR, VISUAL_DIFF_DIR, VALIDATIONS_DIR, REPORT_DIR, LOG_FILE, PROJECT_ROOT, TOOLS_DIR, logger, ensurePage, text, log, resetRuntimeLogs, getPageLinks, postActionErrorCheck, probeKnownEndpoints, getUnifiedErrors, closeBrowserSession, listBrowserSessions, filterNetwork, filterNetworkDetails, getStorageSnapshot, buildDebugReport, captureStepEvidence, waitForCondition, assertPage, runFlow, installInstrumentation, getBrowserEvents, clearBrowserEvents, startTrace, stopTrace, getArtifacts, clearArtifacts, ensureArtifactsDir, getBackendProbeEndpoints, isCloudApiProbeTarget, screenshotWithRedaction, safeArtifactName, analyzeScreenshotForErrors, exportHar, runFullAudit, visualBaseline, visualCompare, visualReport, runA11yCheck, runPerformanceCheck, runLighthouseAudit, findElement, findPage, suggestLocator, validateLocator, mcpHealthCheck, projectAudit, mcpSelfTest, runValidationCheck, runValidationPlan, runValidationElement, runValidationFlow, buildValidationReport, exportValidationReport, runValidationQuickRun, runDeployVerify, investigateDebug, runBrowserFullRegression, traverseMenu, fetchBackendLogs, buildTraceChain, detectSilentFailures, redact, redactString, isSensitiveKey, trimTraceLogs, genSpanId, genTraceId, browserOperator, evidenceCollector, deepInteractor, errorAggregator, path, fs, execSync, callTool } = deps;
+  const { MAX_SESSIONS, SCREENSHOT_DIR, HAR_DIR, VISUAL_DIR, VISUAL_BASELINE_DIR, VISUAL_ACTUAL_DIR, VISUAL_DIFF_DIR, VALIDATIONS_DIR, REPORT_DIR, LOG_FILE, PROJECT_ROOT, TOOLS_DIR, logger, ensurePage, text, log, resetRuntimeLogs, getPageLinks, postActionErrorCheck, probeKnownEndpoints, getUnifiedErrors, closeBrowserSession, listBrowserSessions, filterNetwork, filterNetworkDetails, getStorageSnapshot, buildDebugReport, captureStepEvidence, waitForCondition, assertPage, runFlow, installInstrumentation, getBrowserEvents, clearBrowserEvents, startTrace, stopTrace, getArtifacts, clearArtifacts, ensureArtifactsDir, getBackendProbeEndpoints, isCloudApiProbeTarget, screenshotWithRedaction, safeArtifactName, analyzeScreenshotForErrors, exportHar, runFullAudit, visualBaseline, visualCompare, visualReport, runA11yCheck, runPerformanceCheck, runLighthouseAudit, findElement, findPage, suggestLocator, validateLocator, mcpHealthCheck, projectAudit, mcpSelfTest, runValidationCheck, runValidationPlan, runValidationElement, runValidationFlow, buildValidationReport, exportValidationReport, runValidationQuickRun, runDeployVerify, investigateDebug, runBrowserFullRegression, traverseMenu, fetchBackendLogs, buildTraceChain, detectSilentFailures, redact, redactString, isSensitiveKey, trimTraceLogs, genSpanId, genTraceId, runTraceCorrelationCheck, findTraceId, browserOperator, evidenceCollector, deepInteractor, errorAggregator, path, fs, execSync, callTool } = deps;
   try {
   // ====== browser_screenshot ======
   if (name === 'browser_screenshot') {
+    const mode = args.mode || 'page';
+
+    // v1.9.5 起合并 browser_screenshot_element（mode=element）
+    if (mode === 'element') {
+      return handle('browser_screenshot_element', args, deps);
+    }
+
+    // mode=page（默认）：原 browser_screenshot 逻辑
     const { target } = await ensurePage();
     ensureArtifactsDir();
     
@@ -713,6 +722,19 @@ const { target } = await ensurePage(args);
     return text(JSON.stringify(enhancedResult, null, 2));
   }
 
+  // ====== evidence ======
+  // v1.9.5 起合并 evidence_pack/evidence_index
+  if (name === 'evidence') {
+    const mode = args.mode || 'pack';
+    if (mode === 'pack') {
+      return handle('evidence_pack', args, deps);
+    }
+    if (mode === 'index') {
+      return handle('evidence_index', args, deps);
+    }
+    return mcpParamMissing('mode', name);
+  }
+
   // ====== evidence_pack ======
   if (name === 'evidence_pack') {
 const { target } = await ensurePage(args);
@@ -751,9 +773,41 @@ const { target } = await ensurePage(args);
   }
 
   // ====== trace_correlate ======
+  // v1.9.5 起合并 browser_trace_chain（mode=chain）和 trace_correlation_check（mode=check）
   if (name === 'trace_correlate') {
+    const mode = args.mode || 'view';
+
+    // mode=chain：等价于已废弃的 browser_trace_chain
+    if (mode === 'chain') {
+      const _traceResult = buildTraceChain(args);
+      return text(JSON.stringify({
+        mode: 'chain',
+        ..._traceResult,
+        nextSteps: ['使用 trace_correlate(mode=view) 关联分析', '使用 evidence_pack 打包证据'],
+        paidUpgradeHint: '需要全链路追踪、跨服务关联分析、性能瓶颈自动定位？升级到 Pro 版本获取完整追踪能力。'
+      }, null, 2));
+    }
+
+    // mode=check：等价于已废弃的 trace_correlation_check
+    if (mode === 'check') {
+      const checkResult = await runTraceCorrelationCheck(args, {
+        currentCheckpoint, filterNetwork, networkLogs, fetchBackendLogs, findTraceId
+      });
+      return text(JSON.stringify({
+        mode: 'check',
+        ...checkResult,
+        nextSteps: [
+          '调用 trace_correlate(mode=view) 对特定 traceId 做深度关联',
+          '调用 evidence_pack 基于关联结果打包完整证据链'
+        ],
+        paidUpgradeHint: '需要端到端的全链路关联分析？升级到 Pro 版本获取全链路追踪、服务拓扑映射和自动根因定位。'
+      }, null, 2));
+    }
+
+    // mode=view（默认）：原有 traceId 深度关联逻辑
     const result = await traceCorrelate(args, { REPORT_DIR, fetchBackendLogs, buildTraceChain });
     const enhancedResult = {
+      mode: 'view',
       ...(typeof result === 'object' && result !== null ? result : { result }),
       nextSteps: [
         '调用 evidence_pack 基于关联结果打包完整证据链',

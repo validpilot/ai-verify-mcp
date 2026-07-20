@@ -64,6 +64,7 @@ const DEVICE_PRESETS = {
 const { mcpError } = require('../core/mcp-error');
 
 const tools = [
+  "browser_session",
   "browser_sessions",
   "browser_session_create",
   "browser_session_switch",
@@ -77,6 +78,31 @@ async function handle(name, args, deps) {
   let { page, browser, browserSessionId, consoleLogs, networkLogs, pageErrors, currentCheckpoint, eventCheckpoint, lastAction, sessions, activeSessionName, sessionCounter, traceLogs, traceActive, currentTraceName, backendProbeResults, instrumentationEnabled, imageErrors, lastImageErrorCheckpoint, validationResults, lastQualityChecks, lastValidationRun, requestStartTimes, stateManager } = deps;
   const { MAX_SESSIONS, SCREENSHOT_DIR, HAR_DIR, VISUAL_DIR, VISUAL_BASELINE_DIR, VISUAL_ACTUAL_DIR, VISUAL_DIFF_DIR, VALIDATIONS_DIR, REPORT_DIR, LOG_FILE, PROJECT_ROOT, TOOLS_DIR, logger, ensurePage, text, log, resetRuntimeLogs, getPageLinks, postActionErrorCheck, probeKnownEndpoints, getUnifiedErrors, closeBrowserSession, listBrowserSessions, filterNetwork, filterNetworkDetails, getStorageSnapshot, buildDebugReport, captureStepEvidence, waitForCondition, assertPage, runFlow, installInstrumentation, getBrowserEvents, clearBrowserEvents, startTrace, stopTrace, getArtifacts, clearArtifacts, ensureArtifactsDir, getBackendProbeEndpoints, isCloudApiProbeTarget, screenshotWithRedaction, safeArtifactName, analyzeScreenshotForErrors, exportHar, runFullAudit, visualBaseline, visualCompare, visualReport, runA11yCheck, runPerformanceCheck, runLighthouseAudit, findElement, findPage, suggestLocator, validateLocator, mcpHealthCheck, projectAudit, mcpSelfTest, runValidationCheck, runValidationPlan, runValidationElement, runValidationFlow, buildValidationReport, exportValidationReport, runValidationQuickRun, runDeployVerify, investigateDebug, runBrowserFullRegression, traverseMenu, fetchBackendLogs, buildTraceChain, detectSilentFailures, redact, redactString, isSensitiveKey, trimTraceLogs, genSpanId, genTraceId, browserOperator, evidenceCollector, deepInteractor, errorAggregator, path, fs, execSync, callTool } = deps;
   try {
+  // ====== browser_session ======
+  // v1.9.5 起合并 browser_session_create/switch/close + browser_sessions
+  if (name === 'browser_session') {
+    const mode = args.mode || 'list';
+
+    // mode=list：等价于已废弃的 browser_sessions
+    if (mode === 'list') {
+      return handle('browser_sessions', args, deps);
+    }
+    // mode=create：等价于已废弃的 browser_session_create
+    if (mode === 'create') {
+      return handle('browser_session_create', args, deps);
+    }
+    // mode=switch：等价于已废弃的 browser_session_switch
+    if (mode === 'switch') {
+      return handle('browser_session_switch', args, deps);
+    }
+    // mode=close：等价于已废弃的 browser_session_close
+    if (mode === 'close') {
+      return handle('browser_session_close', args, deps);
+    }
+
+    return text(JSON.stringify({ error: `未知 mode: ${mode}` }, null, 2));
+  }
+
   // ====== browser_sessions ======
   if (name === 'browser_sessions') {
   const _result = listBrowserSessions();
@@ -90,6 +116,8 @@ const name = args.name || args.sessionName || `session-${++sessionCounter}`;
       return text(`会话数量已达上限（${MAX_SESSIONS}），请先关闭现有会话`);
     }
     const { target, sessionId } = await ensurePage({ ...args, sessionName: name });
+    page = target;
+    try { browser = target.context().browser() || browser; } catch (e) { /* persistent context */ }
     if (args.url) await target.goto(args.url, { waitUntil: 'domcontentloaded', timeout: args.timeout || 30000 });
     sessions.set(name, { name, url: target.url(), created: new Date().toISOString(), browser, page });
     activeSessionName = name;

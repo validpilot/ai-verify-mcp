@@ -25,10 +25,12 @@ const tools = [
   "validation_data_integrity",
   "validation_permission",
   "state_diff_assert",
+"chain_spec",
   "chain_spec_run",
   "chain_list_templates",
   "trace_correlation_check",
   "chain_score_report",
+  "contract",
   "contract_guard",
   "contract_baseline"
 ];
@@ -298,12 +300,31 @@ resetRuntimeLogs();
   }
 
   // ====== validation_check ======
+  // v1.9.5 起合并 validation_quick_run（mode=quick）
   if (name === 'validation_check') {
-if (args.check_type === 'deploy_verify') {
+    const mode = args.mode || 'basic';
+
+    // check_type=deploy_verify 仍走原部署验证逻辑（与 mode 正交）
+    if (args.check_type === 'deploy_verify') {
       return text(JSON.stringify(await runDeployVerify(args), null, 2));
     }
+
+    // mode=quick：等价于已废弃的 validation_quick_run
+    if (mode === 'quick') {
+      const { target } = await ensurePage(args);
+      if (!args.url) return mcpParamMissing('url', name);
+      return text(JSON.stringify({
+        mode: 'quick',
+        ...(await runValidationQuickRun(target, args))
+      }, null, 2));
+    }
+
+    // mode=basic（默认）：原有完整浏览器健康检查逻辑
     const { target } = await ensurePage(args);
-    return text(JSON.stringify(await runValidationCheck(target, args), null, 2));
+    return text(JSON.stringify({
+      mode: 'basic',
+      ...(await runValidationCheck(target, args))
+    }, null, 2));
   }
 
   // ====== validation_run ======
@@ -908,8 +929,30 @@ const { target } = await ensurePage(args);
   }
 
   // ====== validation_flow ======
+  // v1.9.5 起合并 validation_chain（mode=chain）
   if (name === 'validation_flow') {
 const { target } = await ensurePage(args);
+    const mode = args.mode || 'flow';
+    if (mode === 'chain') {
+      // chain 模式：等价于已废弃的 validation_chain（失败即停止）
+      const chainArgs = { ...args };
+      if (args.stopOnError !== false) {
+        chainArgs.continueOnFailure = false;
+      }
+      const result = await runValidationChain(target, chainArgs);
+      const results = result.results || [];
+      const failedStepIndex = results.findIndex((r) => r.ok === false);
+      return text(JSON.stringify({
+        success: result.passed !== false,
+        mode: 'chain',
+        totalActions: results.length,
+        completedActions: results.filter((r) => r.ok !== false).length,
+        failedActionIndex: failedStepIndex >= 0 ? failedStepIndex : null,
+        actionResults: results,
+        errorMessage: failedStepIndex >= 0 ? `第 ${failedStepIndex + 1} 步验证失败` : null,
+        errors: result.errors
+      }, null, 2));
+    }
     return text(JSON.stringify(await runValidationFlow(target, args), null, 2));
   }
 
@@ -1154,6 +1197,16 @@ const { target } = await ensurePage(args);
     return text(JSON.stringify(await runStateDiffAssert(target, args), null, 2));
   }
 
+  // ====== chain_spec ======
+  // v1.9.5 起合并 chain_list_templates / chain_spec_run / chain_score_report
+  if (name === 'chain_spec') {
+    const mode = args.mode || 'list';
+    if (mode === 'list') return handle('chain_list_templates', args, deps);
+    if (mode === 'run') return handle('chain_spec_run', args, deps);
+    if (mode === 'score') return handle('chain_score_report', args, deps);
+    return mcpParamMissing('mode', name, '可选 list / run / score');
+  }
+
   // ====== chain_spec_run ======
   if (name === 'chain_spec_run') {
     const { target } = await ensurePage(args);
@@ -1184,6 +1237,19 @@ const { target } = await ensurePage(args);
     return text(JSON.stringify(runChainScoreReport(args), null, 2));
   }
 
+  // ====== contract ======
+  // v1.9.5 起合并 contract_baseline/contract_guard
+  if (name === 'contract') {
+    const mode = args.mode || 'guard';
+    if (mode === 'baseline') {
+      return handle('contract_baseline', args, deps);
+    }
+    if (mode === 'guard') {
+      return handle('contract_guard', args, deps);
+    }
+    return mcpParamMissing('mode', name);
+  }
+
   // ====== contract_guard ======
   if (name === 'contract_guard') {
     return text(JSON.stringify(await runContractGuard(args), null, 2));
@@ -1195,9 +1261,24 @@ const { target } = await ensurePage(args);
   }
 
   // ====== validation_report ======
+  // v1.9.5 起合并 validation_report_export（mode=export）
   if (name === 'validation_report') {
-const report = buildValidationReport(args);
-    return text(typeof report === 'string' ? report : JSON.stringify(report, null, 2));
+    const mode = args.mode || 'view';
+
+    // mode=export：等价于已废弃的 validation_report_export
+    if (mode === 'export') {
+      return text(JSON.stringify({
+        mode: 'export',
+        ...exportValidationReport(args)
+      }, null, 2));
+    }
+
+    // mode=view（默认）：原有 Markdown/JSON 报告生成逻辑
+    const report = buildValidationReport(args);
+    const output = typeof report === 'string'
+      ? report
+      : JSON.stringify({ mode: 'view', ...report }, null, 2);
+    return text(output);
   }
 
   // ====== validation_report_export ======
@@ -2543,9 +2624,8 @@ async function runChainSpecRun(target, args = {}) {
   });
 }
 
-async function runTraceCorrelationCheck(args = {}) {
-  const { currentCheckpoint, filterNetwork, networkLogs, fetchBackendLogs } = _deps || {};
-  const findTraceId = _deps?.findTraceId;
+async function runTraceCorrelationCheck(args = {}, ctx = null) {
+  const { currentCheckpoint, filterNetwork, networkLogs, fetchBackendLogs, findTraceId } = ctx || _deps || {};
   const since = args.since || currentCheckpoint;
   const urlContains = args.urlContains;
   const backendLogPath = args.backendLogPath;
@@ -3233,4 +3313,4 @@ function runValidationCompliance(args = {}) {
   };
 }
 
-module.exports = { tools, handle };
+module.exports = { tools, handle, runTraceCorrelationCheck };

@@ -1,9 +1,15 @@
 {
   "name": "browser_errors",
-  "description": "统一查看本轮错误：Console Error、PageError、HTTP 4xx/5xx、静默失败（200响应体含SQL错误）。默认只统计当前checkpoint之后的新错误。",
+  "description": "统一错误管理工具（v1.9.5 起合并 browser_errors_aggregate 和 browser_errors_clear）。通过 mode 参数区分子模式：view（默认，查看本轮 Console/PageError/HTTP 4xx 5xx/静默失败错误）/ aggregate（去重聚合并返回 Top errors）/ clear（清空错误日志并创建新 checkpoint）。",
   "inputSchema": {
     "type": "object",
     "properties": {
+      "mode": {
+        "type": "string",
+        "description": "错误管理模式：view（默认，查看本轮错误）/ aggregate（去重聚合并返回 Top errors，等价于已废弃的 browser_errors_aggregate）/ clear（清空错误日志并创建新 checkpoint，等价于已废弃的 browser_errors_clear）",
+        "enum": ["view", "aggregate", "clear"],
+        "default": "view"
+      },
       "includeWarnings": {
         "type": "boolean",
         "description": "是否包含warning/warn日志，默认false"

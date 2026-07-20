@@ -6,6 +6,7 @@
 const { mcpError, mcpParamMissing } = require('../core/mcp-error');
 
 const tools = [
+  "browser_visual",
   "browser_visual_baseline",
   "browser_visual_compare",
   "browser_visual_report",
@@ -14,6 +15,7 @@ const tools = [
   "browser_a11y_check",
   "screenshot_diff",
   "browser_full_audit",
+  "browser_performance",
   "browser_performance_check",
   "browser_memory_check",
   "browser_visual_component",
@@ -28,6 +30,43 @@ async function handle(name, args, deps) {
   let { page, browser, browserSessionId, consoleLogs, networkLogs, pageErrors, currentCheckpoint, eventCheckpoint, lastAction, sessions, activeSessionName, sessionCounter, traceLogs, traceActive, currentTraceName, backendProbeResults, instrumentationEnabled, imageErrors, lastImageErrorCheckpoint, validationResults, lastQualityChecks, lastValidationRun, requestStartTimes, stateManager } = deps;
   const { MAX_SESSIONS, SCREENSHOT_DIR, HAR_DIR, VISUAL_DIR, VISUAL_BASELINE_DIR, VISUAL_ACTUAL_DIR, VISUAL_DIFF_DIR, VALIDATIONS_DIR, REPORT_DIR, LOG_FILE, PROJECT_ROOT, TOOLS_DIR, logger, ensurePage, text, log, resetRuntimeLogs, getPageLinks, postActionErrorCheck, probeKnownEndpoints, getUnifiedErrors, closeBrowserSession, listBrowserSessions, filterNetwork, filterNetworkDetails, getStorageSnapshot, buildDebugReport, captureStepEvidence, waitForCondition, assertPage, runFlow, installInstrumentation, getBrowserEvents, clearBrowserEvents, startTrace, stopTrace, getArtifacts, clearArtifacts, ensureArtifactsDir, getBackendProbeEndpoints, isCloudApiProbeTarget, screenshotWithRedaction, safeArtifactName, analyzeScreenshotForErrors, exportHar, runFullAudit, visualBaseline, visualCompare, visualReport, runA11yCheck, runPerformanceCheck, runLighthouseAudit, findElement, findPage, suggestLocator, validateLocator, mcpHealthCheck, projectAudit, mcpSelfTest, runValidationCheck, runValidationPlan, runValidationElement, runValidationFlow, buildValidationReport, exportValidationReport, runValidationQuickRun, runDeployVerify, investigateDebug, runBrowserFullRegression, traverseMenu, fetchBackendLogs, buildTraceChain, detectSilentFailures, redact, redactString, isSensitiveKey, trimTraceLogs, genSpanId, genTraceId, browserOperator, evidenceCollector, deepInteractor, errorAggregator, path, fs, execSync, callTool } = deps;
   try {
+  // ====== browser_visual ======
+  // v1.9.5 起合并 browser_visual_baseline/compare/report/check/snapshot + screenshot_diff
+  if (name === 'browser_visual') {
+    const mode = args.mode || 'baseline';
+
+    // mode=baseline：等价于已废弃的 browser_visual_baseline
+    if (mode === 'baseline') {
+      return handle('browser_visual_baseline', args, deps);
+    }
+    // mode=compare：等价于已废弃的 browser_visual_compare
+    if (mode === 'compare') {
+      return handle('browser_visual_compare', args, deps);
+    }
+    // mode=report：等价于已废弃的 browser_visual_report
+    if (mode === 'report') {
+      return handle('browser_visual_report', args, deps);
+    }
+    // mode=check：等价于已废弃的 browser_visual_check
+    if (mode === 'check') {
+      return handle('browser_visual_check', args, deps);
+    }
+    // mode=snapshot：等价于已废弃的 browser_visual_snapshot
+    if (mode === 'snapshot') {
+      return handle('browser_visual_snapshot', args, deps);
+    }
+    // mode=component：等价于已废弃的 browser_visual_component（组件级元素视觉比对，需 name 和 selector）
+    if (mode === 'component') {
+      return handle('browser_visual_component', args, deps);
+    }
+    // mode=diff：等价于已废弃的 screenshot_diff
+    if (mode === 'diff') {
+      return handle('screenshot_diff', args, deps);
+    }
+
+    return mcpParamMissing('mode', name);
+  }
+
   // ====== browser_visual_check ======
   if (name === 'browser_visual_check') {
     const { target } = await ensurePage(args);
@@ -217,6 +256,19 @@ const { target } = await ensurePage(args);
   if (name === 'browser_full_audit') {
   const _result = await runFullAudit(args);
   return text(JSON.stringify({ ..._result, nextSteps: ['运行 browser_screenshot 确认页面截图', '使用 browser_visual_compare 对比差异', '生成 browser_visual_report 视觉报告'], suggestions: [{ type: 'next', tool: 'browser_screenshot', reason: '确认页面截图' }, { type: 'next', tool: 'browser_visual_compare', reason: '对比视觉差异' }, { type: 'next', tool: 'browser_visual_report', reason: '生成视觉报告' }], paidUpgradeHint: '需要高级视觉分析能力？升级到 Pro 版本获取完整功能。' }, null, 2));
+  }
+
+  // ====== browser_performance ======
+  // v1.9.5 起合并 browser_performance_check/trace
+  if (name === 'browser_performance') {
+    const mode = args.mode || 'check';
+    if (mode === 'check') {
+      return handle('browser_performance_check', args, deps);
+    }
+    if (mode === 'trace') {
+      return handle('browser_performance_trace', args, deps);
+    }
+    return mcpParamMissing('mode', name);
   }
 
   // ====== browser_performance_check ======

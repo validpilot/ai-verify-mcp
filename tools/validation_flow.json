@@ -1,9 +1,20 @@
 {
   "name": "validation_flow",
-  "description": "多步流程验证工具，按步骤依次执行 navigate/click/type/wait/eval/screenshot 等操作，支持失败可配置继续执行。step.action 与 step.type 互为别名，二者至少传一个；navigate 也支持别名 goto。",
+  "description": "多步流程验证工具（v1.9.5 起合并 validation_chain），按步骤依次执行 navigate/click/type/wait/eval/screenshot 等操作，支持失败可配置继续执行。step.action 与 step.type 互为别名，二者至少传一个；navigate 也支持别名 goto。通过 mode 参数区分子模式：flow（默认，标准流程验证）/ chain（链式验证，等价于已废弃的 validation_chain，失败即停止并返回失败步骤详情）。",
   "inputSchema": {
     "type": "object",
     "properties": {
+      "mode": {
+        "type": "string",
+        "description": "编排模式：flow（默认，标准流程验证，支持 continueOnFailure）/ chain（链式验证，等价于已废弃的 validation_chain，失败即停止）",
+        "enum": ["flow", "chain"],
+        "default": "flow"
+      },
+      "stopOnError": {
+        "type": "boolean",
+        "description": "chain 模式专用：某步骤失败后是否停止（默认 true）。等价于 continueOnFailure 的反义，stopOnError=true 等价于 continueOnFailure=false",
+        "default": true
+      },
       "steps": {
         "type": "array",
         "description": "验证步骤列表，每个步骤的 action/type 字段互为别名，至少传一个",

@@ -1,0 +1,186 @@
+{
+  "name": "browser_flow",
+  "description": "多步浏览器流程编排工具（v1.9.5 起合并 browser_chain 和 browser_batch），按步骤依次执行 open/click/type/wait/assert/eval/screenshot/snapshot/scroll/hover/select/navigate/har/step/clearErrors 等操作，每步自动捕获证据（截图+快照）。step.type 与 step.action 互为别名，二者至少传一个。通过 mode 参数区分子模式：flow（默认，标准编排）/ chain（链式，每步检查 console+network 错误，等价于 browser_chain）/ batch（批量，受 maxSteps 限制，等价于 browser_batch）。与 validation_flow 的区别：browser_flow 侧重浏览器操作编排，支持更多浏览器原生操作（open/har/snapshot/scroll/hover/select 等）；validation_flow 侧重验证语义，仅支持 navigate/click/type/wait/eval/screenshot 6 种操作。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "mode": {
+        "type": "string",
+        "description": "编排模式：flow（默认，标准多步编排）/ chain（链式，每步检查 console+network 错误，等价于已废弃的 browser_chain）/ batch（批量，受 maxSteps 限制，等价于已废弃的 browser_batch）",
+        "enum": ["flow", "chain", "batch"],
+        "default": "flow"
+      },
+      "steps": {
+        "type": "array",
+        "description": "流程步骤列表，按顺序执行。每个步骤的 type/action 字段互为别名，至少传一个。chain 模式下也可使用 actions 字段名（向后兼容 browser_chain）",
+        "items": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "description": "步骤操作类型（与 action 互为别名，优先使用 type）",
+              "enum": [
+                "open",
+                "navigate",
+                "click",
+                "type",
+                "wait",
+                "assert",
+                "eval",
+                "evaluate",
+                "screenshot",
+                "snapshot",
+                "scroll",
+                "hover",
+                "select",
+                "step",
+                "pressKey",
+                "press_key",
+                "har",
+                "clearErrors"
+              ]
+            },
+            "action": {
+              "type": "string",
+              "description": "步骤操作类型（type 的别名，与 type 等效）",
+              "enum": [
+                "open",
+                "navigate",
+                "click",
+                "type",
+                "wait",
+                "assert",
+                "eval",
+                "evaluate",
+                "screenshot",
+                "snapshot",
+                "scroll",
+                "hover",
+                "select",
+                "step",
+                "pressKey",
+                "press_key",
+                "har",
+                "clearErrors"
+              ]
+            },
+            "name": {
+              "type": "string",
+              "description": "步骤名称，用于标识和错误报告。未传时自动生成 `${index}-${type}`"
+            },
+            "url": {
+              "type": "string",
+              "description": "open/navigate 步骤的目标 URL"
+            },
+            "selector": {
+              "type": "string",
+              "description": "click/type/hover/scroll/select 步骤的 CSS 选择器"
+            },
+            "value": {
+              "type": "string",
+              "description": "type 步骤的输入文本，或 select 步骤的选项值"
+            },
+            "text": {
+              "type": "string",
+              "description": "type 步骤的输入文本（value 的语义别名）"
+            },
+            "expression": {
+              "type": "string",
+              "description": "eval/evaluate 步骤的 JS 表达式"
+            },
+            "timeout": {
+              "type": "number",
+              "description": "wait 步骤的等待超时（毫秒），或单个步骤的超时覆盖"
+            },
+            "waitUntil": {
+              "type": "string",
+              "description": "open/navigate 步骤的等待条件（load/domcontentloaded/networkidle）"
+            },
+            "direction": {
+              "type": "string",
+              "description": "scroll 步骤的滚动方向（up/down/left/right）"
+            },
+            "distance": {
+              "type": "number",
+              "description": "scroll 步骤的滚动距离（像素）"
+            },
+            "key": {
+              "type": "string",
+              "description": "按键名称（pressKey/press_key/step 子操作使用）"
+            },
+            "ms": {
+              "type": "number",
+              "description": "wait 步骤的等待毫秒数（timeout 的语义别名，batch 模式兼容）"
+            },
+            "label": {
+              "type": "string",
+              "description": "select 步骤的选项文本"
+            },
+            "index": {
+              "type": "number",
+              "description": "select 步骤的选项索引"
+            },
+            "assertion": {
+              "type": "object",
+              "description": "assert 步骤的断言配置（详见 browser_assert 的 schema）"
+            },
+            "evidence": {
+              "type": "boolean",
+              "description": "是否为该步骤捕获证据（默认 true，传 false 跳过证据捕获）"
+            },
+            "screenshot": {
+              "type": "boolean",
+              "description": "证据中是否包含截图（默认遵循 evidence 设置）"
+            },
+            "snapshot": {
+              "type": "boolean",
+              "description": "证据中是否包含 DOM 快照（默认遵循 evidence 设置）"
+            }
+          },
+          "anyOf": [
+            { "required": ["type"] },
+            { "required": ["action"] }
+          ]
+        }
+      },
+      "actions": {
+        "type": "array",
+        "description": "chain 模式下 steps 的别名（向后兼容 browser_chain）。优先使用 steps 字段",
+        "items": {}
+      },
+      "clearErrors": {
+        "type": "boolean",
+        "description": "流程开始前是否清空运行时错误日志，默认 true",
+        "default": true
+      },
+      "continueOnError": {
+        "type": "boolean",
+        "description": "某步骤失败后是否继续执行后续步骤，默认 false（失败即停止）。chain 模式下默认 false（等价于 stopOnError=true）",
+        "default": false
+      },
+      "stopOnError": {
+        "type": "boolean",
+        "description": "chain 模式专用：某步骤失败后是否停止（默认 true）。等价于 continueOnError 的反义，stopOnError=true 等价于 continueOnError=false",
+        "default": true
+      },
+      "includeNetwork": {
+        "type": "boolean",
+        "description": "chain 模式专用：每步是否检查网络错误（默认 true）",
+        "default": true
+      },
+      "includeConsole": {
+        "type": "boolean",
+        "description": "chain 模式专用：每步是否检查控制台错误（默认 true）",
+        "default": true
+      },
+      "maxSteps": {
+        "type": "number",
+        "description": "batch 模式专用：最大步骤数限制（默认 20）。超出则报错",
+        "default": 20
+      }
+    },
+    "required": [
+      "steps"
+    ]
+  }
+}

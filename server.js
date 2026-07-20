@@ -51,11 +51,12 @@ const FEATURE_GATE = {
     'business_loop_validate', 'arch_reverse_probe', 'memory_recall',
     'browser_captcha_detect', 'browser_captcha_screenshot', 'browser_captcha_read',
     'browser_find_element', 'browser_find_page', 'browser_locator_suggest', 'browser_locator_validate',
-    'browser_data_compare', 'dual_chain_explore'
+    'browser_data_compare', 'dual_chain_explore',
+    'browser_flow', 'trace_correlate'
   ],
   proFeatures: [
-    'trace_correlate', 'backend_logs', 'auto_fix_pipeline', 'fix_verify',
-    'deep_interact', 'browser_deep_interact', 'browser_flow',
+    'backend_logs', 'auto_fix_pipeline', 'fix_verify',
+    'deep_interact', 'browser_deep_interact',
     'ai_debug_investigate', 'benchmark_run'
   ],
   teamFeatures: [
@@ -93,6 +94,7 @@ const handlerSession = require('./handlers/session');
 const handlerEvidence = require('./handlers/evidence');
 const handlerNetwork = require('./handlers/network');
 const handlerValidation = require('./handlers/validation');
+const { runTraceCorrelationCheck } = handlerValidation;
 const handlerDiagnose = require('./handlers/diagnose');
 const handlerVisual = require('./handlers/visual');
 const handlerLocator = require('./handlers/locator');
@@ -1636,6 +1638,8 @@ async function runFlow(target, args = {}) {
   const results = [];
   for (let index = 0; index < steps.length; index += 1) {
     const step = steps[index];
+    // 归一化 step.action → step.type（别名支持，与 validation_flow/validation_chain 一致）
+    if (!step.type && step.action) step.type = step.action;
     const label = step.name || `${index + 1}-${step.type || 'step'}`;
     try {
       if (step.type === 'open') await callTool('browser_open', step);
@@ -2087,7 +2091,7 @@ async function runLighthouseAudit(args = {}) {
           title: audit.title,
           description: (audit.description || '').slice(0, 200),
           score: Math.round(audit.score * 100),
-          details: audit.details?.items?.slice(0, 3) || undefined
+          details: Array.isArray(audit.details?.items) ? audit.details.items.slice(0, 3) : undefined
         });
       }
     }
@@ -3780,6 +3784,7 @@ const deps = {
   fetchBackendLogs, buildTraceChain,
   detectSilentFailures, redact, redactString, isSensitiveKey,
   trimTraceLogs, genSpanId, genTraceId,
+  runTraceCorrelationCheck, findTraceId,
 
   // === Modules ===
   browserOperator, evidenceCollector, deepInteractor, errorAggregator,
@@ -3793,6 +3798,105 @@ const deps = {
 
 async function callTool(name, args = {}) {
   logger.log('INFO', '调用工具', { name, args });
+
+  // ===== v1.9.5 工具别名转发 =====
+  // 旧工具名 → 新工具名 + 自动注入的参数
+  // 保留 2 个版本过渡期（v1.9.5 ~ v1.10.0），之后移除别名
+  // 注意：只添加新工具已实现的别名，未实现的在对应 Phase 完成后再添加
+  const TOOL_ALIASES = {
+    // G1: 多步编排工具合并（Phase A 已完成）
+    browser_chain: { target: 'browser_flow', inject: { mode: 'chain' } },
+    browser_batch: { target: 'browser_flow', inject: { mode: 'batch' } },
+    validation_chain: { target: 'validation_flow', inject: { mode: 'chain' } },
+    browser_errors_aggregate: { target: 'browser_errors', inject: { mode: 'aggregate' } },
+    browser_errors_clear: { target: 'browser_errors', inject: { mode: 'clear' } },
+    browser_events_clear: { target: 'browser_events', inject: { mode: 'clear' } },
+    browser_smart_fill: { target: 'browser_form_fill', inject: { mode: 'smart' } },
+    browser_network_detail: { target: 'browser_network', inject: { mode: 'detail' } },
+    // G5: validation_quick_run → validation_check(mode=quick)（Phase J 已完成）
+    validation_quick_run: { target: 'validation_check', inject: { mode: 'quick' } },
+    // G6: validation_report_export → validation_report(mode=export)（Phase J 已完成）
+    validation_report_export: { target: 'validation_report', inject: { mode: 'export' } },
+    // G2: trace_correlation_check → trace_correlate(mode=check)（Phase B 已完成）
+    trace_correlation_check: { target: 'trace_correlate', inject: { mode: 'check' } },
+    // G2: browser_trace_chain → trace_correlate(mode=chain)（Phase B 已完成）
+    browser_trace_chain: { target: 'trace_correlate', inject: { mode: 'chain' } },
+    // G3: browser_visual_* + screenshot_diff → browser_visual（Phase C 已完成）
+    browser_visual_baseline: { target: 'browser_visual', inject: { mode: 'baseline' } },
+    browser_visual_compare: { target: 'browser_visual', inject: { mode: 'compare' } },
+    browser_visual_report: { target: 'browser_visual', inject: { mode: 'report' } },
+    browser_visual_check: { target: 'browser_visual', inject: { mode: 'check' } },
+    browser_visual_snapshot: { target: 'browser_visual', inject: { mode: 'snapshot' } },
+    // 注意：browser_visual_component 不合并，保留独立工具（组件级截图对比逻辑与全页视觉回归差异较大）
+    screenshot_diff: { target: 'browser_visual', inject: { mode: 'diff' } },
+    // G4: browser_screenshot_element → browser_screenshot(mode=element)（Phase C 已完成）
+    browser_screenshot_element: { target: 'browser_screenshot', inject: { mode: 'element' } },
+    // G7: browser_session_create/switch/close + browser_sessions → browser_session（Phase H 已完成）
+    browser_session_create: { target: 'browser_session', inject: { mode: 'create' } },
+    browser_session_switch: { target: 'browser_session', inject: { mode: 'switch' } },
+    browser_session_close: { target: 'browser_session', inject: { mode: 'close' } },
+    browser_sessions: { target: 'browser_session', inject: { mode: 'list' } },
+    // G8: browser_captcha_detect/read/screenshot → browser_captcha（Phase F 已完成）
+    browser_captcha_detect: { target: 'browser_captcha', inject: { mode: 'detect' } },
+    browser_captcha_read: { target: 'browser_captcha', inject: { mode: 'read' } },
+    browser_captcha_screenshot: { target: 'browser_captcha', inject: { mode: 'screenshot' } },
+    // G10: browser_overlay_detect/dismiss → browser_overlay（Phase G 已完成）
+    browser_overlay_detect: { target: 'browser_overlay', inject: { mode: 'detect' } },
+    browser_overlay_dismiss: { target: 'browser_overlay', inject: { mode: 'dismiss' } },
+    // G11: browser_locator_suggest/validate → browser_locator（Phase Q 已完成）
+    browser_locator_suggest: { target: 'browser_locator', inject: { mode: 'suggest' } },
+    browser_locator_validate: { target: 'browser_locator', inject: { mode: 'validate' } },
+    // G12: browser_find_element/find_page → browser_find（Phase R 已完成）
+    browser_find_element: { target: 'browser_find', inject: { mode: 'element' } },
+    browser_find_page: { target: 'browser_find', inject: { mode: 'page' } },
+    // G13: browser_performance_check/trace → browser_performance（Phase S 已完成）
+    browser_performance_check: { target: 'browser_performance', inject: { mode: 'check' } },
+    browser_performance_trace: { target: 'browser_performance', inject: { mode: 'trace' } },
+    // G14: browser_cookies/storage → browser_state（Phase U 已完成）
+    browser_cookies: { target: 'browser_state', inject: { mode: 'cookies' } },
+    browser_storage: { target: 'browser_state', inject: { mode: 'storage' } },
+    // G15: browser_debug_report/browser_diagnose/debug_investigate → browser_debug（Phase V 已完成）
+    browser_debug_report: { target: 'browser_debug', inject: { mode: 'report' } },
+    browser_diagnose: { target: 'browser_debug', inject: { mode: 'diagnose' } },
+    debug_investigate: { target: 'browser_debug', inject: { mode: 'investigate' } },
+    // M2: error_fix_suggestion/error_summary_md → error_analyze（Phase L 已完成）
+    error_fix_suggestion: { target: 'error_analyze', inject: { mode: 'fix' } },
+    error_summary_md: { target: 'error_analyze', inject: { mode: 'summary' } },
+    // G8: skill_mcp_validate/skill_consistency_check/skill_tools_map → skill_validate（Phase K 已完成）
+    skill_mcp_validate: { target: 'skill_validate', inject: { mode: 'mcp_validate' } },
+    skill_consistency_check: { target: 'skill_validate', inject: { mode: 'consistency' } },
+    skill_tools_map: { target: 'skill_validate', inject: { mode: 'tools_map' } },
+    // G16: security_* → security_scan（Phase M 已完成）
+    security_headers_check: { target: 'security_scan', inject: { mode: 'headers' } },
+    security_csp_analyze: { target: 'security_scan', inject: { mode: 'csp' } },
+    security_sql_injection_scan: { target: 'security_scan', inject: { mode: 'sqli' } },
+    security_xss_scan: { target: 'security_scan', inject: { mode: 'xss' } },
+    security_owasp_top10: { target: 'security_scan', inject: { mode: 'owasp' } },
+    // G17: evidence_pack/evidence_index → evidence（Phase N 已完成）
+    evidence_pack: { target: 'evidence', inject: { mode: 'pack' } },
+    evidence_index: { target: 'evidence', inject: { mode: 'index' } },
+    // G18: chain_list_templates/chain_spec_run/chain_score_report → chain_spec（Phase O 已完成）
+    chain_list_templates: { target: 'chain_spec', inject: { mode: 'list' } },
+    chain_spec_run: { target: 'chain_spec', inject: { mode: 'run' } },
+    chain_score_report: { target: 'chain_spec', inject: { mode: 'score' } },
+    // G19: mcp_health_check/mcp_self_test → mcp_diag（Phase P 已完成）
+    mcp_health_check: { target: 'mcp_diag', inject: { mode: 'health' } },
+    mcp_self_test: { target: 'mcp_diag', inject: { mode: 'selftest' } },
+    // G20: contract_baseline/contract_guard → contract（Phase W 已完成）
+    contract_baseline: { target: 'contract', inject: { mode: 'baseline' } },
+    contract_guard: { target: 'contract', inject: { mode: 'guard' } },
+    // G21: asset_routes_discover/asset_endpoint_enum/asset_endpoint_probe → asset_discovery（Phase X 已完成）
+    asset_routes_discover: { target: 'asset_discovery', inject: { mode: 'routes' } },
+    asset_endpoint_enum: { target: 'asset_discovery', inject: { mode: 'enum' } },
+    asset_endpoint_probe: { target: 'asset_discovery', inject: { mode: 'probe' } }
+  };
+
+  const alias = TOOL_ALIASES[name];
+  if (alias) {
+    logger.log('INFO', '工具别名转发', { from: name, to: alias.target, inject: alias.inject });
+    name = alias.target;
+    args = { ...alias.inject, ...args };
+  }
 
   const featureCheck = checkFeatureGate(name);
   if (!featureCheck.allowed) {

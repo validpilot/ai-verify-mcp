@@ -1,0 +1,21 @@
+{
+  "name": "browser_overlay",
+  "description": "遮挡物处理工具（v1.9.5 起合并 browser_overlay_detect/dismiss）。通过 mode 参数区分子模式：detect（默认，检测页面遮挡元素如弹窗/Cookie 横幅/浮层）/ dismiss（自动识别并点击关闭常见遮挡物）。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "mode": {
+        "type": "string",
+        "description": "遮挡物模式：detect（默认，检测页面遮挡元素）/ dismiss（自动关闭遮挡物）",
+        "enum": ["detect", "dismiss"],
+        "default": "detect"
+      },
+      "format": {
+        "type": "string",
+        "description": "输出格式：json（默认结构化数据）或 html（HTML 报告）（所有模式通用）",
+        "enum": ["json", "html"],
+        "default": "json"
+      }
+    }
+  }
+}

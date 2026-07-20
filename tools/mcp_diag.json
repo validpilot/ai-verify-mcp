@@ -1,0 +1,30 @@
+{
+  "name": "mcp_diag",
+  "description": "MCP 自诊断工具。v1.9.5 起合并 mcp_health_check / mcp_self_test。mode=health 检查 MCP 健康状态（工具注册完整性、schema 合法性、目录可写性、checkpoint）；mode=self_test 执行 MCP 自测（创建会话、验证 flow/assert/type/click/wait 等基础能力）。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "mode": {
+        "type": "string",
+        "description": "诊断模式：health（健康检查，默认）、self_test（自测）",
+        "enum": [
+          "health",
+          "self_test"
+        ],
+        "default": "health"
+      },
+      "sessionName": {
+        "type": "string",
+        "description": "自测使用的会话名称（仅 mode=self_test），默认 mcp-self-test"
+      },
+      "headless": {
+        "type": "boolean",
+        "description": "是否无头运行（仅 mode=self_test），默认 false"
+      },
+      "trace": {
+        "type": "boolean",
+        "description": "是否录制 trace（仅 mode=self_test），默认 true"
+      }
+    }
+  }
+}

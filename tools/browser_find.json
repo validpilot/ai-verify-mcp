@@ -1,0 +1,54 @@
+{
+  "name": "browser_find",
+  "description": "智能查找工具（v1.9.5 起合并 browser_find_element/find_page）。通过 mode 参数区分子模式：element（默认，按文本描述或 ARIA 角色智能定位页面元素）/ page（按目标页面关键词定位页面，支持 SPA 按钮导航发现）。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "mode": {
+        "type": "string",
+        "description": "查找模式：element（默认，按文本/角色定位元素）/ page（按关键词定位页面）",
+        "enum": ["element", "page"],
+        "default": "element"
+      },
+      "text": {
+        "type": "string",
+        "description": "要查找的元素文本（mode=element 时必填）"
+      },
+      "role": {
+        "type": "string",
+        "description": "元素角色：button/link/input/textbox/checkbox/radio/combobox 等（mode=element 时使用）"
+      },
+      "tagName": {
+        "type": "string",
+        "description": "标签名过滤，如 button/a/input/div 等（mode=element 时使用）"
+      },
+      "onlyVisible": {
+        "type": "boolean",
+        "description": "只返回可见元素，默认 true（mode=element 时使用）",
+        "default": true
+      },
+      "limit": {
+        "type": "number",
+        "description": "返回数量，默认 5（mode=element 时使用）",
+        "default": 5
+      },
+      "target": {
+        "type": "string",
+        "description": "目标页面类型：login/signup/home/dashboard/admin/settings/profile/search/cart/checkout/forgot-password/reset-password/logout/all（mode=page 时必填）"
+      },
+      "navigate": {
+        "type": "boolean",
+        "description": "是否导航到发现的页面（如果还没在目标页面），默认 false（mode=page 时使用）",
+        "default": false
+      },
+      "baseUrl": {
+        "type": "string",
+        "description": "基础 URL，用于尝试常见路径。不指定时从当前页面 URL 推导（mode=page 时使用）"
+      }
+    },
+    "anyOf": [
+      { "required": ["text"] },
+      { "required": ["target"] }
+    ]
+  }
+}

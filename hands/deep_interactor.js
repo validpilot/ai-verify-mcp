@@ -732,7 +732,10 @@ async function exploreLikeHuman(page, options = {}) {
  * @returns {string} 字段类型
  */
 function inferFieldType(field) {
-  const { type, tag, name = '', label = '', placeholder = '' } = field;
+  const { type, tag, name: rawName, label: rawLabel, placeholder: rawPlaceholder } = field;
+  const name = rawName || '';
+  const label = rawLabel || '';
+  const placeholder = rawPlaceholder || '';
 
   // 1. 基于 HTML 元素类型的判断（最高优先级）
   if (type === 'checkbox') return 'checkbox';
