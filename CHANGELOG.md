@@ -51,10 +51,17 @@ All notable changes to this project will be documented in this file.
 - **Phase X asset.js deps 解构缺少 networkLogs**：`handlers/asset.js` L63 deps 解构未包含 `networkLogs`，但 L131（asset_routes_discover 的 network-js-inferred 推断）和 L176（asset_endpoint_enum 的 network-log 提取）引用了它。在 strict mode 下会触发 ReferenceError。修复：在 L63 deps 解构中补充 `networkLogs`。修复后 asset_endpoint_enum 别名转发测试成功返回 21 个端点（含 network-log 源），asset_routes_discover 别名转发测试成功返回 15 个路由。
 - **Phase X asset_discovery 默认 mode 与 schema 不一致**：`handlers/asset.js` L68 主工具 handler 默认 mode 为 `routes`，但 `tools/asset_discovery.json` schema 声明 `default: "enum"`。导致主工具直接调用（不传 mode）时走 routes 模式（前端路由发现），与 schema 文档承诺的 enum 模式（API 端点枚举）不符。修复：将 handler 默认 mode 从 `routes` 改为 `enum`。修复后 run_mcp 调用 `asset_discovery {url:"https://ant.design/"}`（不传 mode）正确返回 `endpoints: []` + "端点发现"提示，与 schema 默认值一致。同时全量扫描所有 24 个主工具的 handler 默认 mode 与 schema default 字段，确认其他工具均一致。
 - **server.js TOOL_ALIASES 重复内容导致语法错误**（CRITICAL）：Phase W 别名注册时 Edit 工具匹配短字符串导致 `};` 提前闭合对象，其后残留重复的 Phase W + Phase X 别名条目成为无效语法。修复：删除 `};` 之后的重复内容，确保 TOOL_ALIASES 对象正确闭合（L3883-3892）。修复前 `node -c server.js` 失败，修复后语法检查通过，Phase W/X 别名转发测试全部成功。
+- **Bug #116: handlers/system.js 未导入 mcpParamMissing**（CRITICAL）：`handlers/system.js` 第 6 行 `const { mcpError } = require('../core/mcp-error');` 只导入了 mcpError，未导入 mcpParamMissing。导致 browser_form_fill 调用时第 168 行 `if (!url) return mcpParamMissing('url', name, '请提供目标页面 URL');` 报错 `mcpParamMissing is not defined`，工具完全无法执行。修复：改为 `const { mcpError, mcpParamMissing } = require('../core/mcp-error');`。修复后 browser_form_fill 在 ant.design/components/overview-cn 成功提交，跳转正常。
+- **Bug #117: hands/deep_interactor.js inferFieldType null 处理**（CRITICAL）：`inferFieldType` 函数使用解构默认值 `const { name = '' } = field;`，但 `getAttribute('name')` 返回 `null`（非 `undefined`），JS 解构默认值仅对 `undefined` 生效，导致后续 `name.toLowerCase()` 报错 `Cannot read properties of null (reading 'toLowerCase')`。同时影响 `label` 和 `placeholder` 字段。修复：改为 `const { name: rawName, label: rawLabel, placeholder: rawPlaceholder } = field; const name = rawName || ''; const label = rawLabel || ''; const placeholder = rawPlaceholder || '';`。修复后 browser_form_fill 在 https://demoqa.com/text-box 真实表单上成功填充 4 个字段（含 placeholder 为空的 permanentAddress 字段），4/4 filled:true，无 null 错误。
 
 ### Verified
 
-- **5 步闭环验证模板**：每个 Phase 完成后执行 (1) schema 扩展 → (2) handler 逻辑 → (3) tools 数组注册 → (4) 别名转发 → (5) run_mcp 真实调用测试。
+- **v1.9.5 全面测试**（2026-07-20 ~ 2026-07-21）：
+  - **基础测试**：154 个注册工具全面测试，通过率 99.4%（153/154），无 BLOCKING 级问题。详见 [v1.9.5-mcp-tools-test-report.md](https://github.com/validpilot/ai-verify-mcp/blob/main/.trae/documents/v1.9.5-mcp-tools-test-report.md)。
+  - **深度测试**：7 个深度场景（端到端业务流程、跨工具协同、边界条件、复杂真实网站）全部通过，通过率 100%。测试覆盖 github.com、ant.design、demoqa.com、zhihu.com、bilibili.com、developer.mozilla.org 等 8 个真实复杂网站。详见 [v1.9.5-mcp-tools-deep-test-report.md](https://github.com/validpilot/ai-verify-mcp/blob/main/.trae/documents/v1.9.5-mcp-tools-deep-test-report.md)。
+  - **v1.9.4 修复验证**：v1.9.4 修复的 4 个 CRITICAL 工具（browser_lighthouse_audit、browser_flow、trace_correlate、css_var_check）在 v1.9.5 中全部确认正常。
+  - **别名转发验证**：56 个别名转发规则全部通过（19 个 Phase，向后兼容 100%）。
+  - **5 步闭环验证模板**：每个 Phase 完成后执行 (1) schema 扩展 → (2) handler 逻辑 → (3) tools 数组注册 → (4) 别名转发 → (5) run_mcp 真实调用测试。
 - **测试目标**：https://ant.design/
 - **测试结果**：本次会话完成的 7 个 Phase（F/G/Q/R/S/U/V）全部通过 run_mcp 别名转发测试：
   - Phase F：browser_captcha_detect/read/screenshot 别名 → mode=detect/read/screenshot ✅
