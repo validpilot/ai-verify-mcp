@@ -1,6 +1,6 @@
 {
   "name": "@validpilot/ai-verify-mcp",
-  "version": "1.9.3",
+  "version": "1.9.5",
   "description": "AI 编程验证平台。让 AI 代码生成结果可验证、可信赖。MCP 协议原生支持，证据驱动。",
   "main": "server.js",
   "publishConfig": {
