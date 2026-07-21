@@ -439,17 +439,19 @@ describe('browser_assert', () => {
 });
 
 // ============================================================
-// browser_flow（OSS 不包含，属于 Pro 版付费能力）
+// browser_flow（v1.9.5 起开源，从 Pro 版迁移到 OSS）
 // ============================================================
 
 describe('browser_flow', () => {
-  test('schema 文件不存在（OSS 不包含付费功能）', () => {
+  test('schema 文件存在且 JSON 合法', () => {
     const filePath = path.join(TOOLS_DIR, 'browser_flow.json');
-    assert.ok(!fs.existsSync(filePath), 'browser_flow.json 不应存在于 OSS 版本中');
+    assert.ok(fs.existsSync(filePath), 'browser_flow.json 应存在于 OSS 版本中（v1.9.5 起开源）');
+    const schema = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    assert.equal(schema.name, 'browser_flow');
   });
 
-  test('toolNames 中不包含 browser_flow（OSS 不包含付费功能）', () => {
-    assert.ok(!toolNames.has('browser_flow'), '工具 browser_flow 不应在 OSS 版本中（属于 Pro 版付费能力）');
+  test('toolNames 中包含 browser_flow（v1.9.5 起已开源）', () => {
+    assert.ok(toolNames.has('browser_flow'), '工具 browser_flow 应在 OSS 版本中（v1.9.5 起开源）');
   });
 });
 

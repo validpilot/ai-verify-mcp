@@ -55,7 +55,7 @@ describe('tools schema 目录结构', () => {
   test('tool schema 文件数量合理', () => {
     const files = fs.readdirSync(TOOLS_DIR).filter(f => f.endsWith('.json'));
     assert.ok(files.length >= 80, '应有至少 80 个工具 schema');
-    assert.ok(files.length <= 140, '应有不超过 140 个工具 schema');
+    assert.ok(files.length <= 160, '应有不超过 160 个工具 schema');
   });
 
   test('tool schema 文件都是合法 JSON', () => {
