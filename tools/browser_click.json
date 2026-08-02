@@ -11,6 +11,11 @@
       "index": {
         "type": "number",
         "description": "当选择器匹配多个元素时，指定点击第几个元素（从 0 开始）。不提供时默认点击第一个元素。"
+      },
+      "autoFirst": {
+        "type": "boolean",
+        "description": "多元素匹配时是否自动点击第一个可见元素（默认 true）。设为 false 时匹配多个元素会返回 MULTIPLE_ELEMENTS 错误供人工选择",
+        "default": true
       }
     },
     "required": [

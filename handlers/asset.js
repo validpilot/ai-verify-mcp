@@ -6,9 +6,7 @@
 const { mcpError } = require('../core/mcp-error');
 
 const tools = [
-  "asset_discovery",
-  "asset_routes_discover",
-  "asset_endpoint_enum"
+  "asset_discovery"
 ];
 
 // 从字符串中提取候选路由（SPA / hash / REST 路径）
@@ -63,20 +61,20 @@ async function handle(name, args, deps) {
   const { text, log, resetRuntimeLogs, path, fs, ensurePage, callTool, networkLogs } = deps;
 
     // ====== asset_discovery ======
-    // v1.9.5 起合并 asset_routes_discover / asset_endpoint_enum / asset_endpoint_probe
+    // v1.9.5 起合并 asset_discovery mode=routes/enum/probe
     if (name === 'asset_discovery') {
       const mode = args.mode || 'enum';
       if (mode === 'routes') return handle('asset_routes_discover', args, deps);
       if (mode === 'enum') return handle('asset_endpoint_enum', args, deps);
       if (mode === 'probe') {
-        // asset_endpoint_probe 在 correlate.js 中，直接 require 调用避免 callTool 别名循环
+        // asset_discovery mode=probe 在 correlate.js 中，直接 require 调用避免 callTool 别名循环
         const handlerCorrelate = require('./correlate');
         return handlerCorrelate.handle('asset_endpoint_probe', args, deps);
       }
       return text(JSON.stringify({ error: `未知 mode: ${mode}，可选 routes / enum / probe` }, null, 2));
     }
 
-    // ====== asset_routes_discover ======
+    // ====== asset_discovery mode=routes ======
     if (name === 'asset_routes_discover') {
       const { target } = await ensurePage(args);
       const maxScripts = Math.min(args.maxScripts || 10, 30);
@@ -155,7 +153,7 @@ async function handle(name, args, deps) {
       }, null, 2));
     }
 
-    // ====== asset_endpoint_enum ======
+    // ====== asset_discovery mode=enum ======
     if (name === 'asset_endpoint_enum') {
       const { target } = await ensurePage(args);
       const maxScripts = Math.min(args.maxScripts || 10, 30);
@@ -220,7 +218,7 @@ async function handle(name, args, deps) {
         note: '开源版浅层端点发现（network log + JS 静态解析），不做参数 Fuzz / 越权探测',
         nextSteps: [
           '调用 browser_network 查看请求详情',
-          '调用 asset_routes_discover 补充前端路由'
+          '调用 asset_discovery { mode: \'routes\' } 补充前端路由'
         ]
       }, null, 2));
     }

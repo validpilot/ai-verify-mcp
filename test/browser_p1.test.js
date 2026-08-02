@@ -33,36 +33,7 @@ function buildToolNames() {
 
 const toolNames = buildToolNames();
 
-// ============================================================
-// browser_find_page
-// ============================================================
-
-describe('browser_find_page', () => {
-  test('schema 文件存在且 JSON 合法', () => {
-    const filePath = path.join(TOOLS_DIR, 'browser_find_page.json');
-    assert.ok(fs.existsSync(filePath));
-    const schema = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    assert.equal(schema.name, 'browser_find_page');
-    assert.ok(schema.description);
-    assert.ok(schema.inputSchema);
-  });
-
-  test('schema 包含 target 为必填，navigate/baseUrl 参数完整', () => {
-    const schema = JSON.parse(fs.readFileSync(path.join(TOOLS_DIR, 'browser_find_page.json'), 'utf8'));
-    const props = schema.inputSchema.properties;
-    assert.ok(props.target);
-    assert.equal(props.target.type, 'string');
-    assert.ok(schema.inputSchema.required.includes('target'), 'target 应为必填');
-    assert.ok(props.navigate);
-    assert.equal(props.navigate.type, 'boolean');
-    assert.ok(props.baseUrl);
-    assert.equal(props.baseUrl.type, 'string');
-  });
-
-  test('toolNames 中包含 browser_find_page（已注册到 MCP）', () => {
-    assert.ok(toolNames.has('browser_find_page'), '工具 browser_find_page 应在 toolNames 中');
-  });
-});
+// v1.10.0: browser_find_page 已移除（别名 → browser_find mode=page）
 
 // ============================================================
 // browser_links
@@ -162,99 +133,7 @@ describe('browser_scroll', () => {
   });
 });
 
-// ============================================================
-// browser_find_element
-// ============================================================
+// v1.10.0: browser_find_element 已移除（别名 → browser_find mode=element）
 
-describe('browser_find_element', () => {
-  test('schema 文件存在且 JSON 合法', () => {
-    const filePath = path.join(TOOLS_DIR, 'browser_find_element.json');
-    assert.ok(fs.existsSync(filePath));
-    const schema = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    assert.equal(schema.name, 'browser_find_element');
-    assert.ok(schema.description);
-    assert.ok(schema.inputSchema);
-  });
-
-  test('schema 包含 text 为必填，role/tagName/onlyVisible/limit 参数完整', () => {
-    const schema = JSON.parse(fs.readFileSync(path.join(TOOLS_DIR, 'browser_find_element.json'), 'utf8'));
-    const props = schema.inputSchema.properties;
-    assert.ok(props.text);
-    assert.equal(props.text.type, 'string');
-    assert.ok(schema.inputSchema.required.includes('text'), 'text 应为必填');
-    assert.ok(props.role);
-    assert.equal(props.role.type, 'string');
-    assert.ok(props.tagName);
-    assert.equal(props.tagName.type, 'string');
-    assert.ok(props.onlyVisible);
-    assert.equal(props.onlyVisible.type, 'boolean');
-    assert.ok(props.limit);
-    assert.equal(props.limit.type, 'number');
-  });
-
-  test('toolNames 中包含 browser_find_element（已注册到 MCP）', () => {
-    assert.ok(toolNames.has('browser_find_element'), '工具 browser_find_element 应在 toolNames 中');
-  });
-});
-
-// ============================================================
-// browser_locator_suggest
-// ============================================================
-
-describe('browser_locator_suggest', () => {
-  test('schema 文件存在且 JSON 合法', () => {
-    const filePath = path.join(TOOLS_DIR, 'browser_locator_suggest.json');
-    assert.ok(fs.existsSync(filePath));
-    const schema = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    assert.equal(schema.name, 'browser_locator_suggest');
-    assert.ok(schema.description);
-    assert.ok(schema.inputSchema);
-  });
-
-  test('schema 包含 selector/target 二选一（anyOf），sessionName 为可选', () => {
-    const schema = JSON.parse(fs.readFileSync(path.join(TOOLS_DIR, 'browser_locator_suggest.json'), 'utf8'));
-    const props = schema.inputSchema.properties;
-    assert.ok(props.selector);
-    assert.equal(props.selector.type, 'string');
-    assert.ok(props.target);
-    assert.equal(props.target.type, 'string');
-    assert.ok(props.sessionName);
-    assert.equal(props.sessionName.type, 'string');
-    // anyOf 约束：selector 或 target 至少其一
-    assert.ok(Array.isArray(schema.inputSchema.anyOf));
-    assert.equal(schema.inputSchema.anyOf.length, 2);
-  });
-
-  test('toolNames 中包含 browser_locator_suggest（已注册到 MCP）', () => {
-    assert.ok(toolNames.has('browser_locator_suggest'), '工具 browser_locator_suggest 应在 toolNames 中');
-  });
-});
-
-// ============================================================
-// browser_locator_validate
-// ============================================================
-
-describe('browser_locator_validate', () => {
-  test('schema 文件存在且 JSON 合法', () => {
-    const filePath = path.join(TOOLS_DIR, 'browser_locator_validate.json');
-    assert.ok(fs.existsSync(filePath));
-    const schema = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    assert.equal(schema.name, 'browser_locator_validate');
-    assert.ok(schema.description);
-    assert.ok(schema.inputSchema);
-  });
-
-  test('schema 包含 selector 为必填，sessionName 为可选字符串', () => {
-    const schema = JSON.parse(fs.readFileSync(path.join(TOOLS_DIR, 'browser_locator_validate.json'), 'utf8'));
-    const props = schema.inputSchema.properties;
-    assert.ok(props.selector);
-    assert.equal(props.selector.type, 'string');
-    assert.ok(schema.inputSchema.required.includes('selector'), 'selector 应为必填');
-    assert.ok(props.sessionName);
-    assert.equal(props.sessionName.type, 'string');
-  });
-
-  test('toolNames 中包含 browser_locator_validate（已注册到 MCP）', () => {
-    assert.ok(toolNames.has('browser_locator_validate'), '工具 browser_locator_validate 应在 toolNames 中');
-  });
-});
+// v1.10.0: browser_locator_suggest 已移除（别名 → browser_locator mode=suggest）
+// v1.10.0: browser_locator_validate 已移除（别名 → browser_locator mode=validate）

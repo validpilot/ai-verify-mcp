@@ -6,13 +6,9 @@ const { mcpError, mcpParamMissing } = require('../core/mcp-error');
 
 const tools = [
   "browser_network",
-  "browser_network_detail",
   "browser_console",
   "browser_errors",
-  "browser_errors_clear",
-  "browser_state",
-  "browser_storage",
-  "browser_cookies"
+  "browser_state"
 ];
 
 async function handle(name, args, deps) {
@@ -22,18 +18,17 @@ async function handle(name, args, deps) {
   const { MAX_SESSIONS, SCREENSHOT_DIR, HAR_DIR, VISUAL_DIR, VISUAL_BASELINE_DIR, VISUAL_ACTUAL_DIR, VISUAL_DIFF_DIR, VALIDATIONS_DIR, REPORT_DIR, LOG_FILE, PROJECT_ROOT, TOOLS_DIR, logger, ensurePage, text, log, resetRuntimeLogs, getPageLinks, postActionErrorCheck, probeKnownEndpoints, getUnifiedErrors, closeBrowserSession, listBrowserSessions, filterNetwork, filterNetworkDetails, getStorageSnapshot, buildDebugReport, captureStepEvidence, waitForCondition, assertPage, runFlow, installInstrumentation, getBrowserEvents, clearBrowserEvents, startTrace, stopTrace, getArtifacts, clearArtifacts, ensureArtifactsDir, getBackendProbeEndpoints, isCloudApiProbeTarget, screenshotWithRedaction, safeArtifactName, analyzeScreenshotForErrors, exportHar, runFullAudit, visualBaseline, visualCompare, visualReport, runA11yCheck, runPerformanceCheck, runLighthouseAudit, findElement, findPage, suggestLocator, validateLocator, mcpHealthCheck, projectAudit, mcpSelfTest, runValidationCheck, runValidationPlan, runValidationElement, runValidationFlow, buildValidationReport, exportValidationReport, runValidationQuickRun, runDeployVerify, investigateDebug, runBrowserFullRegression, traverseMenu, fetchBackendLogs, buildTraceChain, detectSilentFailures, redact, redactString, isSensitiveKey, trimTraceLogs, genSpanId, genTraceId, browserOperator, evidenceCollector, deepInteractor, errorAggregator, path, fs, execSync, callTool } = deps;
   try {
   // ====== browser_network ======
-  // v1.9.5 起合并 browser_network_detail（mode=detail）
+  // v1.9.5 起合并 browser_network（mode=detail）
   if (name === 'browser_network') {
     const mode = args.mode || 'list';
 
-    // mode=detail：等价于已废弃的 browser_network_detail
+    // mode=detail：等价于已废弃的 browser_network
     if (mode === 'detail') {
       return text(JSON.stringify({
         mode: 'detail',
         ...filterNetworkDetails(args),
-        nextSteps: ['使用 browser_errors 查看聚合错误', '使用 browser_performance_check 分析性能'],
-        suggestions: [{ type: 'next', tool: 'browser_errors', reason: '查看聚合错误信息' }],
-        paidUpgradeHint: '需要网络请求拦截和修改、Mock API 响应、性能瓶颈智能分析？升级到 Pro 版本获取高级网络调试能力。'
+        nextSteps: ['使用 browser_errors 查看聚合错误', '使用 browser_performance { mode: \'check\' } 分析性能'],
+        suggestions: [{ type: 'next', tool: 'browser_errors', reason: '查看聚合错误信息' }]
       }, null, 2));
     }
 
@@ -67,36 +62,34 @@ async function handle(name, args, deps) {
       slowRequests: slow.length,
       records: processed.slice(0, args.limit || 50),
       nextSteps: errors.length > 0 ? [
-        '调用 browser_network_detail 查看失败请求详情',
+        '调用 browser_network { mode: \'detail\' } 查看失败请求详情',
         '调用 browser_errors 查看控制台错误',
         '调用 browser_counterfactual_analyze 分析网络错误根因',
-        '调用 browser_diagnose 诊断页面问题'
+        '调用 browser_debug { mode: \'diagnose\' } 诊断页面问题'
       ] : slow.length > 0 ? [
-        '调用 browser_performance_check 检查页面性能',
-        '调用 browser_network_detail 查看慢请求详情',
-        '调用 browser_diagnose 分析性能瓶颈'
+        '调用 browser_performance { mode: \'check\' } 检查页面性能',
+        '调用 browser_network { mode: \'detail\' } 查看慢请求详情',
+        '调用 browser_debug { mode: \'diagnose\' } 分析性能瓶颈'
       ] : [
         '调用 browser_screenshot 截图留存证据',
         '调用 validation_run 运行完整验证流程'
       ],
       suggestions: errors.length > 0 ? [
-        { type: 'fix', tool: 'browser_network_detail', reason: '查看失败请求的详细信息' },
+        { type: 'fix', tool: 'browser_network', reason: '查看失败请求的详细信息' },
         { type: 'fix', tool: 'browser_counterfactual_analyze', reason: '分析网络错误是否是测试失败的根因' }
       ] : [
         { type: 'next', tool: 'browser_screenshot', reason: '网络正常，截图留存证据' }
-      ],
-      paidUpgradeHint: '需要网络请求拦截和修改、Mock API 响应、性能瓶颈智能分析？升级到 Pro 版本获取高级网络调试能力。'
+      ]
     };
     return text(JSON.stringify(resultData, null, 2));
   }
 
-  // ====== browser_network_detail ======
+  // ====== browser_network mode=detail ======
   if (name === 'browser_network_detail') {
   return text(JSON.stringify({
     ...filterNetworkDetails(args),
-    nextSteps: ['使用 browser_errors 查看聚合错误', '使用 browser_performance_check 分析性能'],
-    suggestions: [{ type: 'next', tool: 'browser_errors', reason: '查看聚合错误信息' }],
-    paidUpgradeHint: '需要网络请求拦截和修改、Mock API 响应、性能瓶颈智能分析？升级到 Pro 版本获取高级网络调试能力。'
+    nextSteps: ['使用 browser_errors 查看聚合错误', '使用 browser_performance { mode: \'check\' } 分析性能'],
+    suggestions: [{ type: 'next', tool: 'browser_errors', reason: '查看聚合错误信息' }]
   }, null, 2));
   }
 
@@ -114,29 +107,27 @@ const level = args.level && args.level !== 'all' ? args.level : null;
         '使用 browser_smoke_test 执行冒烟测试'
       ] : [
         '使用 browser_screenshot 截图留存证据'
-      ],
-      paidUpgradeHint: '需要 AI 自动分析控制台日志模式、关联错误与操作步骤、生成修复建议？升级到 Pro 版本获取智能日志分析能力。'
+      ]
     }, null, 2));
   }
 
   // ====== browser_errors ======
-  // v1.9.5 起合并 browser_errors_aggregate（mode=aggregate）和 browser_errors_clear（mode=clear）
+  // v1.9.5 起合并 browser_errors mode=aggregate/clear
   if (name === 'browser_errors') {
     const mode = args.mode || 'view';
 
-    // mode=clear：等价于已废弃的 browser_errors_clear
+    // mode=clear：等价于已废弃的 browser_errors
     if (mode === 'clear') {
       resetRuntimeLogs();
       return text(JSON.stringify({
         cleared: true,
         mode: 'clear',
         checkpoint: currentCheckpoint,
-        nextSteps: ['使用 browser_screenshot 进行截图验证', '使用 browser_smoke_test 执行冒烟测试'],
-        paidUpgradeHint: '需要自动错误清理与跟踪、历史错误趋势分析？升级到 Pro 版本获取智能错误管理能力。'
+        nextSteps: ['使用 browser_screenshot 进行截图验证', '使用 browser_smoke_test 执行冒烟测试']
       }, null, 2));
     }
 
-    // mode=aggregate：等价于已废弃的 browser_errors_aggregate
+    // mode=aggregate：等价于已废弃的 browser_errors
     if (mode === 'aggregate') {
       const evidence = args.evidence || (args.includeCurrentPage === false ? {} : (await evidenceCollector.collectEvidence(args)).evidence);
       const aggResult = errorAggregator.aggregateErrors(evidence, args);
@@ -249,7 +240,7 @@ const level = args.level && args.level !== 'all' ? args.level : null;
       ...result,
       nextSteps: result?.summary?.total > 0 ? [
         '调用 browser_network 查看网络请求详情',
-        '调用 browser_diagnose 分析错误根因',
+        '调用 browser_debug { mode: \'diagnose\' } 分析错误根因',
         '调用 browser_screenshot 截图留存错误状态',
         '调用 browser_counterfactual_analyze 进行反事实根因分析'
       ] : [
@@ -258,28 +249,26 @@ const level = args.level && args.level !== 'all' ? args.level : null;
         '调用 validation_run 运行完整验证'
       ],
       suggestions: result?.summary?.total > 0 ? [
-        { type: 'fix', tool: 'browser_diagnose', reason: '分析错误的根因和修复方案' },
+        { type: 'fix', tool: 'browser_debug', reason: '分析错误的根因和修复方案' },
         { type: 'fix', tool: 'browser_counterfactual_analyze', reason: '分析错误是否是测试失败的根因' }
       ] : [
         { type: 'next', tool: 'browser_screenshot', reason: '无错误，截图留存证据' }
-      ],
-      paidUpgradeHint: '需要 AI 自动分析错误堆栈、匹配已知问题模式、生成修复代码？升级到 Pro 版本获取智能错误分析能力。'
+      ]
     }, null, 2));
   }
 
-  // ====== browser_errors_clear ======
+  // ====== browser_errors mode=clear ======
   if (name === 'browser_errors_clear') {
   resetRuntimeLogs();
     return text(JSON.stringify({
       cleared: true,
       checkpoint: currentCheckpoint,
-      nextSteps: ['使用 browser_screenshot 进行截图验证', '使用 browser_smoke_test 执行冒烟测试'],
-      paidUpgradeHint: '需要自动错误清理与跟踪、历史错误趋势分析？升级到 Pro 版本获取智能错误管理能力。'
+      nextSteps: ['使用 browser_screenshot 进行截图验证', '使用 browser_smoke_test 执行冒烟测试']
     }, null, 2));
   }
 
   // ====== browser_state ======
-  // v1.9.5 起合并 browser_cookies/browser_storage
+  // v1.9.5 起合并 browser_state mode=cookies/storage
   if (name === 'browser_state') {
     const mode = args.mode || 'cookies';
     if (mode === 'cookies') {
@@ -291,26 +280,25 @@ const level = args.level && args.level !== 'all' ? args.level : null;
     return mcpParamMissing('mode', name);
   }
 
-  // ====== browser_storage ======
+  // ====== browser_state mode=storage ======
   if (name === 'browser_storage') {
 const { target } = await ensurePage();
     try {
       return text(JSON.stringify({
         ...(await getStorageSnapshot(target, args.scope || 'all')),
-        nextSteps: ['使用 browser_cookies 检查 Cookie 状态', '使用 browser_events 查看浏览器事件'],
-        paidUpgradeHint: '需要跨页面状态同步、存储变更监控、AI 驱动状态分析？升级到 Pro 版本获取智能状态管理能力。'
+        nextSteps: ['使用 browser_state { mode: \'cookies\' } 检查 Cookie 状态', '使用 browser_events 查看浏览器事件']
       }, null, 2));
     } catch (storageError) {
       return text(JSON.stringify({
         error: '无法读取页面存储：' + storageError.message,
         url: target.url(),
         hint: '某些页面（如 about:blank 或跨域页面）可能限制存储访问，请先导航到目标页面',
-        nextSteps: ['使用 browser_navigate 导航到目标页面', '使用 browser_cookies 检查 Cookie 状态']
+        nextSteps: ['使用 browser_navigate 导航到目标页面', '使用 browser_state { mode: \'cookies\' } 检查 Cookie 状态']
       }, null, 2));
     }
   }
 
-  // ====== browser_cookies ======
+  // ====== browser_state mode=cookies ======
   if (name === 'browser_cookies') {
 const { target } = await ensurePage();
     const action = args.action || 'get';
@@ -357,8 +345,7 @@ const { target } = await ensurePage();
       action: 'get',
       total: cookies.length,
       cookies: safeCookies,
-      nextSteps: ['使用 browser_storage 查看本地存储', '使用 browser_network 分析网络请求中的 Cookie'],
-      paidUpgradeHint: '需要自动 Cookie 管理、隐私合规检查、跨域 Cookie 分析？升级到 Pro 版本获取智能 Cookie 管理能力。'
+      nextSteps: ['使用 browser_state { mode: \'storage\' } 查看本地存储', '使用 browser_network 分析网络请求中的 Cookie']
     }, null, 2));
   }
 

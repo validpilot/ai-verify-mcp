@@ -101,7 +101,7 @@ async function handle(name, args, deps) {
           nextSteps: [
             '查看 details 了解具体差异',
             '根据 suggestions 修复数据不一致问题',
-            '如需保存当前数据为基线，请调用 contract_baseline save',
+            '如需保存当前数据为基线，请调用 contract { mode: \'baseline\' } save',
             '修复后重新运行 browser_data_compare 验证'
           ],
           dataSnapshot: {

@@ -8,11 +8,6 @@ const { mcpError, mcpParamMissing } = require('../core/mcp-error');
 
 const tools = [
   'security_scan',
-  'security_headers_check',
-  'security_csp_analyze',
-  'security_sql_injection_scan',
-  'security_xss_scan',
-  'security_owasp_top10',
   'api_probe'
 ];
 
@@ -49,7 +44,7 @@ async function smartFetch(target, url, options = {}) {
   return await fetchInNode(url, options);
 }
 
-// ====== security_headers_check ======
+// ====== security_scan mode=headers ======
 async function securityHeadersCheck(target, url) {
   const resp = await smartFetch(target, url);
 
@@ -98,7 +93,7 @@ async function securityHeadersCheck(target, url) {
   };
 }
 
-// ====== security_csp_analyze ======
+// ====== security_scan mode=csp ======
 async function securityCspAnalyze(target, url) {
   const resp = await smartFetch(target, url);
   const csp = resp.headers['content-security-policy'] || null;
@@ -167,7 +162,7 @@ async function securityCspAnalyze(target, url) {
   };
 }
 
-// ====== security_sql_injection_scan ======
+// ====== security_scan mode=sqli ======
 async function securitySqlInjectionScan(target, url) {
   const payloads = [
     "' OR '1'='1",
@@ -257,7 +252,7 @@ async function securitySqlInjectionScan(target, url) {
   };
 }
 
-// ====== security_xss_scan ======
+// ====== security_scan mode=xss ======
 async function securityXssScan(target, url) {
   const payloads = [
     '<script>alert(1)</script>',
@@ -343,7 +338,7 @@ async function securityXssScan(target, url) {
   };
 }
 
-// ====== security_owasp_top10 ======
+// ====== security_scan mode=owasp ======
 async function securityOwaspTop10(target, url) {
   const resp = await smartFetch(target, url);
   const headers = {};
@@ -372,7 +367,7 @@ async function securityOwaspTop10(target, url) {
   checks.push({
     id: 'A3', name: 'Injection', check: 'injection',
     status: 'info',
-    evidence: '建议使用 security_sql_injection_scan 和 security_xss_scan 进行深度测试'
+    evidence: '建议使用 security_scan { mode: \'sqli\' } 和 security_scan { mode: \'xss\' } 进行深度测试'
   });
 
   // A4: Insecure Design
@@ -461,7 +456,7 @@ async function handle(name, args, deps) {
 
   try {
     // ====== security_scan ======
-    // v1.9.5 起合并 security_headers_check / security_csp_analyze / security_sql_injection_scan / security_xss_scan / security_owasp_top10
+    // v1.9.5 起合并 security_scan mode=headers / security_scan mode=csp / security_scan mode=sqli / security_scan mode=xss / security_scan mode=owasp
     if (name === 'security_scan') {
       const mode = args.mode || 'headers';
       if (mode === 'headers') return handle('security_headers_check', args, deps);
@@ -472,65 +467,65 @@ async function handle(name, args, deps) {
       return mcpParamMissing('mode', name, '可选 headers / csp / sqli / xss / owasp');
     }
 
-    // ====== security_headers_check ======
+    // ====== security_scan mode=headers ======
     if (name === 'security_headers_check') {
       const url = args.url;
       if (!url) return mcpParamMissing('url', name, '请提供目标 URL');
       const result = await securityHeadersCheck(target, url);
       return text(JSON.stringify({
         ...result,
-        nextSteps: ['使用 security_csp_analyze 深度分析 CSP 策略', '使用 security_owasp_top10 执行 OWASP Top 10 检查'],
-        suggestions: [{ type: 'next', tool: 'security_csp_analyze', reason: '深度分析 Content-Security-Policy' }]
+        nextSteps: ['使用 security_scan { mode: \'csp\' } 深度分析 CSP 策略', '使用 security_scan { mode: \'owasp\' } 执行 OWASP Top 10 检查'],
+        suggestions: [{ type: 'next', tool: 'security_scan', reason: '深度分析 Content-Security-Policy' }]
       }, null, 2));
     }
 
-    // ====== security_csp_analyze ======
+    // ====== security_scan mode=csp ======
     if (name === 'security_csp_analyze') {
       const url = args.url;
       if (!url) return mcpParamMissing('url', name, '请提供目标 URL');
       const result = await securityCspAnalyze(target, url);
       return text(JSON.stringify({
         ...result,
-        nextSteps: ['使用 security_headers_check 检查所有安全头部', '使用 security_xss_scan 测试 XSS 漏洞'],
-        suggestions: [{ type: 'next', tool: 'security_headers_check', reason: '检查其他安全头部' }]
+        nextSteps: ['使用 security_scan { mode: \'headers\' } 检查所有安全头部', '使用 security_scan { mode: \'xss\' } 测试 XSS 漏洞'],
+        suggestions: [{ type: 'next', tool: 'security_scan', reason: '检查其他安全头部' }]
       }, null, 2));
     }
 
-    // ====== security_sql_injection_scan ======
+    // ====== security_scan mode=sqli ======
     if (name === 'security_sql_injection_scan') {
       const url = args.url;
       if (!url) return mcpParamMissing('url', name, '请提供目标 URL（可包含查询参数）');
       const result = await securitySqlInjectionScan(target, url);
       return text(JSON.stringify({
         ...result,
-        nextSteps: ['使用 security_xss_scan 测试 XSS 漏洞', '使用 security_owasp_top10 执行全面安全检查'],
-        suggestions: [{ type: 'next', tool: 'security_xss_scan', reason: '测试跨站脚本漏洞' }]
+        nextSteps: ['使用 security_scan { mode: \'xss\' } 测试 XSS 漏洞', '使用 security_scan { mode: \'owasp\' } 执行全面安全检查'],
+        suggestions: [{ type: 'next', tool: 'security_scan', reason: '测试跨站脚本漏洞' }]
       }, null, 2));
     }
 
-    // ====== security_xss_scan ======
+    // ====== security_scan mode=xss ======
     if (name === 'security_xss_scan') {
       const url = args.url;
       if (!url) return mcpParamMissing('url', name, '请提供目标 URL（可包含查询参数）');
       const result = await securityXssScan(target, url);
       return text(JSON.stringify({
         ...result,
-        nextSteps: ['使用 security_sql_injection_scan 测试 SQL 注入', '使用 security_csp_analyze 分析 CSP 策略'],
-        suggestions: [{ type: 'next', tool: 'security_sql_injection_scan', reason: '测试 SQL 注入漏洞' }]
+        nextSteps: ['使用 security_scan { mode: \'sqli\' } 测试 SQL 注入', '使用 security_scan { mode: \'csp\' } 分析 CSP 策略'],
+        suggestions: [{ type: 'next', tool: 'security_scan', reason: '测试 SQL 注入漏洞' }]
       }, null, 2));
     }
 
-    // ====== security_owasp_top10 ======
+    // ====== security_scan mode=owasp ======
     if (name === 'security_owasp_top10') {
       const url = args.url;
       if (!url) return mcpParamMissing('url', name, '请提供目标 URL');
       const result = await securityOwaspTop10(target, url);
       return text(JSON.stringify({
         ...result,
-        nextSteps: ['使用 security_headers_check 检查安全头部', '使用 security_sql_injection_scan 测试注入', '使用 security_xss_scan 测试 XSS'],
+        nextSteps: ['使用 security_scan { mode: \'headers\' } 检查安全头部', '使用 security_scan { mode: \'sqli\' } 测试注入', '使用 security_scan { mode: \'xss\' } 测试 XSS'],
         suggestions: [
-          { type: 'next', tool: 'security_headers_check', reason: '详细检查安全头部' },
-          { type: 'next', tool: 'security_sql_injection_scan', reason: '测试 SQL 注入' }
+          { type: 'next', tool: 'security_scan', reason: '详细检查安全头部' },
+          { type: 'next', tool: 'security_scan', reason: '测试 SQL 注入' }
         ]
       }, null, 2));
     }
@@ -600,8 +595,8 @@ async function handle(name, args, deps) {
         url,
         results,
         corsAnalysis,
-        nextSteps: ['使用 security_headers_check 检查安全头部', '使用 security_owasp_top10 执行 OWASP 检查'],
-        suggestions: [{ type: 'next', tool: 'security_headers_check', reason: '检查 API 安全头部' }]
+        nextSteps: ['使用 security_scan { mode: \'headers\' } 检查安全头部', '使用 security_scan { mode: \'owasp\' } 执行 OWASP 检查'],
+        suggestions: [{ type: 'next', tool: 'security_scan', reason: '检查 API 安全头部' }]
       }, null, 2));
     }
 

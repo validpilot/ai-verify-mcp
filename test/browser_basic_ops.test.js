@@ -234,36 +234,7 @@ describe('browser_snapshot', () => {
   });
 });
 
-// ============================================================
-// browser_batch
-// ============================================================
-
-describe('browser_batch', () => {
-  test('schema 文件存在且 JSON 合法', () => {
-    const filePath = path.join(TOOLS_DIR, 'browser_batch.json');
-    assert.ok(fs.existsSync(filePath));
-    const schema = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    assert.equal(schema.name, 'browser_batch');
-    assert.ok(schema.description);
-    assert.ok(schema.inputSchema);
-  });
-
-  test('schema 包含 steps 为必填（数组），maxSteps 为可选数值', () => {
-    const schema = JSON.parse(fs.readFileSync(path.join(TOOLS_DIR, 'browser_batch.json'), 'utf8'));
-    const props = schema.inputSchema.properties;
-    assert.ok(props.steps);
-    assert.equal(props.steps.type, 'array');
-    assert.ok(props.steps.items);
-    assert.equal(props.steps.items.type, 'object');
-    assert.ok(schema.inputSchema.required.includes('steps'), 'steps 应为必填');
-    assert.ok(props.maxSteps);
-    assert.equal(props.maxSteps.type, 'number');
-  });
-
-  test('toolNames 中包含 browser_batch（已注册到 MCP）', () => {
-    assert.ok(toolNames.has('browser_batch'), '工具 browser_batch 应在 toolNames 中');
-  });
-});
+// v1.10.0: browser_batch 已移除（别名 → browser_flow mode=batch）
 
 // ============================================================
 // browser_dom
@@ -517,26 +488,4 @@ describe('browser_events', () => {
   });
 });
 
-// ============================================================
-// browser_events_clear
-// ============================================================
-
-describe('browser_events_clear', () => {
-  test('schema 文件存在且 JSON 合法', () => {
-    const filePath = path.join(TOOLS_DIR, 'browser_events_clear.json');
-    assert.ok(fs.existsSync(filePath));
-    const schema = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    assert.equal(schema.name, 'browser_events_clear');
-    assert.ok(schema.description);
-    assert.ok(schema.inputSchema);
-  });
-
-  test('schema properties 为空对象，无必填参数', () => {
-    const schema = JSON.parse(fs.readFileSync(path.join(TOOLS_DIR, 'browser_events_clear.json'), 'utf8'));
-    assert.deepEqual(schema.inputSchema.properties, {});
-  });
-
-  test('toolNames 中包含 browser_events_clear（已注册到 MCP）', () => {
-    assert.ok(toolNames.has('browser_events_clear'), '工具 browser_events_clear 应在 toolNames 中');
-  });
-});
+// v1.10.0: browser_events_clear 已移除（别名 → browser_events mode=clear）

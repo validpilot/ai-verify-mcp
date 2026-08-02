@@ -7,17 +7,11 @@ const { mcpError, mcpParamMissing } = require('../core/mcp-error');
 
 const tools = [
   "browser_debug",
-  "browser_diagnose",
   "browser_anti_bot_detect",
-  "browser_debug_report",
   "browser_element_status",
   "browser_quick_fix",
   "browser_verify_fix",
-  "browser_errors_aggregate",
-  "error_analyze",
-  "error_fix_suggestion",
-  "error_summary_md",
-  "debug_investigate"
+  "error_analyze"
 ];
 
 async function handle(name, args, deps) {
@@ -27,7 +21,7 @@ async function handle(name, args, deps) {
   const { MAX_SESSIONS, SCREENSHOT_DIR, HAR_DIR, VISUAL_DIR, VISUAL_BASELINE_DIR, VISUAL_ACTUAL_DIR, VISUAL_DIFF_DIR, VALIDATIONS_DIR, REPORT_DIR, LOG_FILE, PROJECT_ROOT, TOOLS_DIR, logger, ensurePage, text, log, resetRuntimeLogs, getPageLinks, postActionErrorCheck, probeKnownEndpoints, getUnifiedErrors, closeBrowserSession, listBrowserSessions, filterNetwork, filterNetworkDetails, getStorageSnapshot, buildDebugReport, captureStepEvidence, waitForCondition, assertPage, runFlow, installInstrumentation, getBrowserEvents, clearBrowserEvents, startTrace, stopTrace, getArtifacts, clearArtifacts, ensureArtifactsDir, getBackendProbeEndpoints, isCloudApiProbeTarget, screenshotWithRedaction, safeArtifactName, analyzeScreenshotForErrors, exportHar, runFullAudit, visualBaseline, visualCompare, visualReport, runA11yCheck, runPerformanceCheck, runLighthouseAudit, findElement, findPage, suggestLocator, validateLocator, mcpHealthCheck, projectAudit, mcpSelfTest, runValidationCheck, runValidationPlan, runValidationElement, runValidationFlow, buildValidationReport, exportValidationReport, runValidationQuickRun, runDeployVerify, investigateDebug, runBrowserFullRegression, traverseMenu, fetchBackendLogs, buildTraceChain, detectSilentFailures, redact, redactString, isSensitiveKey, trimTraceLogs, genSpanId, genTraceId, browserOperator, evidenceCollector, deepInteractor, errorAggregator, path, fs, execSync, callTool } = deps;
   try {
   // ====== browser_debug ======
-  // v1.9.5 起合并 browser_debug_report/browser_diagnose/debug_investigate
+  // v1.9.5 起合并至 browser_debug (mode=report/diagnose/investigate)
   if (name === 'browser_debug') {
     const mode = args.mode || 'report';
     if (mode === 'report') {
@@ -42,7 +36,7 @@ async function handle(name, args, deps) {
     return mcpParamMissing('mode', name);
   }
 
-  // ====== browser_diagnose ======
+  // ====== browser_debug (mode=diagnose) ======
   if (name === 'browser_diagnose') {
 const { target } = await ensurePage();
     const selector = args.selector;
@@ -155,7 +149,7 @@ const { target } = await ensurePage();
             confidence: 0.95,
             evidence: `检测到 ${byStatus[401] || 0} 个401，${byStatus[403] || 0} 个403错误`
           });
-          diagnosis.suggestedFixes.push('检查登录状态，使用 browser_cookies 查看认证Cookie');
+          diagnosis.suggestedFixes.push("检查登录状态，使用 browser_state { mode: 'cookies' } 查看认证Cookie");
           diagnosis.suggestedFixes.push('尝试重新登录或检查用户权限');
         }
         if (byStatus[404]) {
@@ -430,8 +424,7 @@ const { target } = await ensurePage();
     return text(JSON.stringify({
       ...diagnosis,
       nextSteps: ['使用 browser_quick_fix 修复发现的问题', '使用 browser_element_status 深入检查'],
-      suggestions: [{ type: 'next', tool: 'browser_quick_fix', reason: '自动修复诊断发现的问题' }],
-      paidUpgradeHint: '需要 AI 自动诊断问题、智能修复建议、批量修复能力？升级到 Pro 版本获取智能诊断修复能力。'
+      suggestions: [{ type: 'next', tool: 'browser_quick_fix', reason: '自动修复诊断发现的问题' }]
     }, null, 2));
   }
 
@@ -581,12 +574,11 @@ const { target } = await ensurePage();
         hasChallenge: detected.some(d => d.type === 'js_challenge'),
         challengeType: detected.find(d => d.type === 'js_challenge')?.name || null
       },
-      nextSteps: ['使用 browser_diagnose 诊断页面交互状态', '使用 browser_screenshot 截图留存证据'],
-      paidUpgradeHint: '需要更强大的反爬检测绕过、智能指纹管理、自动验证码处理？升级到 Pro 版本获取高级反爬能力。'
+      nextSteps: ["使用 browser_debug { mode: 'diagnose' } 诊断页面交互状态", '使用 browser_screenshot 截图留存证据']
     }, null, 2));
   }
 
-  // ====== browser_debug_report ======
+  // ====== browser_debug (mode=report) ======
   if (name === 'browser_debug_report') {
 const { target } = await ensurePage();
     return text(JSON.stringify(await buildDebugReport(target, args), null, 2));
@@ -1307,20 +1299,20 @@ const { target } = await ensurePage();
       afterState,
       verification,
       fixStatus: verification.passed ? 'FIXED' : 'NOT_FIXED',
-      nextAction: verification.passed ? ['修复成功，可继续后续操作'] : ['建议使用 browser_diagnose 深入诊断', '尝试不同的修复策略', '使用 browser_element_status 检查元素状态']
+      nextAction: verification.passed ? ['修复成功，可继续后续操作'] : ["建议使用 browser_debug { mode: 'diagnose' } 深入诊断", '尝试不同的修复策略', '使用 browser_element_status 检查元素状态']
     };
 
     return text(JSON.stringify(result, null, 2));
   }
 
-  // ====== browser_errors_aggregate ======
+  // ====== browser_errors (mode=aggregate) ======
   if (name === 'browser_errors_aggregate') {
 const evidence = args.evidence || (args.includeCurrentPage === false ? {} : (await evidenceCollector.collectEvidence(args)).evidence);
     return text(JSON.stringify(errorAggregator.aggregateErrors(evidence, args), null, 2));
   }
 
   // ====== error_analyze ======
-  // v1.9.5 起合并 error_fix_suggestion/error_summary_md
+  // v1.9.5 起合并至 error_analyze (mode=fix/summary)
   if (name === 'error_analyze') {
     const mode = args.mode || 'fix';
     if (mode === 'fix') {
@@ -1332,7 +1324,7 @@ const evidence = args.evidence || (args.includeCurrentPage === false ? {} : (awa
     return mcpParamMissing('mode', name);
   }
 
-  // ====== error_fix_suggestion ======
+  // ====== error_analyze (mode=fix) ======
   if (name === 'error_fix_suggestion') {
 const errorSummary = args.errorSummary || '';
     const context = args.context || {};
@@ -1355,8 +1347,8 @@ const errorSummary = args.errorSummary || '';
         name: '401_unauthorized',
         match: /401|unauthorized|未授权|无权限登录|身份验证失败/i,
         suggestions: [
-          { suggestion: '检查登录状态是否有效', severity: 'critical', confidence: 0.9, verifyAction: '查看当前页面是否需要重新登录', relatedTool: 'browser_cookies' },
-          { suggestion: '检查Token或Cookie是否过期', severity: 'critical', confidence: 0.85, verifyAction: '使用browser_cookies查看认证信息', relatedTool: 'browser_cookies' },
+          { suggestion: '检查登录状态是否有效', severity: 'critical', confidence: 0.9, verifyAction: '查看当前页面是否需要重新登录', relatedTool: 'browser_state' },
+          { suggestion: '检查Token或Cookie是否过期', severity: 'critical', confidence: 0.85, verifyAction: "使用browser_state { mode: 'cookies' }查看认证信息", relatedTool: 'browser_state' },
           { suggestion: '重新登录获取有效凭证', severity: 'general', confidence: 0.8, verifyAction: '执行登录操作后重试', relatedTool: 'browser_click' }
         ]
       },
@@ -1364,7 +1356,7 @@ const errorSummary = args.errorSummary || '';
         name: '403_forbidden',
         match: /403|forbidden|禁止访问|访问被拒绝/i,
         suggestions: [
-          { suggestion: '检查当前用户角色权限是否足够', severity: 'critical', confidence: 0.85, verifyAction: '确认用户角色与资源权限要求', relatedTool: 'browser_cookies' },
+          { suggestion: '检查当前用户角色权限是否足够', severity: 'critical', confidence: 0.85, verifyAction: '确认用户角色与资源权限要求', relatedTool: 'browser_state' },
           { suggestion: '检查资源访问控制配置', severity: 'general', confidence: 0.7, verifyAction: '查看服务端权限配置', relatedTool: 'browser_network' }
         ]
       },
@@ -1374,7 +1366,7 @@ const errorSummary = args.errorSummary || '';
         suggestions: [
           { suggestion: '检查后端服务状态是否正常', severity: 'critical', confidence: 0.9, verifyAction: '查看服务健康检查接口', relatedTool: 'browser_network' },
           { suggestion: '稍后重试，可能是临时故障', severity: 'general', confidence: 0.7, verifyAction: '等待一段时间后重新请求', relatedTool: 'browser_wait' },
-          { suggestion: '查看服务端日志获取详细错误信息', severity: 'critical', confidence: 0.8, verifyAction: '检查服务日志排查根因', relatedTool: 'browser_diagnose' }
+          { suggestion: '查看服务端日志获取详细错误信息', severity: 'critical', confidence: 0.8, verifyAction: '检查服务日志排查根因', relatedTool: 'browser_debug' }
         ]
       },
       {
@@ -1427,7 +1419,7 @@ const errorSummary = args.errorSummary || '';
         name: 'disabled_readonly',
         match: /disabled|readonly|只读|禁用|不可编辑/i,
         suggestions: [
-          { suggestion: '检查表单验证条件是否满足', severity: 'critical', confidence: 0.8, verifyAction: '查看表单字段的启用条件', relatedTool: 'browser_diagnose' },
+          { suggestion: '检查表单验证条件是否满足', severity: 'critical', confidence: 0.8, verifyAction: '查看表单字段的启用条件', relatedTool: 'browser_debug' },
           { suggestion: '检查前置输入是否满足要求', severity: 'general', confidence: 0.7, verifyAction: '确认依赖字段是否已正确填写', relatedTool: 'browser_click' }
         ]
       },
@@ -1455,8 +1447,8 @@ const errorSummary = args.errorSummary || '';
         name: 'missing_envVar',
         match: /environment variable|env.*not set|环境变量.*未|缺少.*环境|process\.env/i,
         suggestions: [
-          { suggestion: '检查 .env 文件是否存在且包含必需变量', severity: 'blocking', confidence: 0.9, verifyAction: '检查 .env 或 .env.local 文件', relatedTool: 'browser_diagnose', suggestedCode: 'console.log("MISSING:", ["KEY1","KEY2"].filter(k=>!process.env[k]))' },
-          { suggestion: '确认 CI/CD 中已配置该环境变量', severity: 'critical', confidence: 0.85, verifyAction: '检查部署环境的变量配置', relatedTool: 'browser_diagnose' }
+          { suggestion: '检查 .env 文件是否存在且包含必需变量', severity: 'blocking', confidence: 0.9, verifyAction: '检查 .env 或 .env.local 文件', relatedTool: 'browser_debug', suggestedCode: 'console.log("MISSING:", ["KEY1","KEY2"].filter(k=>!process.env[k]))' },
+          { suggestion: '确认 CI/CD 中已配置该环境变量', severity: 'critical', confidence: 0.85, verifyAction: '检查部署环境的变量配置', relatedTool: 'browser_debug' }
         ]
       },
       // port_conflict — 端口冲突
@@ -1464,8 +1456,8 @@ const errorSummary = args.errorSummary || '';
         name: 'port_conflict',
         match: /port.*in use|EADDRINUSE|端口.*占用|address.*already in use/i,
         suggestions: [
-          { suggestion: '查找占用端口的进程并停止', severity: 'blocking', confidence: 0.9, verifyAction: 'netstat -ano | findstr :PORT', relatedTool: 'browser_diagnose', suggestedCode: '// Windows: netstat -ano | findstr :PORT\n// Linux: lsof -i :PORT' },
-          { suggestion: '修改应用端口配置重新启动', severity: 'critical', confidence: 0.85, verifyAction: '在配置文件中修改端口号', relatedTool: 'browser_diagnose' }
+          { suggestion: '查找占用端口的进程并停止', severity: 'blocking', confidence: 0.9, verifyAction: 'netstat -ano | findstr :PORT', relatedTool: 'browser_debug', suggestedCode: '// Windows: netstat -ano | findstr :PORT\n// Linux: lsof -i :PORT' },
+          { suggestion: '修改应用端口配置重新启动', severity: 'critical', confidence: 0.85, verifyAction: '在配置文件中修改端口号', relatedTool: 'browser_debug' }
         ]
       },
       // websocket_error — WebSocket 错误
@@ -1483,7 +1475,7 @@ const errorSummary = args.errorSummary || '';
         match: /rate limit|429|too many requests|请求过于频繁|请求被限流/i,
         suggestions: [
           { suggestion: '增加请求间隔，避免短时间内大量请求', severity: 'critical', confidence: 0.9, verifyAction: '添加延迟后重试', relatedTool: 'browser_wait', suggestedCode: 'await new Promise(r=>setTimeout(r,2000))' },
-          { suggestion: '检查是否需要添加认证头提高限额', severity: 'general', confidence: 0.7, verifyAction: '查看 API 文档关于限流的说明', relatedTool: 'browser_cookies' }
+          { suggestion: '检查是否需要添加认证头提高限额', severity: 'general', confidence: 0.7, verifyAction: '查看 API 文档关于限流的说明', relatedTool: 'browser_state' }
         ]
       },
       // python_route_missing — Python 后端路由缺失（Flask/FastAPI）
@@ -1491,8 +1483,8 @@ const errorSummary = args.errorSummary || '';
         name: 'python_route_missing',
         match: /404|route.*not found|endpoint.*missing|路由.*缺失|接口.*不存在|api.*not found|identity\.me|tenants.*500/i,
         suggestions: [
-          { suggestion: '检查 Python 路由文件是否存在对应端点定义', severity: 'blocking', confidence: 0.9, verifyAction: '在 routes/ 目录下查找对应 .py 文件', relatedTool: 'debug_investigate', suggestedCode: '# 检查路由文件\n# grep -rn "endpoint_name" app/routes/' },
-          { suggestion: '检查蓝图(Blueprint)是否在 __init__.py 中注册', severity: 'critical', confidence: 0.85, verifyAction: '查看 routes/__init__.py 中的 router 注册列表', relatedTool: 'debug_investigate', suggestedCode: '# 检查蓝图注册\nfrom app.routes.module import router\napp.include_router(router)' },
+          { suggestion: '检查 Python 路由文件是否存在对应端点定义', severity: 'blocking', confidence: 0.9, verifyAction: '在 routes/ 目录下查找对应 .py 文件', relatedTool: 'browser_debug', suggestedCode: '# 检查路由文件\n# grep -rn "endpoint_name" app/routes/' },
+          { suggestion: '检查蓝图(Blueprint)是否在 __init__.py 中注册', severity: 'critical', confidence: 0.85, verifyAction: '查看 routes/__init__.py 中的 router 注册列表', relatedTool: 'browser_debug', suggestedCode: '# 检查蓝图注册\nfrom app.routes.module import router\napp.include_router(router)' },
           { suggestion: '检查路由装饰器 @router.get/post 的路径是否正确', severity: 'critical', confidence: 0.8, verifyAction: '对比 API 文档和路由装饰器中的路径', relatedTool: 'browser_network' }
         ]
       },
@@ -1501,9 +1493,9 @@ const errorSummary = args.errorSummary || '';
         name: 'python_import_error',
         match: /ImportError|ModuleNotFoundError|No module named|导入.*失败|模块.*不存在/i,
         suggestions: [
-          { suggestion: '检查 requirements.txt 是否包含缺失的依赖包', severity: 'blocking', confidence: 0.9, verifyAction: '执行 pip install -r requirements.txt', relatedTool: 'debug_investigate', suggestedCode: 'pip install -r requirements.txt' },
-          { suggestion: '检查 Python 路径(PYTHONPATH)和模块搜索路径', severity: 'critical', confidence: 0.85, verifyAction: '打印 sys.path 确认导入路径', relatedTool: 'debug_investigate', suggestedCode: 'python3 -c "import sys; print(chr(10).join(sys.path))"' },
-          { suggestion: '检查循环导入(circular import)问题', severity: 'critical', confidence: 0.8, verifyAction: '检查模块之间的相互引用关系', relatedTool: 'debug_investigate' }
+          { suggestion: '检查 requirements.txt 是否包含缺失的依赖包', severity: 'blocking', confidence: 0.9, verifyAction: '执行 pip install -r requirements.txt', relatedTool: 'browser_debug', suggestedCode: 'pip install -r requirements.txt' },
+          { suggestion: '检查 Python 路径(PYTHONPATH)和模块搜索路径', severity: 'critical', confidence: 0.85, verifyAction: '打印 sys.path 确认导入路径', relatedTool: 'browser_debug', suggestedCode: 'python3 -c "import sys; print(chr(10).join(sys.path))"' },
+          { suggestion: '检查循环导入(circular import)问题', severity: 'critical', confidence: 0.8, verifyAction: '检查模块之间的相互引用关系', relatedTool: 'browser_debug' }
         ]
       },
       // python_db_error — 数据库连接/查询错误
@@ -1511,9 +1503,9 @@ const errorSummary = args.errorSummary || '';
         name: 'python_db_error',
         match: /psycopg|DatabaseError|OperationalError|数据库.*错误|relation.*does not exist|UndefinedTable|connection.*failed|database.*error/i,
         suggestions: [
-          { suggestion: '检查数据库表是否存在(SELECT tablename FROM pg_tables)', severity: 'blocking', confidence: 0.9, verifyAction: '连接数据库执行 \\dt 检查表清单', relatedTool: 'debug_investigate', suggestedCode: 'docker exec postgres psql -U user -d db -c "SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname=\'public\'"' },
-          { suggestion: '检查 schema.sql/Docker 启动时是否成功执行迁移', severity: 'critical', confidence: 0.85, verifyAction: '查看容器启动日志中的 schema/migration 信息', relatedTool: 'debug_investigate', suggestedCode: 'docker compose logs | grep -iE "schema|migration|error"' },
-          { suggestion: '检查 SQL 语法错误（如缺少引号、逗号、DEFAULT 值格式）', severity: 'critical', confidence: 0.8, verifyAction: '逐步测试 CREATE TABLE 语句定位语法错误', relatedTool: 'debug_investigate', suggestedCode: '-- 常见错误: DEFAULT value 缺少引号\n-- 正确: DEFAULT \'value\'\n-- 错误: DEFAULT value' }
+          { suggestion: '检查数据库表是否存在(SELECT tablename FROM pg_tables)', severity: 'blocking', confidence: 0.9, verifyAction: '连接数据库执行 \\dt 检查表清单', relatedTool: 'browser_debug', suggestedCode: 'docker exec postgres psql -U user -d db -c "SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname=\'public\'"' },
+          { suggestion: '检查 schema.sql/Docker 启动时是否成功执行迁移', severity: 'critical', confidence: 0.85, verifyAction: '查看容器启动日志中的 schema/migration 信息', relatedTool: 'browser_debug', suggestedCode: 'docker compose logs | grep -iE "schema|migration|error"' },
+          { suggestion: '检查 SQL 语法错误（如缺少引号、逗号、DEFAULT 值格式）', severity: 'critical', confidence: 0.8, verifyAction: '逐步测试 CREATE TABLE 语句定位语法错误', relatedTool: 'browser_debug', suggestedCode: '-- 常见错误: DEFAULT value 缺少引号\n-- 正确: DEFAULT \'value\'\n-- 错误: DEFAULT value' }
         ]
       },
       // sql_undefined_column — SQL 查询引用不存在的列（UndefinedColumn）
@@ -1521,9 +1513,9 @@ const errorSummary = args.errorSummary || '';
         name: 'sql_undefined_column',
         match: /UndefinedColumn|column.*does not exist|列.*不存在|payout_status|payout_requested_at|column.*status.*not exist/i,
         suggestions: [
-          { suggestion: '检查 SQL 查询中引用的列名是否在对应表结构中存在', severity: 'blocking', confidence: 0.95, verifyAction: '执行 \\d tablename 检查表结构中的列清单', relatedTool: 'debug_investigate', suggestedCode: 'docker exec postgres psql -U user -d db -c "SELECT column_name FROM information_schema.columns WHERE table_name=\'tablename\'"' },
-          { suggestion: '确认 schema.sql 或迁移文件是否遗漏了该列定义', severity: 'critical', confidence: 0.9, verifyAction: '检查 schema.sql 中 CREATE TABLE 部分和 migrations/ 目录下的迁移文件', relatedTool: 'debug_investigate', suggestedCode: 'grep -n "payout_status\|status" infra/postgres/schema.sql services/gateway/migrations/*.sql' },
-          { suggestion: '使用 ALTER TABLE ADD COLUMN IF NOT EXISTS 补充缺失列', severity: 'critical', confidence: 0.85, verifyAction: '执行 ALTER TABLE 后重新测试 API', relatedTool: 'debug_investigate', suggestedCode: 'ALTER TABLE tablename ADD COLUMN IF NOT EXISTS column_name VARCHAR(32) NOT NULL DEFAULT \'pending\';' }
+          { suggestion: '检查 SQL 查询中引用的列名是否在对应表结构中存在', severity: 'blocking', confidence: 0.95, verifyAction: '执行 \\d tablename 检查表结构中的列清单', relatedTool: 'browser_debug', suggestedCode: 'docker exec postgres psql -U user -d db -c "SELECT column_name FROM information_schema.columns WHERE table_name=\'tablename\'"' },
+          { suggestion: '确认 schema.sql 或迁移文件是否遗漏了该列定义', severity: 'critical', confidence: 0.9, verifyAction: '检查 schema.sql 中 CREATE TABLE 部分和 migrations/ 目录下的迁移文件', relatedTool: 'browser_debug', suggestedCode: 'grep -n "payout_status\|status" infra/postgres/schema.sql services/gateway/migrations/*.sql' },
+          { suggestion: '使用 ALTER TABLE ADD COLUMN IF NOT EXISTS 补充缺失列', severity: 'critical', confidence: 0.85, verifyAction: '执行 ALTER TABLE 后重新测试 API', relatedTool: 'browser_debug', suggestedCode: 'ALTER TABLE tablename ADD COLUMN IF NOT EXISTS column_name VARCHAR(32) NOT NULL DEFAULT \'pending\';' }
         ]
       },
       // sql_undefined_table — SQL 查询引用了不存在的表（UndefinedTable）
@@ -1531,9 +1523,9 @@ const errorSummary = args.errorSummary || '';
         name: 'sql_undefined_table',
         match: /UndefinedTable|relation.*does not exist|表.*不存在|setlement_accounts|settlement_accounts/i,
         suggestions: [
-          { suggestion: '检查 schema.sql 是否包含该表的 CREATE TABLE 定义', severity: 'blocking', confidence: 0.95, verifyAction: '检查 schema.sql 和 migrations/ 目录下的所有 SQL 文件', relatedTool: 'debug_investigate', suggestedCode: 'grep -rn "CREATE TABLE.*tablename" infra/postgres/ services/gateway/migrations/' },
-          { suggestion: '从代码仓库的 INSERT SQL 中提取表结构定义', severity: 'critical', confidence: 0.85, verifyAction: '查找代码中该表的 INSERT/REFERENCES 推断列定义', relatedTool: 'debug_investigate', suggestedCode: 'grep -rn "tablename" app/*.py | grep -i "INSERT\|SELECT.*FROM" | head -5' },
-          { suggestion: '创建缺失的表并补充外键约束', severity: 'critical', confidence: 0.8, verifyAction: '执行 CREATE TABLE IF NOT EXISTS 创建表', relatedTool: 'debug_investigate', suggestedCode: 'CREATE TABLE IF NOT EXISTS tablename (id VARCHAR(64) PRIMARY KEY, tenant_id VARCHAR(64) NOT NULL, ...);' }
+          { suggestion: '检查 schema.sql 是否包含该表的 CREATE TABLE 定义', severity: 'blocking', confidence: 0.95, verifyAction: '检查 schema.sql 和 migrations/ 目录下的所有 SQL 文件', relatedTool: 'browser_debug', suggestedCode: 'grep -rn "CREATE TABLE.*tablename" infra/postgres/ services/gateway/migrations/' },
+          { suggestion: '从代码仓库的 INSERT SQL 中提取表结构定义', severity: 'critical', confidence: 0.85, verifyAction: '查找代码中该表的 INSERT/REFERENCES 推断列定义', relatedTool: 'browser_debug', suggestedCode: 'grep -rn "tablename" app/*.py | grep -i "INSERT\|SELECT.*FROM" | head -5' },
+          { suggestion: '创建缺失的表并补充外键约束', severity: 'critical', confidence: 0.8, verifyAction: '执行 CREATE TABLE IF NOT EXISTS 创建表', relatedTool: 'browser_debug', suggestedCode: 'CREATE TABLE IF NOT EXISTS tablename (id VARCHAR(64) PRIMARY KEY, tenant_id VARCHAR(64) NOT NULL, ...);' }
         ]
       },
       // sql_schema_syntax — SQL schema 语法错误（DEFAULT 缺引号、逗号缺失等）
@@ -1541,9 +1533,9 @@ const errorSummary = args.errorSummary || '';
         name: 'sql_schema_syntax',
         match: /syntax error at or near|语法错误|DEFAULT.*community|DEFAULT\[^'\].*[^']|missing comma|SYNTAX_ERROR/i,
         suggestions: [
-          { suggestion: '检查所有 DEFAULT 值是否被单引号包裹（如 DEFAULT \'value\' 而非 DEFAULT value）', severity: 'blocking', confidence: 0.9, verifyAction: '用 grep 扫描 schema.sql 中所有 DEFAULT 关键字', relatedTool: 'debug_investigate', suggestedCode: 'grep -n "^[[:space:]]*[a-z].*DEFAULT " schema.sql | grep -v "DEFAULT \'"' },
-          { suggestion: '检查每一列定义末尾是否有关键缺失的逗号', severity: 'critical', confidence: 0.85, verifyAction: '逐行检查 CREATE TABLE 中列定义间的逗号', relatedTool: 'debug_investigate', suggestedCode: '-- 上一行以逗号结尾, 下一行是另一列定义' },
-          { suggestion: '使用 docker exec psql -f schema.sql 单独测试 schema 文件', severity: 'critical', confidence: 0.9, verifyAction: '单独执行 schema 文件查看具体错误行号', relatedTool: 'debug_investigate', suggestedCode: 'docker exec postgres psql -U user -d db -f /path/to/schema.sql 2>&1 | head -20' }
+          { suggestion: '检查所有 DEFAULT 值是否被单引号包裹（如 DEFAULT \'value\' 而非 DEFAULT value）', severity: 'blocking', confidence: 0.9, verifyAction: '用 grep 扫描 schema.sql 中所有 DEFAULT 关键字', relatedTool: 'browser_debug', suggestedCode: 'grep -n "^[[:space:]]*[a-z].*DEFAULT " schema.sql | grep -v "DEFAULT \'"' },
+          { suggestion: '检查每一列定义末尾是否有关键缺失的逗号', severity: 'critical', confidence: 0.85, verifyAction: '逐行检查 CREATE TABLE 中列定义间的逗号', relatedTool: 'browser_debug', suggestedCode: '-- 上一行以逗号结尾, 下一行是另一列定义' },
+          { suggestion: '使用 docker exec psql -f schema.sql 单独测试 schema 文件', severity: 'critical', confidence: 0.9, verifyAction: '单独执行 schema 文件查看具体错误行号', relatedTool: 'browser_debug', suggestedCode: 'docker exec postgres psql -U user -d db -f /path/to/schema.sql 2>&1 | head -20' }
         ]
       },
       // sql_migration_not_applied — Migration 文件存在但未执行
@@ -1551,9 +1543,9 @@ const errorSummary = args.errorSummary || '';
         name: 'sql_migration_not_applied',
         match: /migration.*not applied|应用迁移|_migrations|迁移.*未|schema.*outdated|schema.*stale/i,
         suggestions: [
-          { suggestion: '检查 _migrations 表确认已应用的迁移版本', severity: 'blocking', confidence: 0.9, verifyAction: '查询 _migrations 表对比 migrations/ 目录中的文件', relatedTool: 'debug_investigate', suggestedCode: 'SELECT version FROM _migrations ORDER BY version;' },
-          { suggestion: '检查 migrations 目录中的 SQL 文件是否多于 _migrations 记录', severity: 'critical', confidence: 0.85, verifyAction: '对比 ls migrations/ 和 _migrations 表', relatedTool: 'debug_investigate', suggestedCode: 'ls -1 services/gateway/migrations/*.sql | sed "s/.*\\///" | sed "s/\\.sql$//"' },
-          { suggestion: '手动执行缺失的迁移文件或重启应用触发迁移', severity: 'critical', confidence: 0.8, verifyAction: 'docker exec psql -f missing_migration.sql', relatedTool: 'debug_investigate', suggestedCode: 'docker exec postgres psql -U user -d db -f migrations/009_missing.sql' }
+          { suggestion: '检查 _migrations 表确认已应用的迁移版本', severity: 'blocking', confidence: 0.9, verifyAction: '查询 _migrations 表对比 migrations/ 目录中的文件', relatedTool: 'browser_debug', suggestedCode: 'SELECT version FROM _migrations ORDER BY version;' },
+          { suggestion: '检查 migrations 目录中的 SQL 文件是否多于 _migrations 记录', severity: 'critical', confidence: 0.85, verifyAction: '对比 ls migrations/ 和 _migrations 表', relatedTool: 'browser_debug', suggestedCode: 'ls -1 services/gateway/migrations/*.sql | sed "s/.*\\///" | sed "s/\\.sql$//"' },
+          { suggestion: '手动执行缺失的迁移文件或重启应用触发迁移', severity: 'critical', confidence: 0.8, verifyAction: 'docker exec psql -f missing_migration.sql', relatedTool: 'browser_debug', suggestedCode: 'docker exec postgres psql -U user -d db -f migrations/009_missing.sql' }
         ]
       }
     ];
@@ -1572,7 +1564,7 @@ const errorSummary = args.errorSummary || '';
       allSuggestions = [
         { suggestion: '使用browser_errors查看完整错误详情', severity: 'general', confidence: 0.7, verifyAction: '调用browser_errors获取完整错误列表', relatedTool: 'browser_errors' },
         { suggestion: '检查浏览器控制台输出', severity: 'general', confidence: 0.6, verifyAction: '使用browser_console查看控制台日志', relatedTool: 'browser_console' },
-        { suggestion: '使用browser_diagnose进行综合诊断', severity: 'general', confidence: 0.5, verifyAction: '调用browser_diagnose获取页面健康报告', relatedTool: 'browser_diagnose' }
+        { suggestion: "使用browser_debug { mode: 'diagnose' }进行综合诊断", severity: 'general', confidence: 0.5, verifyAction: "调用browser_debug { mode: 'diagnose' }获取页面健康报告", relatedTool: 'browser_debug' }
       ];
     }
 
@@ -1591,13 +1583,13 @@ const errorSummary = args.errorSummary || '';
     return text(JSON.stringify(result, null, 2));
   }
 
-  // ====== error_summary_md ======
+  // ====== error_analyze (mode=summary) ======
   if (name === 'error_summary_md') {
 const evidence = args.evidence || (await evidenceCollector.collectEvidence(args)).evidence;
     return text(errorAggregator.errorSummaryMd(evidence, args));
   }
 
-  // ====== debug_investigate ======
+  // ====== browser_debug (mode=investigate) ======
   if (name === 'debug_investigate') {
 const { target } = await ensurePage(args);
     const investigation = await investigateDebug(target, args);

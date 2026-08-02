@@ -33,9 +33,9 @@ function createMockDeps(opts = {}) {
 }
 
 describe('Cookies and Storage tools', () => {
-  it('browser_cookies get action returns cookies list', async () => {
+  it('browser_state mode=cookies get action returns cookies list', async () => {
     const deps = createMockDeps();
-    const result = await networkHandler.handle('browser_cookies', { action: 'get' }, deps);
+    const result = await networkHandler.handle('browser_state', { mode: 'cookies', action: 'get' }, deps);
     assert.ok(result.content);
     const parsed = JSON.parse(result.content[0].text);
     assert.strictEqual(parsed.action, 'get');
@@ -44,16 +44,17 @@ describe('Cookies and Storage tools', () => {
     assert.strictEqual(parsed.cookies[0].name, 'session');
   });
 
-  it('browser_cookies should validate set action params', async () => {
+  it('browser_state mode=cookies should validate set action params', async () => {
     const deps = createMockDeps();
-    const result = await networkHandler.handle('browser_cookies', { action: 'set' }, deps);
+    const result = await networkHandler.handle('browser_state', { mode: 'cookies', action: 'set' }, deps);
     assert.strictEqual(result.isError, true);
     assert.ok(result.content[0].text.includes('cookie.name'));
   });
 
-  it('browser_cookies set action with valid params succeeds', async () => {
+  it('browser_state mode=cookies set action with valid params succeeds', async () => {
     const deps = createMockDeps();
-    const result = await networkHandler.handle('browser_cookies', {
+    const result = await networkHandler.handle('browser_state', {
+      mode: 'cookies',
       action: 'set',
       cookie: { name: 'test', value: 'val', domain: '.example.com' }
     }, deps);
@@ -64,29 +65,29 @@ describe('Cookies and Storage tools', () => {
     assert.strictEqual(parsed.cookie, 'test');
   });
 
-  it('browser_cookies clear action succeeds', async () => {
+  it('browser_state mode=cookies clear action succeeds', async () => {
     const deps = createMockDeps();
-    const result = await networkHandler.handle('browser_cookies', { action: 'clear' }, deps);
+    const result = await networkHandler.handle('browser_state', { mode: 'cookies', action: 'clear' }, deps);
     assert.ok(result.content);
     const parsed = JSON.parse(result.content[0].text);
     assert.strictEqual(parsed.action, 'clear');
     assert.strictEqual(parsed.success, true);
   });
 
-  it('browser_cookies invalid action returns error', async () => {
+  it('browser_state mode=cookies invalid action returns error', async () => {
     const deps = createMockDeps();
     const depsWithBadAction = { ...deps, page: null };
     // "delete" is not a recognized action, handler falls through to 'get'
-    const result = await networkHandler.handle('browser_cookies', { action: 'delete' }, deps);
+    const result = await networkHandler.handle('browser_state', { mode: 'cookies', action: 'delete' }, deps);
     assert.ok(result.content);
     const parsed = JSON.parse(result.content[0].text);
     // Falls through to get behavior (default)
     assert.strictEqual(parsed.action, 'get');
   });
 
-  it('browser_storage returns structure with localStorage and sessionStorage', async () => {
+  it('browser_state mode=storage returns structure with localStorage and sessionStorage', async () => {
     const deps = createMockDeps();
-    const result = await networkHandler.handle('browser_storage', { scope: 'all' }, deps);
+    const result = await networkHandler.handle('browser_state', { mode: 'storage', scope: 'all' }, deps);
     assert.ok(result.content);
     const parsed = JSON.parse(result.content[0].text);
     assert.ok(parsed.localStorage);
@@ -95,7 +96,7 @@ describe('Cookies and Storage tools', () => {
     assert.strictEqual(parsed.sessionStorage.count, 1);
   });
 
-  it('browser_storage handles empty storage gracefully', async () => {
+  it('browser_state mode=storage handles empty storage gracefully', async () => {
     const deps = createMockDeps({
       getStorageSnapshot: async () => ({
         scope: 'all',
@@ -103,7 +104,7 @@ describe('Cookies and Storage tools', () => {
         sessionStorage: { items: [], count: 0 }
       })
     });
-    const result = await networkHandler.handle('browser_storage', {}, deps);
+    const result = await networkHandler.handle('browser_state', { mode: 'storage' }, deps);
     assert.ok(result.content);
     const parsed = JSON.parse(result.content[0].text);
     assert.strictEqual(parsed.localStorage.count, 0);

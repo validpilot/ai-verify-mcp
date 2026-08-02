@@ -422,7 +422,7 @@ function buildCounterfactualHtml(analysis = {}) {
 
 // ============== 5. 通用错误报告 ==============
 function buildMcpErrorHtml(errorData = {}) {
-  const { error = 'EXECUTION_ERROR', message = '', reason = '', suggestion = '', paidUpgradeHint = '', toolName = '' } = errorData;
+  const { error = 'EXECUTION_ERROR', message = '', reason = '', suggestion = '', toolName = '' } = errorData;
   return wrapHtml(`错误 - ${error}`, `
     <div class="header" style="background:linear-gradient(135deg,#dc2626 0%,#9333ea 100%)">
       <h1>❌ 工具执行异常</h1>
@@ -435,10 +435,6 @@ function buildMcpErrorHtml(errorData = {}) {
     ${suggestion ? `<div class="card" style="border-left:4px solid var(--info)">
       <h3>💡 建议</h3>
       <p>${h(suggestion)}</p>
-    </div>` : ''}
-    ${paidUpgradeHint ? `<div class="card" style="border-left:4px solid var(--warning);background:var(--warning-bg)">
-      <h3>⭐ 升级提示</h3>
-      <p>${h(paidUpgradeHint)}</p>
     </div>` : ''}
   `);
 }

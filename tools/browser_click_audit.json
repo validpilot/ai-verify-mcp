@@ -1,16 +1,22 @@
 {
   "name": "browser_click_audit",
-  "description": "Audit a single click: screenshot before→click→wait→screenshot after→image diff→error collection→return. One call replaces 6+ individual tool calls for click-through validation loops. Returns navigation status, visual diff ratio, console/network errors, silentFail errors (HTTP 2xx with error body), and screenshot paths.",
+  "description": "Audit a single click: screenshot before→click→wait→screenshot after→image diff→error collection→return. One call replaces 6+ individual tool calls for click-through validation loops. Returns navigation status, visual diff ratio, console/network errors, silentFail errors (HTTP 2xx with error body), and screenshot paths.\n\n中文详情：\n- 用途：点击验证一站式工具，截图+点击+对比+错误收集一步到位\n- 何时使用：表单提交按钮验证时；链接点击跳转验证时；SPA 控件切换验证时；任何需要确认点击效果的闭环验证场景\n- 模式：\n  - basic（默认）：基础点击审计，截图+点击+对比+错误收集+自动返回\n  - form-submit：表单提交检测模式，额外检测表单提交是否触发、提交方法、提交结果（成功/失败消息、字段清空、页面跳转、数据变化）\n- 输出：{ success, selector, label, navigated, spaNavigated, visualChanged, diffRatio, errors, screenshots, formSubmit?(form-submit模式) }\n- 参数：\n  - selector (string, 可选)：CSS 选择器（与 text 二选一）\n  - text (string, 可选)：通过无障碍树查找文本对应的可点击元素\n  - mode (string, 可选)：basic（默认）/ form-submit\n  - waitMs (number, 可选)：点击后等待时间，默认 1500ms\n  - autoReturn (boolean, 可选)：是否自动返回原页面，默认 true\n  - label (string, 可选)：审计步骤的可读标签（用于截图文件名）\n  - formSelector (string, 可选, form-submit 模式)：表单容器选择器，默认自动查找最近的 form 祖先\n  - expectNavigation (boolean, 可选, form-submit 模式)：是否期望提交后发生 URL 跳转，默认 false（SPA 场景）\n  - expectSuccess (boolean, 可选, form-submit 模式)：是否期望提交成功（用于断言），不提供则只检测不判定",
   "inputSchema": {
     "type": "object",
     "properties": {
       "selector": {
         "type": "string",
-        "description": "CSS selector of the element to click (required unless 'text' is provided)"
+        "description": "CSS 选择器 of the element to click (required unless 'text' is provided)"
       },
       "text": {
         "type": "string",
         "description": "Text content of the element to find and click (alternative to 'selector', uses accessibility tree)"
+      },
+      "mode": {
+        "type": "string",
+        "description": "审计模式：basic（默认，基础点击审计）/ form-submit（表单提交检测模式，额外检测表单提交触发情况、提交方法、提交结果）",
+        "enum": ["basic", "form-submit"],
+        "default": "basic"
       },
       "waitMs": {
         "type": "number",
@@ -25,6 +31,32 @@
       "label": {
         "type": "string",
         "description": "Human-readable label for this audit step (used in screenshot filenames)"
+      },
+      "formSelector": {
+        "type": "string",
+        "description": "（form-submit 模式）表单容器选择器，默认自动查找点击元素最近的 form 祖先"
+      },
+      "expectNavigation": {
+        "type": "boolean",
+        "default": false,
+        "description": "（form-submit 模式）是否期望提交后发生 URL 跳转，默认 false（适用于 SPA 场景）"
+      },
+      "expectSuccess": {
+        "type": "boolean",
+        "description": "（form-submit 模式）是否期望提交成功（用于断言），不提供则只检测不判定"
+      },
+      "expectModalTitle": {
+        "type": "string",
+        "description": "（Modal 检测）期望弹窗标题包含的文本。提供时会在点击后检测弹窗并断言标题"
+      },
+      "expectModalBody": {
+        "type": "string",
+        "description": "（Modal 检测）期望弹窗内容包含的文本。提供时会在点击后检测弹窗并断言内容"
+      },
+      "closeModal": {
+        "type": "boolean",
+        "default": false,
+        "description": "（Modal 检测）是否在验证后自动关闭弹窗（点击取消/关闭按钮或按 Escape），默认 false"
       }
     },
     "required": []

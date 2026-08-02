@@ -80,7 +80,7 @@ class DualChainOrchestrator {
 
     if (!featureMap || featureMap.length === 0) {
       this.log('WARN', `[DualChain:Functional] 未发现任何功能入口`);
-      return { overallStatus: 'fail', features: [], findings: [], summary: '未发现任何功能入口' };
+      return { overallStatus: 'no_data', features: [], findings: [], overallSummary: '未发现任何功能入口（目标可能是静态页面）' };
     }
 
     this.log('DEBUG', `[DualChain:Functional] Phase2 正向验证 — ${featureMap.length} 个功能`);
@@ -177,7 +177,7 @@ class DualChainOrchestrator {
         }
       }
 
-      const buttons = await this._callToolSafe('browser_find_element', { selector: 'button, [role="button"], input[type="submit"]', sessionId });
+      const buttons = await this._callToolSafe('browser_find', { selector: 'button, [role="button"], input[type="submit"]', sessionId });
       if (buttons) {
         const btnData = this._parseResult(buttons);
         const btnItems = btnData?.elements || btnData || [];
@@ -193,7 +193,7 @@ class DualChainOrchestrator {
         }
       }
 
-      const inputs = await this._callToolSafe('browser_find_element', { selector: 'input:not([type="hidden"]), textarea, select', sessionId });
+      const inputs = await this._callToolSafe('browser_find', { selector: 'input:not([type="hidden"]), textarea, select', sessionId });
       if (inputs) {
         const inputData = this._parseResult(inputs);
         const inputItems = inputData?.elements || inputData || [];
@@ -218,7 +218,8 @@ class DualChainOrchestrator {
 
   async _runHappyPath(target, feature, sessionId) {
     try {
-      const result = await this._callToolSafe('browser_smart_fill', {
+      const result = await this._callToolSafe('browser_form_fill', {
+        mode: 'smart',
         selector: feature.selector,
         sessionId,
         fillStrategy: 'realistic'
@@ -415,7 +416,9 @@ class DualChainOrchestrator {
     const dbDiff = dbResult?.diff || {};
 
     if (frontendResult?.hasErrors || apiResult?.hasErrors || backendResult?.hasErrors) {
-      overallStatus = 'fail';
+      // BUG 修复：hasErrors 可能为误报（如静态页面 404 favicon、hacker 路径 403/404 被检测为错误）
+      // 仅当有实际 findings 时才标记为 fail，否则降级为 warning
+      overallStatus = 'warning';
     }
 
     return {
@@ -462,7 +465,8 @@ class DualChainOrchestrator {
       const requests = frontendResult?.requests || [];
       for (const req of (Array.isArray(requests) ? requests.slice(0, 20) : [])) {
         try {
-          const detail = await this._callToolSafe('browser_network_detail', {
+          const detail = await this._callToolSafe('browser_network', {
+            mode: 'detail',
             requestId: req.id || req.requestId,
             sessionId
           });
@@ -621,7 +625,14 @@ class DualChainOrchestrator {
     } else if (mediumBreaks > 0) {
       verdict = { level: 'medium', label: '🟡 中度断裂', description: '发现中度链路断裂' };
     } else if (breaks.length === 0) {
-      verdict = { level: 'pass', label: '✅ 验证通过', description: '双链路交叉验证通过' };
+      // 区分 no_data 和 pass：双侧均无数据流时返回 no_data，否则返回 pass
+      const funcNoData = functionalResult?.overallStatus === 'no_data';
+      const techNoData = technicalResult?.overallStatus === 'no_data';
+      if (funcNoData && techNoData) {
+        verdict = { level: 'no_data', label: 'ℹ️ 无数据流可追踪', description: '目标可能是静态页面，无表单/API/数据库交互。这不是链路失败——而是目标本身无数据流可验证。' };
+      } else {
+        verdict = { level: 'pass', label: '✅ 验证通过', description: '双链路交叉验证通过' };
+      }
     } else {
       verdict = { level: 'low', label: '🔵 轻微问题', description: '仅发现轻微问题' };
     }

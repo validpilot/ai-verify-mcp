@@ -1,8 +1,0 @@
-{
-  "name": "validation_report_export",
-  "description": "将最近一次验证结果导出为本地静态 HTML 报告，包含六段式结构：摘要、工具链、发现问题、网络证据、证据产物、待分类项。HTML 报告和 JSON 数据统一输出到 .trae/validations/runs/<run-id>/ 目录下；若无活跃 run-id，则输出到 ai-verify-mcp/reports/ 目录。",
-  "inputSchema": {
-    "type": "object",
-    "properties": {}
-  }
-}

@@ -105,7 +105,6 @@ const tools = [
   "browser_press_key",
   "browser_snapshot",
   "browser_flow",
-  "browser_batch",
   "browser_eval",
   "browser_dom",
   "browser_highlight",
@@ -115,21 +114,15 @@ const tools = [
   "browser_assert",
   "browser_instrument",
   "browser_events",
-  "browser_events_clear",
   "browser_form_validate",
-  "browser_chain",
   "browser_aria_snapshot",
   "browser_aria_click",
   "browser_aria_type",
-  "browser_smart_fill",
   "browser_matrix_test",
   "browser_overlay",
-  "browser_overlay_detect",
-  "browser_overlay_dismiss",
   "browser_captcha",
-  "browser_captcha_detect",
-  "browser_captcha_screenshot",
-  "browser_captcha_read"
+  "browser_table_verify",
+  "browser_api_intercept"
 ];
 
 async function handle(name, args, deps) {
@@ -194,26 +187,31 @@ const { target } = await ensurePage();
     } catch (_) { /* 选择器可能在 click 中有效 */ }
 
     if (elementCount > 1 && (args.index === undefined || args.index === null)) {
-      // 多元素匹配：收集元素信息供用户选择
-      const elements = [];
-      for (let i = 0; i < Math.min(elementCount, 5); i++) {
-        try {
-          const el = target.locator(args.selector).nth(i);
-          const text = await el.textContent({ timeout: 2000 }).catch(() => '');
-          const tag = await el.evaluate(e => e.tagName.toLowerCase(), { timeout: 2000 }).catch(() => '');
-          const href = await el.getAttribute('href', { timeout: 2000 }).catch(() => null);
-          elements.push({ index: i, tag, text: (text || '').trim().substring(0, 80), href });
-        } catch (_) { /* 忽略单个元素错误 */ }
+      // autoFirst 默认为 true：自动点击第一个可见元素，不报错
+      const autoFirst = args.autoFirst !== false;
+      if (!autoFirst) {
+        // autoFirst=false 时返回 MULTIPLE_ELEMENTS 错误供人工选择
+        const elements = [];
+        for (let i = 0; i < Math.min(elementCount, 5); i++) {
+          try {
+            const el = target.locator(args.selector).nth(i);
+            const text = await el.textContent({ timeout: 2000 }).catch(() => '');
+            const tag = await el.evaluate(e => e.tagName.toLowerCase(), { timeout: 2000 }).catch(() => '');
+            const href = await el.getAttribute('href', { timeout: 2000 }).catch(() => null);
+            elements.push({ index: i, tag, text: (text || '').trim().substring(0, 80), href });
+          } catch (_) { /* 忽略单个元素错误 */ }
+        }
+        return text(JSON.stringify({
+          error: 'MULTIPLE_ELEMENTS',
+          message: `选择器 "${args.selector}" 匹配到 ${elementCount} 个元素`,
+          reason: 'Playwright 的 click() 在多元素匹配时会超时，需要更精确的选择器',
+          suggestion: '使用 nth() 语法（如 "selector >> nth=0"）或更具体的 CSS 选择器，或使用 index 参数指定点击第几个元素',
+          matchedCount: elementCount,
+          elements: elements,
+          hint: '可在 selector 参数中使用 ">> nth=0" 语法点击第一个匹配元素，或设置 autoFirst=true 自动点击第一个'
+        }, null, 2));
       }
-      return text(JSON.stringify({
-        error: 'MULTIPLE_ELEMENTS',
-        message: `选择器 "${args.selector}" 匹配到 ${elementCount} 个元素`,
-        reason: 'Playwright 的 click() 在多元素匹配时会超时，需要更精确的选择器',
-        suggestion: '使用 nth() 语法（如 "selector >> nth=0"）或更具体的 CSS 选择器，或使用 index 参数指定点击第几个元素',
-        matchedCount: elementCount,
-        elements: elements,
-        hint: '可在 selector 参数中使用 ">> nth=0" 语法点击第一个匹配元素'
-      }, null, 2));
+      // autoFirst=true：继续执行，自动点击第一个元素（下方 clickSelector 会使用 .first()）
     }
 
     // 支持 index 参数指定点击第几个元素
@@ -259,7 +257,7 @@ const { target } = await ensurePage();
       }
       if (postErrors.page.length > 0) {
         errorSummary.push(`${postErrors.page.length} 个页面错误`);
-        suggestions.push('页面抛出异常，请使用 browser_errors_aggregate 查看聚合分析');
+        suggestions.push('页面抛出异常，请使用 browser_errors { mode: \'aggregate\' } 查看聚合分析');
       }
       if (postErrors.network.length > 0) {
         errorSummary.push(`${postErrors.network.length} 个网络错误`);
@@ -278,7 +276,6 @@ const { target } = await ensurePage();
           '使用 browser_counterfactual_analyze 分析点击失败原因',
           '使用 browser_errors 查看完整错误详情'
         ],
-        paidUpgradeHint: '需要智能点击验证、自动对比点击前后页面变化、自动错误关联分析？升级到 Pro 版本获取智能点击分析能力。',
         errors: {
           count: postErrors.count,
           console: postErrors.console.slice(0, 5),
@@ -295,8 +292,7 @@ const { target } = await ensurePage();
       nextSteps: [
         '使用 browser_snapshot 确认页面状态变化',
         '使用 browser_errors 检查页面错误'
-      ],
-      paidUpgradeHint: '需要智能点击验证、自动对比点击前后页面变化、自动错误关联分析？升级到 Pro 版本获取智能点击分析能力。'
+      ]
     }, null, 2));
   }
 
@@ -306,9 +302,10 @@ const { target } = await ensurePage();
     const label = args.label || args.selector || args.text || 'audit';
     const waitMs = args.waitMs || 1500;
     const autoReturn = args.autoReturn !== false;
+    const auditMode = args.mode || 'basic';
     const { PNG } = require('pngjs');
     const pixelmatch = require('pixelmatch').default || require('pixelmatch');
-    
+
     // 如果提供了 text 而不是 selector，用无障碍树定位
     let selector = args.selector;
     if (!selector && args.text) {
@@ -330,11 +327,84 @@ const { target } = await ensurePage();
         if (found) selector = found;
       } catch (_) { /* optional, ignore errors */ }
     }
-    
+
     if (!selector) {
       return text(JSON.stringify({ success: false, error: 'No selector or element found for text: ' + (args.text || '') }));
     }
-    
+
+    // form-submit 模式：点击前捕获表单状态
+    let formSubmitContext = null;
+    if (auditMode === 'form-submit') {
+      try {
+        formSubmitContext = await target.evaluate(({ selector, formSelector }) => {
+          const clickedEl = document.querySelector(selector);
+          let formEl = formSelector ? document.querySelector(formSelector) : null;
+          if (!formEl && clickedEl) {
+            // 自动查找最近的 form 祖先
+            formEl = clickedEl.closest('form');
+          }
+          if (!formEl) {
+            return { found: false, reason: 'no_form_element' };
+          }
+          // 收集表单字段
+          const fields = [];
+          const fieldEls = formEl.querySelectorAll('input, select, textarea');
+          for (const f of fieldEls) {
+            if (f.type === 'submit' || f.type === 'button' || f.type === 'reset') continue;
+            fields.push({
+              name: f.name || f.id || '',
+              type: f.type || f.tagName.toLowerCase(),
+              value: f.value || '',
+              required: !!f.required
+            });
+          }
+          return {
+            found: true,
+            action: formEl.action || '',
+            method: (formEl.method || 'get').toLowerCase(),
+            enctype: formEl.enctype || '',
+            fieldCount: fields.length,
+            fieldsBefore: fields
+          };
+        }, { selector, formSelector: args.formSelector });
+      } catch (_) {
+        formSubmitContext = { found: false, reason: 'evaluate_failed' };
+      }
+    }
+
+    // form-submit 模式：监听 submit 事件（注入到页面）
+    if (auditMode === 'form-submit' && formSubmitContext && formSubmitContext.found) {
+      try {
+        await target.evaluate(() => {
+          // 每次调用都重新安装监听器（避免上次调用残留状态干扰）
+          // 使用随机命名空间避免冲突
+          if (window.__avmSubmitHandler) {
+            document.removeEventListener('submit', window.__avmSubmitHandler, true);
+          }
+          window.__avmSubmitEvents = [];
+          const handler = (e) => {
+            const form = e.target;
+            if (!form || form.tagName !== 'FORM') return;
+            const fields = [];
+            try {
+              const fd = new FormData(form);
+              for (const [k, v] of fd.entries()) {
+                fields.push({ name: k, value: typeof v === 'string' ? v : '[file]' });
+              }
+            } catch (_) { /* FormData 不可用，跳过字段收集 */ }
+            window.__avmSubmitEvents.push({
+              timestamp: Date.now(),
+              action: form.action || '',
+              method: (form.method || 'get').toLowerCase(),
+              fields: fields
+            });
+          };
+          window.__avmSubmitHandler = handler;
+          document.addEventListener('submit', handler, true);
+        });
+      } catch (_) { /* ignore listener install error */ }
+    }
+
     // 1. 点击前截图
     const urlBefore = target.url();
     ensureArtifactsDir();
@@ -405,7 +475,224 @@ const { target } = await ensurePage();
     // 7. 导航检测
     const urlNavigated = urlBefore !== urlAfter;
     const spaNavigated = visualChanged && !urlNavigated;
-    
+
+    // 7.5 form-submit 模式：收集提交结果
+    let formSubmitResult = null;
+    if (auditMode === 'form-submit') {
+      formSubmitResult = { mode: 'form-submit' };
+
+      // a) 读取 submit 事件（点击前已注入监听器）
+      if (formSubmitContext && formSubmitContext.found) {
+        try {
+          const submitEvents = await target.evaluate(() => {
+            const evs = window.__avmSubmitEvents || [];
+            // 读取后清空，避免污染下次调用
+            window.__avmSubmitEvents = [];
+            return evs;
+          });
+          formSubmitContext.submitEvents = submitEvents;
+          formSubmitResult.submitTriggered = submitEvents.length > 0;
+          if (submitEvents.length > 0) {
+            const ev = submitEvents[0];
+            formSubmitResult.submitEvent = {
+              method: ev.method,
+              action: (ev.action || '').slice(0, 200),
+              fieldCount: ev.fields.length,
+              submittedFields: ev.fields.slice(0, 20).map(f => ({
+                name: f.name,
+                valueLength: (f.value || '').length,
+                valuePreview: (f.value || '').slice(0, 50)
+              }))
+            };
+          }
+        } catch (_) { /* ignore */ }
+      } else if (formSubmitContext) {
+        formSubmitResult.submitTriggered = false;
+        formSubmitResult.reason = formSubmitContext.reason || 'no_form';
+      }
+
+      // b) 读取表单字段当前值，检测是否清空（成功提交的标志）
+      if (formSubmitContext && formSubmitContext.found) {
+        try {
+          const afterState = await target.evaluate(({ selector, formSelector }) => {
+            const clickedEl = document.querySelector(selector);
+            let formEl = formSelector ? document.querySelector(formSelector) : null;
+            if (!formEl && clickedEl) formEl = clickedEl.closest('form');
+            if (!formEl) return { found: false };
+            const fields = [];
+            const fieldEls = formEl.querySelectorAll('input, select, textarea');
+            for (const f of fieldEls) {
+              if (f.type === 'submit' || f.type === 'button' || f.type === 'reset') continue;
+              fields.push({
+                name: f.name || f.id || '',
+                value: f.value || ''
+              });
+            }
+            return {
+              found: true,
+              fieldsAfter: fields,
+              // 当前页面是否还存在该 form（提交后可能跳转导致 form 消失）
+              formStillInDOM: document.body.contains(formEl)
+            };
+          }, { selector, formSelector: args.formSelector });
+          if (afterState.found) {
+            // 比较前后字段值
+            const before = formSubmitContext.fieldsBefore || [];
+            const after = afterState.fieldsAfter || [];
+            const beforeMap = {};
+            for (const f of before) beforeMap[f.name] = f.value;
+            const clearedFields = [];
+            for (const f of after) {
+              if (beforeMap[f.name] && beforeMap[f.name] !== '' && (f.value === '' || f.value === undefined)) {
+                clearedFields.push(f.name);
+              }
+            }
+            formSubmitResult.fieldsCleared = clearedFields.length > 0;
+            formSubmitResult.clearedFieldNames = clearedFields.slice(0, 10);
+            formSubmitResult.fieldsAfterCount = after.length;
+          } else {
+            // form 已不在 DOM（可能因页面跳转）
+            formSubmitResult.fieldsCleared = null;
+            formSubmitResult.formInDOM = false;
+          }
+        } catch (_) { /* ignore */ }
+      }
+
+      // c) 检测成功/错误提示消息（支持多种 UI 框架，只读取可见元素）
+      try {
+        const messages = await target.evaluate(() => {
+          const msgs = { success: [], error: [], warning: [] };
+          // 判断元素是否可见（offsetParent 非 null 或 display 非 none）
+          const isVisible = (el) => {
+            if (!el) return false;
+            const style = window.getComputedStyle(el);
+            if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return false;
+            // offsetParent 为 null 且不是 fixed 时，元素不可见
+            if (el.offsetParent === null && style.position !== 'fixed') return false;
+            return true;
+          };
+          // Element Plus / Ant Design / 通用类名
+          const successSel = [
+            '.el-message--success', '.ant-message-success', '.ant-notification-notice-success',
+            '.success-message', '.alert-success', '[class*="success-message"]',
+            '.toast-success', '[role="alert"].success'
+          ];
+          const errorSel = [
+            '.el-message--error', '.ant-message-error', '.ant-notification-notice-error',
+            '.error-message', '.alert-danger', '.alert-error', '[class*="error-message"]',
+            '.toast-error', '[role="alert"].error', '.invalid-feedback', '.field-error'
+          ];
+          const warningSel = [
+            '.el-message--warning', '.ant-message-warning', '.ant-notification-notice-warning',
+            '.warning-message', '.alert-warning', '[class*="warning-message"]'
+          ];
+          for (const sel of successSel) {
+            document.querySelectorAll(sel).forEach(el => {
+              if (!isVisible(el)) return;
+              const t = (el.textContent || '').trim();
+              if (t) msgs.success.push(t.slice(0, 200));
+            });
+          }
+          for (const sel of errorSel) {
+            document.querySelectorAll(sel).forEach(el => {
+              if (!isVisible(el)) return;
+              const t = (el.textContent || '').trim();
+              if (t) msgs.error.push(t.slice(0, 200));
+            });
+          }
+          for (const sel of warningSel) {
+            document.querySelectorAll(sel).forEach(el => {
+              if (!isVisible(el)) return;
+              const t = (el.textContent || '').trim();
+              if (t) msgs.warning.push(t.slice(0, 200));
+            });
+          }
+          // 去重
+          msgs.success = Array.from(new Set(msgs.success)).slice(0, 3);
+          msgs.error = Array.from(new Set(msgs.error)).slice(0, 3);
+          msgs.warning = Array.from(new Set(msgs.warning)).slice(0, 3);
+          return msgs;
+        });
+        formSubmitResult.successMessage = messages.success.length > 0 ? messages.success.join(' | ') : null;
+        formSubmitResult.errorMessage = messages.error.length > 0 ? messages.error.join(' | ') : null;
+        formSubmitResult.warningMessage = messages.warning.length > 0 ? messages.warning.join(' | ') : null;
+      } catch (_) { /* ignore */ }
+
+      // d) 检测提交相关的网络请求（POST/PUT/DELETE/PATCH，且时间在点击之后）
+      try {
+        const submitMethods = ['POST', 'PUT', 'DELETE', 'PATCH'];
+        const submitRequests = networkLogs
+          .filter(e => {
+            const method = (e.method || '').toUpperCase();
+            const ts = new Date(e.timestamp || 0).getTime();
+            const ckpt = new Date(currentCheckpoint).getTime();
+            return submitMethods.includes(method) && ts > ckpt;
+          })
+          .slice(0, 5)
+          .map(e => ({
+            method: e.method,
+            url: (e.url || '').slice(0, 200),
+            status: e.status || null,
+            contentType: e.contentType || null
+          }));
+        formSubmitResult.submitRequests = submitRequests;
+        formSubmitResult.networkSubmitCount = submitRequests.length;
+      } catch (_) { /* ignore */ }
+
+      // e) 综合判定：是否触发了表单提交（任一标志即可）
+      const triggeredByEvent = formSubmitResult.submitTriggered === true;
+      const triggeredByNetwork = (formSubmitResult.networkSubmitCount || 0) > 0;
+      const triggeredByNav = urlNavigated && (formSubmitContext && formSubmitContext.method === 'get');
+      formSubmitResult.formSubmitted = triggeredByEvent || triggeredByNetwork || triggeredByNav;
+
+      // f) 综合判定：提交是否成功（满足任一条件即视为成功）
+      const hasSuccessMessage = !!formSubmitResult.successMessage;
+      const fieldsClearedAfterSubmit = formSubmitResult.fieldsCleared === true;
+      const hasNoErrorMessages = !formSubmitResult.errorMessage;
+      const submitRequests = formSubmitResult.submitRequests || [];
+      const submitNetworkSucceeded = submitRequests.some(r => r.status && r.status >= 200 && r.status < 300);
+      // 网络请求返回 4xx/5xx 视为失败，优先于字段清空标志
+      const submitNetworkFailed = submitRequests.some(r => r.status && (r.status >= 400 || r.status < 200));
+      formSubmitResult.submitSucceeded = hasSuccessMessage || submitNetworkSucceeded || (fieldsClearedAfterSubmit && hasNoErrorMessages && !submitNetworkFailed);
+
+      // g) 断言（如果调用方提供了期望值）
+      const assertions = [];
+      if (args.expectSuccess === true) {
+        const passed = formSubmitResult.submitSucceeded;
+        assertions.push({
+          name: 'expectSuccess',
+          passed,
+          expected: true,
+          actual: formSubmitResult.submitSucceeded,
+          reason: passed ? '检测到成功标志（成功消息/网络 2xx/字段清空且无错误）' : '未检测到成功标志，可能存在错误消息或网络失败'
+        });
+      }
+      if (args.expectNavigation === true) {
+        const passed = urlNavigated;
+        assertions.push({
+          name: 'expectNavigation',
+          passed,
+          expected: true,
+          actual: urlNavigated,
+          reason: passed ? `URL 已跳转: ${urlBefore} → ${urlAfter}` : 'URL 未发生变化'
+        });
+      } else if (args.expectNavigation === false) {
+        const passed = !urlNavigated;
+        assertions.push({
+          name: 'expectNavigation',
+          passed,
+          expected: false,
+          actual: urlNavigated,
+          reason: passed ? 'URL 未跳转（SPA 模式预期）' : `URL 发生了跳转: ${urlBefore} → ${urlAfter}`
+        });
+      }
+      formSubmitResult.assertions = assertions;
+      formSubmitResult.allAssertionsPassed = assertions.length > 0 && assertions.every(a => a.passed);
+
+      // h) 清理 window 上的临时监听器标记（保留监听器避免重复安装检测开销，仅清空事件数组）
+      // 已在读取时清空 __avmSubmitEvents，无需额外清理
+    }
+
     // 8. 自动返回
     let returned = false;
     let returnMethod = 'none';
@@ -430,9 +717,129 @@ const { target } = await ensurePage();
       }
     }
     
+    // 8.5 Modal/Dialog 检测（点击后是否弹出了模态框）
+    let modalResult = null;
+    if (visualChanged && !urlNavigated) {
+      try {
+        const modalData = await target.evaluate(() => {
+          // Ant Design Modal
+          let modal = document.querySelector('.ant-modal-wrap:not([style*="display: none"]) .ant-modal');
+          let library = 'ant-design';
+          // Element UI Dialog
+          if (!modal) {
+            modal = document.querySelector('.el-dialog__wrapper:not([style*="display: none"]) .el-dialog');
+            library = 'element-ui';
+          }
+          // 通用 role="dialog"
+          if (!modal) {
+            modal = document.querySelector('[role="dialog"]:not([aria-hidden="true"])');
+            library = 'generic';
+          }
+          // Ant Design Drawer
+          if (!modal) {
+            modal = document.querySelector('.ant-drawer-content:not([style*="display: none"])');
+            library = 'ant-design-drawer';
+          }
+          // Tailwind CSS 自定义弹窗（.fixed.inset-0.z-50 或 .fixed.inset-0 配合 bg-black/50）
+          if (!modal) {
+            const tailwindModal = Array.from(document.querySelectorAll('.fixed.inset-0, [class*="fixed"][class*="inset-0"]')).find(el => {
+              const z = parseInt(getComputedStyle(el).zIndex) || 0;
+              const hasOverlay = el.className.includes('bg-black') || el.className.includes('bg-gray') || el.className.includes('bg-opacity');
+              return z >= 40 || hasOverlay;
+            });
+            if (tailwindModal) {
+              modal = tailwindModal.querySelector('.bg-white, .rounded-xl, .rounded-lg, [class*="shadow"]') || tailwindModal;
+              library = 'tailwind-css';
+            }
+          }
+          if (!modal) return { modalFound: false };
+
+          // 提取弹窗内容
+          const title = modal.querySelector('.ant-modal-title, .el-dialog__title, [role="dialog"] .title, .ant-drawer-title, h1, h2, h3, [class*="title"]')?.textContent?.trim() || '';
+          const body = modal.querySelector('.ant-modal-body, .el-dialog__body, .ant-drawer-body')?.textContent?.trim()?.slice(0, 200) || modal.textContent.trim().slice(0, 200);
+          const buttons = Array.from(modal.querySelectorAll('.ant-btn, .el-button, button')).map(b => ({
+            text: b.textContent.trim().slice(0, 30),
+            type: b.className.includes('primary') || b.className.includes('confirm') || b.className.includes('bg-blue') || b.className.includes('bg-indigo') ? 'primary' : 'default'
+          }));
+
+          return { modalFound: true, library, title, body, buttons, buttonCount: buttons.length };
+        });
+
+        if (modalData.modalFound) {
+          modalResult = {
+            modalFound: true,
+            library: modalData.library,
+            title: modalData.title,
+            body: modalData.body,
+            buttons: modalData.buttons,
+            buttonCount: modalData.buttonCount
+          };
+
+          // 断言：期望的弹窗标题
+          if (args.expectModalTitle !== undefined) {
+            const titlePassed = modalData.title.includes(String(args.expectModalTitle));
+            modalResult.titleAssertion = {
+              expected: args.expectModalTitle,
+              actual: modalData.title,
+              passed: titlePassed,
+              reason: titlePassed ? `弹窗标题匹配: "${modalData.title}"` : `弹窗标题不匹配，期望包含 "${args.expectModalTitle}"，实际 "${modalData.title}"`
+            };
+          }
+
+          // 断言：期望的弹窗内容
+          if (args.expectModalBody !== undefined) {
+            const bodyPassed = modalData.body.includes(String(args.expectModalBody));
+            modalResult.bodyAssertion = {
+              expected: args.expectModalBody,
+              actual: modalData.body.slice(0, 100),
+              passed: bodyPassed,
+              reason: bodyPassed ? `弹窗内容匹配` : `弹窗内容不匹配，期望包含 "${args.expectModalBody}"`
+            };
+          }
+
+          // 自动关闭弹窗
+          if (args.closeModal === true) {
+            try {
+              await target.evaluate(() => {
+                // 查找各种类型的弹窗
+                let modal = document.querySelector('.ant-modal-wrap:not([style*="display: none"]) .ant-modal, .el-dialog__wrapper:not([style*="display: none"]) .el-dialog, [role="dialog"]:not([aria-hidden="true"])');
+                // Tailwind CSS 弹窗
+                if (!modal) {
+                  const tailwindModal = Array.from(document.querySelectorAll('.fixed.inset-0, [class*="fixed"][class*="inset-0"]')).find(el => {
+                    const z = parseInt(getComputedStyle(el).zIndex) || 0;
+                    const hasOverlay = el.className.includes('bg-black') || el.className.includes('bg-gray') || el.className.includes('bg-opacity');
+                    return z >= 40 || hasOverlay;
+                  });
+                  if (tailwindModal) modal = tailwindModal;
+                }
+                if (modal) {
+                  // 优先点击取消/关闭按钮
+                  const cancelBtn = Array.from(modal.querySelectorAll('button')).find(b => {
+                    const t = b.textContent.trim();
+                    return t.includes('取') || t.includes('Cancel') || t.includes('关闭') || t.includes('Close') || t.includes('×');
+                  });
+                  if (cancelBtn) { cancelBtn.click(); return 'cancel_btn'; }
+                  // 点击右上角关闭按钮
+                  const closeBtn = modal.querySelector('.ant-modal-close, .el-dialog__closebtn, [aria-label="close"], [aria-label="Close"]');
+                  if (closeBtn) { closeBtn.click(); return 'close_icon'; }
+                  // 按 Escape
+                  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', keyCode: 27, bubbles: true }));
+                  return 'escape';
+                }
+                return 'no_modal';
+              });
+              await new Promise(r => setTimeout(r, 500));
+              modalResult.closed = true;
+            } catch (_) { modalResult.closed = false; }
+          }
+        }
+      } catch (_) { /* modal detection failed, not critical */ }
+    }
+
     // 9. 组装结果
     const result = {
       success: true,
+      mode: auditMode,
       selector,
       label,
       navigated: urlNavigated,
@@ -456,8 +863,18 @@ const { target } = await ensurePage();
         after: afterPath,
         diff: diffPath
       },
+      modal: modalResult,
       timestamp: new Date().toISOString()
     };
+
+    // form-submit 模式：附加表单提交检测结果
+    if (auditMode === 'form-submit' && formSubmitResult) {
+      result.formSubmit = formSubmitResult;
+      // 如果有断言失败，将 success 标记为 false（不影响 errors 统计）
+      if (formSubmitResult.allAssertionsPassed === false) {
+        result.assertionFailed = true;
+      }
+    }
     
     result.nextSteps = result.success ? [
       '使用 browser_snapshot 确认点击后页面状态',
@@ -472,8 +889,25 @@ const { target } = await ensurePage();
     ] : [
       { type: 'next', tool: 'browser_counterfactual_analyze', reason: '分析点击失败的根因' }
     ];
-    result.paidUpgradeHint = '需要智能点击验证、自动对比点击前后页面变化、自动错误关联分析？升级到 Pro 版本获取智能点击分析能力。';
-    
+
+    // form-submit 模式：增强的下一步建议
+    if (auditMode === 'form-submit' && formSubmitResult) {
+      const formNextSteps = [];
+      const formSuggestions = [];
+      if (formSubmitResult.formSubmitted === false) {
+        formNextSteps.push('表单未触发提交，使用 browser_snapshot 检查按钮是否在 form 内或检查 disabled 状态');
+        formSuggestions.push({ type: 'diagnose', tool: 'browser_snapshot', reason: '检查按钮与表单的关系' });
+      } else if (formSubmitResult.submitSucceeded === false) {
+        formNextSteps.push('表单已提交但未检测到成功标志，使用 browser_errors 查看错误详情');
+        formSuggestions.push({ type: 'diagnose', tool: 'browser_errors', reason: '查看提交失败的网络/控制台错误' });
+      } else {
+        formNextSteps.push('表单提交成功，使用 browser_snapshot 确认提交后的页面状态');
+        formSuggestions.push({ type: 'verify', tool: 'browser_snapshot', reason: '验证提交后的数据展示' });
+      }
+      result.nextSteps = formNextSteps.concat(result.nextSteps);
+      result.suggestions = formSuggestions.concat(result.suggestions);
+    }
+
     return text(JSON.stringify(redact(result), null, 2));
   }
 
@@ -559,8 +993,7 @@ const { target } = await ensurePage();
       errors: { count: postErrors.count, detected: postErrors.detected },
       lastAction,
       nextSteps: ['调用 browser_click 点击悬浮后出现的元素', '调用 browser_snapshot 查看悬浮后页面变化'],
-      suggestions: [{ type: 'next', tool: 'browser_click', reason: '点击悬浮后出现的交互元素' }],
-      paidUpgradeHint: '需要 AI 智能悬浮定位、自动检测悬浮后出现的元素、鼠标轨迹模拟？升级到 Pro 版本获取高级交互能力。'
+      suggestions: [{ type: 'next', tool: 'browser_click', reason: '点击悬浮后出现的交互元素' }]
     }, null, 2));
   }
 
@@ -585,9 +1018,8 @@ const { target } = await ensurePage();
       selector: args.selector || null,
       position: args.selector ? null : { x: args.x || 0, y: args.y || 0 },
       success: true,
-      nextSteps: ['调用 browser_snapshot 确认滚动后页面状态', '调用 browser_find_element 查找滚动后显示的元素'],
-      suggestions: [{ type: 'next', tool: 'browser_snapshot', reason: '查看滚动后的页面内容' }],
-      paidUpgradeHint: '需要智能滚动定位、自动检测可滚动区域、滚动后元素可见性分析？升级到 Pro 版本获取智能滚动能力。'
+      nextSteps: ['调用 browser_snapshot 确认滚动后页面状态', '调用 browser_find { mode: \'element\' } 查找滚动后显示的元素'],
+      suggestions: [{ type: 'next', tool: 'browser_snapshot', reason: '查看滚动后的页面内容' }]
     }, null, 2));
   }
 
@@ -690,19 +1122,18 @@ const { target } = await ensurePage();
     return text(JSON.stringify({
       ...redact(snapshot),
       nextSteps: [
-        '调用 browser_find_element 搜索页面中特定元素',
+        '调用 browser_find { mode: \'element\' } 搜索页面中特定元素',
         '调用 browser_click 点击按钮或链接进行交互',
         '调用 browser_screenshot 截图留存页面状态'
       ],
       suggestions: [
-        { type: 'next', tool: 'browser_find_element', reason: '搜索页面中的特定元素' },
+        { type: 'next', tool: 'browser_find', reason: '搜索页面中的特定元素' },
         { type: 'next', tool: 'browser_click', reason: '点击按钮或链接进行交互验证' }
-      ],
-      paidUpgradeHint: '需要页面变化智能比对、AI 驱动页面分析、自动生成页面摘要？升级到 Pro 版本获取智能页面洞察能力。'
+      ]
     }, null, 2));
   }
 
-  // ====== browser_batch ======
+  // ====== browser_flow mode=batch ======
   if (name === 'browser_batch') {
 const { target } = await ensurePage();
     const steps = args.steps || [];
@@ -772,8 +1203,7 @@ const { target } = await ensurePage();
         : ['使用 browser_snapshot 确认批量操作后的页面状态', '使用 browser_errors 检查批量操作后的错误'],
       suggestions: [
         { type: 'next', tool: 'browser_snapshot', reason: '查看批量操作后的页面状态' }
-      ],
-      paidUpgradeHint: '需要批量操作智能编排、失败自动重试、操作链路追踪？升级到 Pro 版本获取高级批量操作能力。'
+      ]
     }, null, 2));
   }
 
@@ -827,8 +1257,7 @@ const { target } = await ensurePage();
       ],
       suggestions: [
         { type: 'next', tool: 'browser_snapshot', reason: '查看 eval 执行后的页面变化' }
-      ],
-      paidUpgradeHint: '需要 AI 智能脚本生成、表达式安全性分析、自动结果断言？升级到 Pro 版本获取高级脚本执行能力。'
+      ]
     }), null, 2));
   }
 
@@ -875,14 +1304,13 @@ const { target } = await ensurePage();
     const resultData = { selector, count: totalCount, returned: elements.length, elements };
     if (totalCount === 0) {
       resultData.nextSteps = [
-        '调用 browser_find_element 智能搜索元素',
+        '调用 browser_find { mode: \'element\' } 智能搜索元素',
         '检查选择器是否正确',
         '调用 browser_snapshot 查看页面完整结构'
       ];
       resultData.suggestions = [
-        { type: 'fix', tool: 'browser_find_element', reason: '智能搜索页面元素' }
+        { type: 'fix', tool: 'browser_find', reason: '智能搜索页面元素' }
       ];
-      resultData.paidUpgradeHint = '需要 AI 智能元素定位？升级到 Pro 版本获取高级定位能力。';
     } else {
       resultData.nextSteps = [
         '调用 browser_click 点击元素进行交互',
@@ -893,7 +1321,6 @@ const { target } = await ensurePage();
         { type: 'next', tool: 'browser_click', reason: '点击找到的元素进行交互验证' },
         { type: 'next', tool: 'browser_highlight', reason: '高亮元素确认位置' }
       ];
-      resultData.paidUpgradeHint = '需要 AI 智能元素定位、自动生成稳定选择器？升级到 Pro 版本获取高级 DOM 分析能力。';
     }
     return text(JSON.stringify(redact(resultData), null, 2));
   }
@@ -954,18 +1381,18 @@ const { target } = await ensurePage();
       ],
       suggestions: [
         { type: 'next', tool: 'browser_snapshot', reason: '查看选择后的页面变化' }
-      ],
-      paidUpgradeHint: '需要 AI 智能选项推荐、自动检测选项变化、跨浏览器选择测试？升级到 Pro 版本获取高级选择能力。'
+      ]
     }, null, 2));
   }
 
   // ====== browser_navigate ======
   if (name === 'browser_navigate') {
-const { target } = await ensurePage();
     const action = args.action || 'refresh';
     const url = args.url;
     const waitUntil = args.waitUntil || 'domcontentloaded';
     const timeout = args.timeout || 30000;
+    // 传入 url 给 ensurePage，避免 about:blank 时关闭旧页面创建新页面导致 target 失效
+    const { target } = await ensurePage({ url });
 
     try {
       if (url) {
@@ -998,8 +1425,7 @@ const { target } = await ensurePage();
         ],
         suggestions: [
           { type: 'next', tool: 'browser_snapshot', reason: '查看导航后的页面状态' }
-        ],
-        paidUpgradeHint: '需要智能页面导航、自动等待页面加载完成、导航链路追踪？升级到 Pro 版本获取高级导航能力。'
+        ]
       }, null, 2));
     } catch (e) {
       return mcpError(`导航失败: ${e.message}`, { error: 'EXECUTION_ERROR', toolName: name });
@@ -1018,8 +1444,7 @@ const { target } = await ensurePage();
       ],
       suggestions: [
         { type: 'next', tool: 'browser_snapshot', reason: '确认等待条件满足后的页面内容' }
-      ],
-      paidUpgradeHint: '需要智能等待策略、自动检测页面加载完成、超时自动诊断？升级到 Pro 版本获取高级等待能力。'
+      ]
     }, null, 2));
   }
 
@@ -1050,13 +1475,13 @@ const { target } = await ensurePage();
   }
 
   // ====== browser_flow ======
-  // v1.9.5 起合并 browser_chain（mode=chain）和 browser_batch（mode=batch）
+  // v1.9.5 起合并 browser_flow（mode=chain）和 browser_flow（mode=batch）
   if (name === 'browser_flow') {
     const { target } = await ensurePage(args);
     const mode = args.mode || 'flow';
 
     if (mode === 'chain') {
-      // chain 模式：等价于已废弃的 browser_chain
+      // chain 模式：等价于已废弃的 browser_flow mode=chain
       // 步骤类型映射：pressKey/press_key → step，evaluate → eval
       const rawSteps = args.steps || args.actions || [];
       const mappedSteps = rawSteps.map((s) => {
@@ -1074,7 +1499,7 @@ const { target } = await ensurePage();
         clearErrors: args.clearErrors !== false
       };
       const result = await runFlow(target, chainArgs);
-      // chain 模式额外提供 consoleErrors/networkErrors 汇总（兼容 browser_chain 输出结构）
+      // chain 模式额外提供 consoleErrors/networkErrors 汇总（兼容 browser_flow mode=chain 输出结构）
       const consoleErrors = (result.errors?.console || []).map((e) => ({
         type: e.type || 'error',
         text: (e.text || '').slice(0, 200)
@@ -1084,13 +1509,16 @@ const { target } = await ensurePage();
         .map((e) => ({ url: (e.url || '').slice(0, 100), status: e.status }));
       const completedActions = result.results ? result.results.filter((r) => r.ok !== false).length : 0;
       const failedStepIndex = result.results ? result.results.findIndex((r) => r.ok === false) : -1;
+      const chainResults = args.compact === true
+        ? (result.results || []).map(r => ({ label: r.label, type: r.type, ok: r.ok, error: r.error || null }))
+        : result.results;
       return text(JSON.stringify({
         success: result.passed,
         mode: 'chain',
         totalActions: mappedSteps.length,
         completedActions,
         failedActionIndex: failedStepIndex >= 0 ? failedStepIndex : null,
-        actionResults: result.results,
+        actionResults: chainResults,
         consoleErrors,
         networkErrors,
         errorMessage: failedStepIndex >= 0 ? `第 ${failedStepIndex + 1} 步操作失败` : null,
@@ -1099,7 +1527,7 @@ const { target } = await ensurePage();
     }
 
     if (mode === 'batch') {
-      // batch 模式：等价于已废弃的 browser_batch，受 maxSteps 限制
+      // batch 模式：等价于已废弃的 browser_flow mode=batch，受 maxSteps 限制
       const steps = args.steps || [];
       const maxSteps = args.maxSteps || 20;
       if (steps.length > maxSteps) {
@@ -1123,12 +1551,15 @@ const { target } = await ensurePage();
         clearErrors: args.clearErrors !== false
       };
       const result = await runFlow(target, batchArgs);
-      const results = result.results || [];
-      const hasFailed = results.some((r) => r.ok === false);
+      const rawResults = result.results || [];
+      const hasFailed = rawResults.some((r) => r.ok === false);
+      const batchResults = args.compact === true
+        ? rawResults.map(r => ({ label: r.label, type: r.type, ok: r.ok, error: r.error || null }))
+        : rawResults;
       return text(JSON.stringify({
         mode: 'batch',
         total: mappedSteps.length,
-        results,
+        results: batchResults,
         hasFailed,
         passed: result.passed,
         errors: result.errors,
@@ -1139,7 +1570,21 @@ const { target } = await ensurePage();
     }
 
     // 默认 flow 模式
-    return text(JSON.stringify(await runFlow(target, args), null, 2));
+    const flowResult = await runFlow(target, args);
+    if (args.compact === true) {
+      flowResult.results = (flowResult.results || []).map(r => ({
+        label: r.label,
+        type: r.type,
+        ok: r.ok,
+        url: r.evidence ? (r.evidence.url || (r.evidence.snapshot && r.evidence.snapshot.url) || null) : null,
+        error: r.error || null,
+        assertionPassed: r.assertion ? r.assertion.passed : undefined
+      }));
+      if (flowResult.errors) {
+        flowResult.errors = { summary: flowResult.errors.summary || {} };
+      }
+    }
+    return text(JSON.stringify(flowResult, null, 2));
   }
 
   // ====== browser_instrument ======
@@ -1153,14 +1598,14 @@ const { target } = await ensurePage(args);
 const { target } = await ensurePage(args);
     const mode = args.mode || 'view';
     if (mode === 'clear') {
-      // v1.9.5 起合并 browser_events_clear（mode=clear）
+      // v1.9.5 起合并 browser_events（mode=clear）
       const result = await clearBrowserEvents(target);
       return text(JSON.stringify({ mode: 'clear', ...result }, null, 2));
     }
     return text(JSON.stringify(await getBrowserEvents(target, args), null, 2));
   }
 
-  // ====== browser_events_clear ======
+  // ====== browser_events mode=clear ======
   if (name === 'browser_events_clear') {
 	const { target } = await ensurePage(args);
     return text(JSON.stringify(await clearBrowserEvents(target), null, 2));
@@ -1209,10 +1654,10 @@ const { target } = await ensurePage(args);
           label: '',
           required: input.required,
           pattern: input.pattern || null,
-          minLength: input.minLength || null,
-          maxLength: input.maxLength || null,
-          min: input.min || null,
-          max: input.max || null,
+          minLength: input.minLength > 0 ? input.minLength : null,
+          maxLength: input.maxLength > 0 ? input.maxLength : null,
+          min: input.min !== '' ? input.min : null,
+          max: input.max !== '' ? input.max : null,
           inputType: input.getAttribute('type') || 'text',
           placeholder: input.placeholder || '',
           defaultValue: input.value || '',
@@ -1258,16 +1703,18 @@ const { target } = await ensurePage(args);
         if (field.max) field.validationRules.push(`最大值: ${field.max}`);
 
         // Detect common input types
+        const classNameStr = typeof input.className === 'string' ? input.className : '';
+        const fieldName = input.name || '';
         if (!input.getAttribute('type') || input.getAttribute('type') === 'text') {
-          if (input.className.includes('email') || input.name.includes('email')) {
+          if (classNameStr.includes('email') || fieldName.includes('email')) {
             field.inputType = 'email';
             field.validationRules.push('预期: 邮箱格式');
           }
-          if (input.className.includes('tel') || input.name.includes('phone')) {
+          if (classNameStr.includes('tel') || fieldName.includes('phone')) {
             field.inputType = 'tel';
             field.validationRules.push('预期: 电话号码格式');
           }
-          if (input.className.includes('url') || input.name.includes('url')) {
+          if (classNameStr.includes('url') || fieldName.includes('url')) {
             field.inputType = 'url';
             field.validationRules.push('预期: URL 格式');
           }
@@ -1319,10 +1766,13 @@ const { target } = await ensurePage(args);
           const messages = [];
           // Check for HTML5 validation messages
           document.querySelectorAll(':invalid').forEach(el => {
-            messages.push({
-              field: el.name || el.id || el.tagName,
-              message: el.validationMessage
-            });
+            const msg = el.validationMessage || '';
+            if (msg) {
+              messages.push({
+                field: el.name || el.id || el.tagName,
+                message: msg
+              });
+            }
           });
           // Check for custom validation
           document.querySelectorAll('.error, .invalid, [class*="error"]').forEach(el => {
@@ -1333,8 +1783,8 @@ const { target } = await ensurePage(args);
         });
 
         const requiredMissing = formAnalysis.fields.filter(f => f.required && !f.defaultValue).length;
-        const patternViolations = validationMessages.filter(m => m.message.includes('pattern')).length;
-        const lengthViolations = validationMessages.filter(m => m.message.includes('length')).length;
+        const patternViolations = validationMessages.filter(m => (m.message || '').includes('pattern')).length;
+        const lengthViolations = validationMessages.filter(m => (m.message || '').includes('length')).length;
 
         validationResults = {
           totalFields: formAnalysis.fields.length,
@@ -1380,7 +1830,7 @@ const { target } = await ensurePage(args);
     }, null, 2));
   }
 
-  // ====== browser_chain ======
+  // ====== browser_flow mode=chain ======
   if (name === 'browser_chain') {
 const { target } = await ensurePage();
     const actions = args.actions || [];
@@ -1640,7 +2090,7 @@ const { target } = await ensurePage();
     return { content: [{ type: 'text', text: JSON.stringify({ success: true, ref: args.ref, text: args.text }, null, 2) }] };
   }
 
-  // ====== browser_smart_fill ======
+  // ====== browser_form_fill mode=smart ======
   if (name === 'browser_smart_fill') {
     const { target } = await ensurePage(args);
     if (!args.selector) return mcpParamMissing('selector', name);
@@ -1763,7 +2213,7 @@ const { target } = await ensurePage();
   }
 
   // ====== browser_overlay ======
-  // v1.9.5 起合并 browser_overlay_detect/dismiss
+  // v1.9.5 起合并 browser_overlay mode=detect/dismiss
   if (name === 'browser_overlay') {
     const mode = args.mode || 'detect';
     if (mode === 'detect') {
@@ -1775,7 +2225,7 @@ const { target } = await ensurePage();
     return mcpParamMissing('mode', name);
   }
 
-  // ====== browser_overlay_detect ======
+  // ====== browser_overlay mode=detect ======
   if (name === 'browser_overlay_detect') {
     const { target } = await ensurePage();
     
@@ -1802,6 +2252,16 @@ const { target } = await ensurePage();
         
         // 不检测 body、html 自身
         if (tagName === 'body' || tagName === 'html') return;
+
+        // SPA 根节点感知：跳过常见 SPA 框架的根容器（#app, #root, #__next, #__nuxt 等）
+        // 这些节点覆盖大部分视口是正常行为，不应被标记为 overlay
+        const spaRootIds = ['app', 'root', '__next', '__nuxt', '__vue'];
+        const isSpaRoot = (id && spaRootIds.includes(id)) ||
+          (tagName === 'div' && position === 'static' && zIndex === 0 &&
+           rect.top <= 5 && rect.left <= 5 &&
+           rect.width >= viewportWidth * 0.95 &&
+           el.parentElement === document.body);
+        if (isSpaRoot) return;
         
         // 计算覆盖面积
         const overlapW = Math.max(0, Math.min(rect.right, viewportWidth) - Math.max(rect.left, 0));
@@ -1830,11 +2290,11 @@ const { target } = await ensurePage();
             classLower.includes('mask') || classLower.includes('toast') || classLower.includes('alert')) {
           isOverlay = true; type = 'detected-by-class';
         }
-        // 全屏覆盖（遮挡大部分视口）
-        if ((tagName === 'div' || tagName === 'section' || tagName === 'aside') && 
+        // 全屏覆盖（遮挡大部分视口）— 必须非 static 定位且有 z-index
+        if ((tagName === 'div' || tagName === 'section' || tagName === 'aside') &&
             rect.top <= 10 && rect.left <= 10 &&
             rect.width >= viewportWidth * 0.8 && rect.height >= viewportHeight * 0.5 &&
-            zIndex >= 100) {
+            zIndex >= 100 && position !== 'static') {
           isOverlay = true; type = 'fullscreen-overlay';
         }
         
@@ -1858,8 +2318,9 @@ const { target } = await ensurePage();
       overlays.sort((a, b) => b.coveragePercent - a.coveragePercent);
       
       const totalCoverage = overlays.reduce((sum, o) => sum + o.coveragePercent, 0);
-      const hasBlockingOverlay = overlays.some(o => 
-        o.coveragePercent >= 50 || o.overlayType === 'fullscreen-overlay' || o.overlayType === 'semi-transparent-mask'
+      const hasBlockingOverlay = overlays.some(o =>
+        (o.coveragePercent >= 50 || o.overlayType === 'fullscreen-overlay' || o.overlayType === 'semi-transparent-mask') &&
+        (o.position !== 'static' || o.zIndex > 0)
       );
       
       // 统计类型
@@ -1886,7 +2347,7 @@ const { target } = await ensurePage();
       status,
       ...overlayAnalysis,
       nextSteps: overlayAnalysis.hasBlockingOverlay ? [
-        '调用 browser_overlay_dismiss 自动关闭遮挡物',
+        '调用 browser_overlay { mode: \'dismiss\' } 自动关闭遮挡物',
         '关闭后调用 browser_screenshot 重新截图',
         '确认遮挡消失后重新运行测试'
       ] : [
@@ -1894,12 +2355,11 @@ const { target } = await ensurePage();
         '继续正常测试流程'
       ],
       suggestions: overlayAnalysis.hasBlockingOverlay ? [
-        { type: 'fix', tool: 'browser_overlay_dismiss', reason: '自动关闭遮挡物' },
+        { type: 'fix', tool: 'browser_overlay', reason: '自动关闭遮挡物' },
         { type: 'next', tool: 'browser_screenshot', reason: '确认遮挡消失后截图' }
       ] : [
         { type: 'next', tool: 'browser_screenshot', reason: '截图留存证据' }
-      ],
-      paidUpgradeHint: '需要智能遮挡物识别、自动关闭策略优化、多场景兼容测试？升级到 Pro 版本获取高级遮挡物处理能力。'
+      ]
     };
     
     // format=html 输出
@@ -1915,7 +2375,7 @@ const { target } = await ensurePage();
     return text(JSON.stringify(resultData, null, 2));
   }
 
-  // ====== browser_overlay_dismiss ======
+  // ====== browser_overlay mode=dismiss ======
   if (name === 'browser_overlay_dismiss') {
     const { target } = await ensurePage();
     
@@ -2037,18 +2497,17 @@ const { target } = await ensurePage();
         '调用 browser_smoke_test 重新冒烟测试'
       ] : dismissed.length > 0 ? [
         '剩余遮挡物需手动处理',
-        '调用 browser_overlay_detect 查看剩余遮挡物详情',
+        '调用 browser_overlay { mode: \'detect\' } 查看剩余遮挡物详情',
         '调用 browser_screenshot 查看当前页面状态'
       ] : [
-        '调用 browser_overlay_detect 详细分析遮挡物',
+        '调用 browser_overlay { mode: \'detect\' } 详细分析遮挡物',
         '考虑手动点击关闭按钮',
         '调用 browser_screenshot 查看页面状态'
       ],
       suggestions: [
         { type: 'next', tool: 'browser_screenshot', reason: dismissed.length > 0 ? '确认遮挡已关闭后截图' : '查看页面当前状态' },
-        { type: remainingAnalysis.hasBlocking ? 'fix' : 'next', tool: 'browser_overlay_detect', reason: '检查剩余遮挡物' }
-      ],
-      paidUpgradeHint: '需要智能自动关闭、多场景 Cookie banner 处理、验证码自动识别？升级到 Pro 版本获取高级弹窗处理能力。'
+        { type: remainingAnalysis.hasBlocking ? 'fix' : 'next', tool: 'browser_overlay', reason: '检查剩余遮挡物' }
+      ]
     };
     
     // format=html 输出
@@ -2068,7 +2527,7 @@ const { target } = await ensurePage();
   }
 
   // ====== browser_captcha ======
-  // v1.9.5 起合并 browser_captcha_detect/read/screenshot
+  // v1.9.5 起合并 browser_captcha mode=detect/read/screenshot
   if (name === 'browser_captcha') {
     const mode = args.mode || 'detect';
     if (mode === 'detect') {
@@ -2083,7 +2542,7 @@ const { target } = await ensurePage();
     return mcpParamMissing('mode', name);
   }
 
-  // ====== browser_captcha_detect ======
+  // ====== browser_captcha mode=detect ======
   if (name === 'browser_captcha_detect') {
     const { target } = await ensurePage(args);
     const detectMode = args.detectMode || 'auto';
@@ -2213,8 +2672,8 @@ const { target } = await ensurePage();
         ];
       } else {
         result.suggestions = result.needsHuman
-          ? [`检测到 ${result.provider} ${result.type} 验证码，复杂度较高，建议人工处理或使用 browser_captcha_screenshot 截图后人工识别`]
-          : ['可以使用 browser_captcha_read 尝试自动识别验证码文本'];
+          ? [`检测到 ${result.provider} ${result.type} 验证码，复杂度较高，建议人工处理或使用 browser_captcha { mode: 'screenshot' } 截图后人工识别`]
+          : ['可以使用 browser_captcha { mode: \'read\' } 尝试自动识别验证码文本'];
       }
 
       return result;
@@ -2223,7 +2682,7 @@ const { target } = await ensurePage();
     return text(JSON.stringify(detection, null, 2));
   }
 
-  // ====== browser_captcha_screenshot ======
+  // ====== browser_captcha mode=screenshot ======
   if (name === 'browser_captcha_screenshot') {
     const { target } = await ensurePage(args);
     const captchaSelector = args.captchaSelector;
@@ -2279,7 +2738,7 @@ const { target } = await ensurePage();
         error: '未找到验证码元素',
         suggestions: [
           '使用 captchaSelector 参数手动指定验证码选择器',
-          '使用 browser_captcha_detect 先检测验证码位置'
+          '使用 browser_captcha { mode: \'detect\' } 先检测验证码位置'
         ]
       }, null, 2));
     }
@@ -2346,11 +2805,11 @@ const { target } = await ensurePage();
       } : undefined,
       nextSteps: tooSmall
         ? ['验证码图片尺寸过小，可能需要手动刷新验证码后重新截图', '尝试使用 captchaSelector 精确指定验证码元素']
-        : ['使用 browser_captcha_read 对截图进行 OCR 识别']
+        : ['使用 browser_captcha { mode: \'read\' } 对截图进行 OCR 识别']
     }, null, 2));
   }
 
-  // ====== browser_captcha_read ======
+  // ====== browser_captcha mode=read ======
   if (name === 'browser_captcha_read') {
     const { target } = await ensurePage(args);
     const captchaSelector = args.captchaSelector;
@@ -2402,7 +2861,7 @@ const { target } = await ensurePage();
         error: '未找到验证码元素',
         suggestions: [
           '使用 captchaSelector 参数手动指定验证码选择器',
-          '使用 browser_captcha_detect 先检测验证码位置',
+          '使用 browser_captcha { mode: \'detect\' } 先检测验证码位置',
           '验证码可能在 iframe 中，已尝试自动搜索 iframe 但未找到'
         ]
       }, null, 2));
@@ -2556,9 +3015,897 @@ const { target } = await ensurePage();
       },
       needsHuman: confidence < 0.5 || recognizedText.length === 0,
       nextSteps: confidence < 0.5
-        ? ['识别置信度较低，建议使用 browser_captcha_screenshot 截图后人工识别']
+        ? ['识别置信度较低，建议使用 browser_captcha { mode: \'screenshot\' } 截图后人工识别']
         : [`识别结果: "${recognizedText}"，可尝试填入验证码输入框`]
     }, null, 2));
+  }
+
+  // ====== browser_table_verify ======
+  if (name === 'browser_table_verify') {
+const { target } = await ensurePage();
+    const mode = args.mode || 'table';
+    const maxRows = args.maxRows || 100;
+    // 卡片模式：cardSelector 作为主选择器；表格模式：selector 作为表格选择器
+    const tableSelector = mode === 'card' ? (args.cardSelector || '') : (args.selector || 'table');
+
+    // 1. 提取数据（headers + rows）
+    let tableData;
+    if (mode === 'card') {
+      // 卡片列表模式：每张卡片作为一行，按 fieldMap 提取字段
+      if (!args.cardSelector || !args.fieldMap || typeof args.fieldMap !== 'object') {
+        return text(JSON.stringify({
+          ok: false,
+          mode: 'card',
+          error: 'mode=card 时必须提供 cardSelector 和 fieldMap 参数'
+        }, null, 2));
+      }
+      try {
+        tableData = await target.evaluate(({ cardSelector, fieldMap, fieldAttr, maxRows }) => {
+          const cards = document.querySelectorAll(cardSelector);
+          if (cards.length === 0) {
+            return { found: false, reason: 'card_not_found' };
+          }
+          const headers = Object.keys(fieldMap);
+          const rows = [];
+          let count = 0;
+          for (const card of cards) {
+            if (count >= maxRows) break;
+            const row = headers.map(fieldName => {
+              const sel = fieldMap[fieldName];
+              if (!sel) return '';
+              const el = card.querySelector(sel);
+              if (!el) return '';
+              const attrName = fieldAttr && fieldAttr[fieldName];
+              if (attrName) {
+                return (el.getAttribute(attrName) || '').trim();
+              }
+              return (el.textContent || '').trim();
+            });
+            rows.push(row);
+            count++;
+          }
+          return {
+            found: true,
+            headers,
+            rows,
+            rowCount: rows.length,
+            columnCount: headers.length
+          };
+        }, {
+          cardSelector: args.cardSelector,
+          fieldMap: args.fieldMap,
+          fieldAttr: args.fieldAttr,
+          maxRows
+        });
+      } catch (e) {
+        return text(JSON.stringify({ ok: false, mode: 'card', cardSelector: args.cardSelector, error: `提取卡片数据失败: ${e.message}` }, null, 2));
+      }
+    } else {
+      // 表格模式：标准 <table> 元素提取
+    try {
+      tableData = await target.evaluate(({ selector, maxRows }) => {
+        const tableEl = document.querySelector(selector);
+        if (!tableEl) {
+          return { found: false, reason: 'table_not_found' };
+        }
+        // 提取表头（支持 thead th 和 tbody 第一行 tr td）
+        const headers = [];
+        const theadThs = tableEl.querySelectorAll('thead th, thead td');
+        if (theadThs.length > 0) {
+          theadThs.forEach(th => headers.push((th.textContent || '').trim()));
+        } else {
+          // 没有 thead，尝试第一行 tr td 作为表头
+          const firstRow = tableEl.querySelector('tr');
+          if (firstRow) {
+            firstRow.querySelectorAll('td, th').forEach(cell => headers.push((cell.textContent || '').trim()));
+          }
+        }
+
+        // 提取数据行（tbody tr td，如果没有 tbody 则所有 tr td，跳过表头行）
+        const rows = [];
+        let bodyTrs;
+        if (tableEl.querySelector('tbody')) {
+          bodyTrs = tableEl.querySelectorAll('tbody tr');
+        } else {
+          // 没有 tbody，所有 tr（如果第一行已被识别为表头则跳过）
+          bodyTrs = tableEl.querySelectorAll('tr');
+          if (headers.length > 0 && bodyTrs.length > 0) {
+            bodyTrs = Array.from(bodyTrs).slice(1);
+          }
+        }
+        let count = 0;
+        for (const tr of bodyTrs) {
+          if (count >= maxRows) break;
+          const cells = Array.from(tr.querySelectorAll('td, th')).map(td => (td.textContent || '').trim());
+          if (cells.length > 0) {
+            rows.push(cells);
+            count++;
+          }
+        }
+
+        return {
+          found: true,
+          headers,
+          rows,
+          rowCount: rows.length,
+          columnCount: headers.length || (rows.length > 0 ? rows[0].length : 0)
+        };
+      }, { selector: tableSelector, maxRows });
+    } catch (e) {
+      return text(JSON.stringify({ ok: false, selector: tableSelector, error: `提取表格数据失败: ${e.message}` }, null, 2));
+    }
+    } // end of else (table mode)
+
+    if (!tableData.found) {
+      return text(JSON.stringify({
+        ok: false,
+        mode,
+        selector: tableSelector,
+        error: mode === 'card' ? `未找到卡片元素: ${tableSelector}` : `未找到表格元素: ${tableSelector}`,
+        reason: tableData.reason
+      }, null, 2));
+    }
+
+    // 2. 执行断言
+    const assertions = [];
+
+    // a) 行数断言
+    if (args.expectRowCount !== undefined) {
+      const passed = tableData.rowCount === args.expectRowCount;
+      assertions.push({
+        name: 'expectRowCount',
+        passed,
+        expected: args.expectRowCount,
+        actual: tableData.rowCount,
+        reason: passed ? `行数匹配: ${tableData.rowCount}` : `行数不匹配，期望 ${args.expectRowCount}，实际 ${tableData.rowCount}`
+      });
+    }
+    if (args.expectMinRowCount !== undefined) {
+      const passed = tableData.rowCount >= args.expectMinRowCount;
+      assertions.push({
+        name: 'expectMinRowCount',
+        passed,
+        expected: `>= ${args.expectMinRowCount}`,
+        actual: tableData.rowCount,
+        reason: passed ? `行数 >= 最小值: ${tableData.rowCount}` : `行数少于最小值 ${args.expectMinRowCount}，实际 ${tableData.rowCount}`
+      });
+    }
+    if (args.expectMaxRowCount !== undefined) {
+      const passed = tableData.rowCount <= args.expectMaxRowCount;
+      assertions.push({
+        name: 'expectMaxRowCount',
+        passed,
+        expected: `<= ${args.expectMaxRowCount}`,
+        actual: tableData.rowCount,
+        reason: passed ? `行数 <= 最大值: ${tableData.rowCount}` : `行数超过最大值 ${args.expectMaxRowCount}，实际 ${tableData.rowCount}`
+      });
+    }
+
+    // b) 列名断言
+    if (Array.isArray(args.expectColumns) && args.expectColumns.length > 0) {
+      const missingCols = args.expectColumns.filter(c => !tableData.headers.includes(c));
+      const passed = missingCols.length === 0;
+      assertions.push({
+        name: 'expectColumns',
+        passed,
+        expected: args.expectColumns,
+        actual: tableData.headers,
+        missing: missingCols,
+        reason: passed ? `所有期望列都存在: ${args.expectColumns.join(', ')}` : `缺少列: ${missingCols.join(', ')}`
+      });
+    }
+
+    // c) 列值断言
+    if (args.columnValues && typeof args.columnValues === 'object') {
+      for (const [colName, expectedValues] of Object.entries(args.columnValues)) {
+        const colIdx = tableData.headers.indexOf(colName);
+        if (colIdx === -1) {
+          assertions.push({
+            name: `columnValues[${colName}]`,
+            passed: false,
+            reason: `列名 "${colName}" 不存在于表头中`
+          });
+          continue;
+        }
+        const actualValues = tableData.rows.map(r => r[colIdx] || '').filter(v => v !== '');
+        const missingValues = expectedValues.filter(v => !actualValues.includes(String(v)));
+        const passed = missingValues.length === 0;
+        assertions.push({
+          name: `columnValues[${colName}]`,
+          passed,
+          expected: expectedValues,
+          actual: actualValues.slice(0, 20),
+          missing: missingValues,
+          reason: passed ? `列 "${colName}" 包含所有期望值` : `列 "${colName}" 缺少值: ${missingValues.join(', ')}`
+        });
+      }
+    }
+
+    // d) 单元格内容匹配
+    if (Array.isArray(args.cellMatch)) {
+      for (const match of args.cellMatch) {
+        const { row, column, expected } = match;
+        if (row === undefined || column === undefined || expected === undefined) {
+          assertions.push({
+            name: `cellMatch[row=${row},col=${column}]`,
+            passed: false,
+            reason: '缺少 row/column/expected 参数'
+          });
+          continue;
+        }
+        let colIdx;
+        if (typeof column === 'number') {
+          colIdx = column;
+        } else {
+          colIdx = tableData.headers.indexOf(column);
+        }
+        if (colIdx === -1) {
+          assertions.push({
+            name: `cellMatch[row=${row},col=${column}]`,
+            passed: false,
+            reason: `列 "${column}" 不存在`
+          });
+          continue;
+        }
+        const actualCell = (tableData.rows[row] && tableData.rows[row][colIdx]) || '';
+        const passed = actualCell.includes(String(expected));
+        assertions.push({
+          name: `cellMatch[row=${row},col=${column}]`,
+          passed,
+          expected,
+          actual: actualCell,
+          reason: passed ? `单元格匹配: "${actualCell}"` : `单元格不匹配，期望包含 "${expected}"，实际 "${actualCell}"`
+        });
+      }
+    }
+
+    // 3. 排序验证（仅 table 模式支持，卡片列表无表头可点击）
+    let sortResult = null;
+    if (args.sortBy && mode === 'table') {
+      const sortColIdx = tableData.headers.indexOf(args.sortBy);
+      if (sortColIdx === -1) {
+        sortResult = { ok: false, reason: `排序列 "${args.sortBy}" 不存在` };
+      } else {
+        try {
+          // 定位表头单元格（thead th:nth-child(colIdx+1)）
+          const thSelector = `${tableSelector} thead th:nth-child(${sortColIdx + 1}), ${tableSelector} thead td:nth-child(${sortColIdx + 1})`;
+          const expectedOrder = args.sortOrder || 'asc';
+          const waitMs = args.waitMs || 800;
+
+          // 智能比较函数：数字用数值比较，字符串用 localeCompare
+          const smartCompare = (a, b) => {
+            const na = parseFloat(a);
+            const nb = parseFloat(b);
+            if (!isNaN(na) && !isNaN(nb) && String(na) === a.trim() && String(nb) === b.trim()) {
+              return na - nb;
+            }
+            return a.localeCompare(b, 'zh');
+          };
+
+          // 提取列值并判断排序方向
+          const extractAndCheck = async () => {
+            const afterSort = await target.evaluate(({ selector, colIdx, maxRows }) => {
+              const tableEl = document.querySelector(selector);
+              if (!tableEl) return { found: false };
+              const rows = [];
+              let bodyTrs = tableEl.querySelector('tbody') ? tableEl.querySelectorAll('tbody tr') : tableEl.querySelectorAll('tr');
+              if (tableEl.querySelector('thead') && !tableEl.querySelector('tbody')) {
+                bodyTrs = Array.from(bodyTrs).slice(1);
+              }
+              let count = 0;
+              for (const tr of bodyTrs) {
+                if (count >= maxRows) break;
+                const cells = Array.from(tr.querySelectorAll('td, th')).map(td => (td.textContent || '').trim());
+                if (cells.length > 0) {
+                  rows.push(cells);
+                  count++;
+                }
+              }
+              return { found: true, sortedValues: rows.map(r => r[colIdx] || '') };
+            }, { selector: tableSelector, colIdx: sortColIdx, maxRows });
+
+            if (!afterSort.found) return null;
+            const sortedValues = afterSort.sortedValues;
+            const ascSorted = [...sortedValues].sort(smartCompare);
+            const descSorted = [...sortedValues].sort((a, b) => smartCompare(b, a));
+            const isAsc = JSON.stringify(sortedValues) === JSON.stringify(ascSorted);
+            const isDesc = JSON.stringify(sortedValues) === JSON.stringify(descSorted);
+            return {
+              sortedValues,
+              actualOrder: isAsc ? 'asc' : (isDesc ? 'desc' : 'unsorted')
+            };
+          };
+
+          // 点击表头进行排序（最多点击 3 次以达到期望顺序）
+          let checkResult = null;
+          let clickCount = 0;
+          const maxClicks = 3;
+
+          while (clickCount < maxClicks) {
+            await target.click(thSelector, { timeout: 5000 }).catch(() => {});
+            clickCount++;
+            await new Promise(r => setTimeout(r, waitMs));
+            checkResult = await extractAndCheck();
+            if (!checkResult) break;
+            if (checkResult.actualOrder === expectedOrder) break;
+            // 如果已达到期望顺序，停止点击；否则继续点击切换排序方向
+          }
+
+          if (checkResult) {
+            const sortedValues = checkResult.sortedValues;
+            const actualOrder = checkResult.actualOrder;
+            const passed = actualOrder === expectedOrder;
+            sortResult = {
+              ok: true,
+              column: args.sortBy,
+              expectedOrder,
+              actualOrder,
+              passed,
+              clickCount,
+              sortedValues: sortedValues.slice(0, 10),
+              reason: passed ? `排序顺序匹配 (${expectedOrder})，点击 ${clickCount} 次` : `排序顺序不匹配，期望 ${expectedOrder}，实际 ${actualOrder}，点击 ${clickCount} 次`
+            };
+            assertions.push({
+              name: `sortBy[${args.sortBy}]`,
+              passed,
+              expected: expectedOrder,
+              actual: actualOrder,
+              reason: sortResult.reason
+            });
+          }
+        } catch (e) {
+          sortResult = { ok: false, reason: `排序操作失败: ${e.message}` };
+        }
+      }
+    }
+
+    // 4. 分页验证
+    let paginationResult = null;
+    if (args.pagination && args.pagination.nextSelector) {
+      const pageNextSel = args.pagination.nextSelector;
+      const expectDataChanged = args.pagination.expectDataChanged !== false;
+      const maxPages = args.pagination.maxPages || 3;
+      const pages = [];
+      pages.push({ pageIndex: 0, rowCount: tableData.rowCount, firstRowSignature: tableData.rows[0] ? tableData.rows[0].join('|') : '' });
+
+      let currentPage = 1;
+      let lastRowCount = tableData.rowCount;
+      let lastSignature = pages[0].firstRowSignature;
+      let dataChangedAcrossPages = false;
+
+      while (currentPage < maxPages) {
+        try {
+          // 检查下一页按钮是否可用（非 disabled）
+          const isDisabled = await target.evaluate(sel => {
+            const el = document.querySelector(sel);
+            if (!el) return true;
+            return el.disabled || el.classList.contains('disabled') || el.classList.contains('is-disabled') ||
+              el.getAttribute('aria-disabled') === 'true';
+          }, pageNextSel).catch(() => true);
+          if (isDisabled) {
+            paginationResult = paginationResult || { pages, reachedLastPage: true, lastPageIndex: currentPage };
+            break;
+          }
+          await target.click(pageNextSel, { timeout: 5000 });
+          await new Promise(r => setTimeout(r, args.waitMs || 1000));
+          // 提取当前页数据（根据 mode 使用不同提取逻辑）
+          const pageData = mode === 'card'
+            ? await target.evaluate(({ cardSelector, fieldMap, fieldAttr, maxRows }) => {
+                const cards = document.querySelectorAll(cardSelector);
+                if (cards.length === 0) return { found: false };
+                const headers = Object.keys(fieldMap);
+                const rows = [];
+                let count = 0;
+                for (const card of cards) {
+                  if (count >= maxRows) break;
+                  const row = headers.map(fieldName => {
+                    const sel = fieldMap[fieldName];
+                    if (!sel) return '';
+                    const el = card.querySelector(sel);
+                    if (!el) return '';
+                    const attrName = fieldAttr && fieldAttr[fieldName];
+                    if (attrName) return (el.getAttribute(attrName) || '').trim();
+                    return (el.textContent || '').trim();
+                  });
+                  rows.push(row);
+                  count++;
+                }
+                return { found: true, rowCount: rows.length, signature: rows[0] ? rows[0].join('|') : '' };
+              }, { cardSelector: args.cardSelector, fieldMap: args.fieldMap, fieldAttr: args.fieldAttr, maxRows })
+            : await target.evaluate(({ selector, maxRows }) => {
+                const tableEl = document.querySelector(selector);
+                if (!tableEl) return { found: false };
+                const rows = [];
+                let bodyTrs = tableEl.querySelector('tbody') ? tableEl.querySelectorAll('tbody tr') : tableEl.querySelectorAll('tr');
+                if (tableEl.querySelector('thead') && !tableEl.querySelector('tbody')) {
+                  bodyTrs = Array.from(bodyTrs).slice(1);
+                }
+                let count = 0;
+                for (const tr of bodyTrs) {
+                  if (count >= maxRows) break;
+                  const cells = Array.from(tr.querySelectorAll('td, th')).map(td => (td.textContent || '').trim());
+                  if (cells.length > 0) {
+                    rows.push(cells);
+                    count++;
+                  }
+                }
+                return { found: true, rowCount: rows.length, signature: rows[0] ? rows[0].join('|') : '' };
+              }, { selector: tableSelector, maxRows });
+
+          if (!pageData.found) break;
+          pages.push({
+            pageIndex: currentPage,
+            rowCount: pageData.rowCount,
+            firstRowSignature: pageData.signature
+          });
+          if (pageData.signature !== lastSignature) {
+            dataChangedAcrossPages = true;
+          }
+          lastSignature = pageData.signature;
+          lastRowCount = pageData.rowCount;
+          currentPage++;
+        } catch (e) {
+          break;
+        }
+      }
+
+      paginationResult = {
+        ok: true,
+        pagesTraversed: pages.length,
+        pages,
+        dataChangedAcrossPages,
+        passed: expectDataChanged ? dataChangedAcrossPages : true,
+        reason: expectDataChanged
+          ? (dataChangedAcrossPages ? `翻页 ${pages.length} 页，数据有变化` : `翻页 ${pages.length} 页，但数据未变化（可能数据不足或分页失效）`)
+          : `翻页 ${pages.length} 页`
+      };
+      assertions.push({
+        name: 'pagination',
+        passed: paginationResult.passed,
+        expected: expectDataChanged ? 'data_changed' : 'any',
+        actual: dataChangedAcrossPages ? 'data_changed' : 'data_unchanged',
+        reason: paginationResult.reason
+      });
+    }
+
+    // 5. 树形展开验证（仅 table 模式支持）
+    let expandResult = null;
+    if (args.expandRow !== undefined && mode === 'table') {
+      const rowIndex = args.expandRow;
+      const expandBtnSelector = `${tableSelector} tbody tr:nth-child(${rowIndex + 1}) .ant-table-row-expand-icon, ${tableSelector} tbody tr:nth-child(${rowIndex + 1}) [class*="expand-icon"], ${tableSelector} tbody tr:nth-child(${rowIndex + 1}) [class*="expand-btn"]`;
+      try {
+        const beforeCount = tableData.rowCount;
+        // 检查展开按钮是否存在
+        const btnExists = await target.evaluate((sel) => !!document.querySelector(sel), expandBtnSelector).catch(() => false);
+        if (!btnExists) {
+          expandResult = { ok: false, reason: `第 ${rowIndex} 行未找到展开按钮` };
+        } else {
+          // 点击展开按钮
+          await target.click(expandBtnSelector, { timeout: 5000 }).catch(() => {});
+          await new Promise(r => setTimeout(r, args.waitMs || 800));
+          // 重新提取表格数据
+          const afterExpand = await target.evaluate(({ selector, maxRows }) => {
+            const tableEl = document.querySelector(selector);
+            if (!tableEl) return { found: false };
+            const headers = [];
+            const headerCells = tableEl.querySelectorAll('thead th, thead td');
+            headerCells.forEach(th => headers.push((th.textContent || '').trim()));
+            const rows = [];
+            let bodyTrs = tableEl.querySelector('tbody') ? tableEl.querySelectorAll('tbody tr') : tableEl.querySelectorAll('tr');
+            if (tableEl.querySelector('thead') && !tableEl.querySelector('tbody')) {
+              bodyTrs = Array.from(bodyTrs).slice(1);
+            }
+            let count = 0;
+            for (const tr of bodyTrs) {
+              if (count >= maxRows) break;
+              const cells = Array.from(tr.querySelectorAll('td, th')).map(td => (td.textContent || '').trim());
+              if (cells.length > 0) { rows.push(cells); count++; }
+            }
+            return { found: true, rowCount: rows.length, rows: rows.slice(0, 5) };
+          }, { selector: tableSelector, maxRows: args.maxRows || 100 });
+
+          if (afterExpand.found) {
+            const afterCount = afterExpand.rowCount;
+            const childRowsAdded = afterCount - beforeCount;
+            const passed = childRowsAdded > 0;
+            expandResult = {
+              ok: true,
+              rowIndex,
+              beforeRowCount: beforeCount,
+              afterRowCount: afterCount,
+              childRowsAdded,
+              passed,
+              newRows: afterExpand.rows.slice(beforeCount),
+              reason: passed ? `展开第 ${rowIndex} 行，新增 ${childRowsAdded} 行子数据` : `展开第 ${rowIndex} 行，行数未变化（可能无子数据或展开失败）`
+            };
+            assertions.push({
+              name: `expandRow[${rowIndex}]`,
+              passed,
+              expected: 'row_count_increased',
+              actual: childRowsAdded > 0 ? `+${childRowsAdded} rows` : 'no_change',
+              reason: expandResult.reason
+            });
+          }
+        }
+      } catch (e) {
+        expandResult = { ok: false, reason: `展开操作失败: ${e.message}` };
+      }
+    }
+
+    // 6. 组装结果
+    const allPassed = assertions.length > 0 ? assertions.every(a => a.passed) : true;
+    const result = {
+      ok: true,
+      mode,
+      selector: tableSelector,
+      headers: tableData.headers,
+      rowCount: tableData.rowCount,
+      columnCount: tableData.columnCount,
+      rows: tableData.rows.slice(0, 20),
+      assertions,
+      allAssertionsPassed: allPassed,
+      timestamp: new Date().toISOString()
+    };
+    if (sortResult) result.sort = sortResult;
+    if (paginationResult) result.pagination = paginationResult;
+    if (expandResult) result.expand = expandResult;
+
+    result.nextSteps = allPassed ? [
+      '使用 browser_snapshot 查看页面整体结构',
+      '使用 browser_click_audit 验证表格相关的操作按钮'
+    ] : [
+      '使用 browser_snapshot 检查表格渲染是否正确',
+      '使用 browser_errors 检查表格数据加载是否产生错误'
+    ];
+    result.suggestions = allPassed ? [
+      { type: 'next', tool: 'browser_snapshot', reason: '查看页面整体结构' }
+    ] : [
+      { type: 'diagnose', tool: 'browser_errors', reason: '检查表格数据加载错误' }
+    ];
+    return text(JSON.stringify(redact(result), null, 2));
+  }
+
+  // ====== browser_api_intercept ======
+  if (name === 'browser_api_intercept') {
+const { target } = await ensurePage();
+    const urlPattern = args.urlPattern || '*';
+    const methodFilter = args.method ? args.method.toUpperCase() : null;
+    const interceptMode = args.mode || 'observe';
+    const waitMs = args.waitMs || 5000;
+    const captureCount = args.captureCount || 1;
+    const ignoreStatic = args.ignoreStatic !== false;
+
+    // 静态资源过滤
+    const staticExts = ['.js', '.css', '.png', '.jpg', '.jpeg', '.gif', '.svg', '.woff', '.woff2', '.ttf', '.ico', '.map', '.webp'];
+    const isStatic = (url) => {
+      if (!ignoreStatic) return false;
+      const u = (url || '').toLowerCase().split('?')[0].split('#')[0];
+      return staticExts.some(ext => u.endsWith(ext));
+    };
+
+    // URL 模式匹配（支持 glob 和字符串包含）
+    const matchesUrlPattern = (url) => {
+      if (!urlPattern || urlPattern === '*') return true;
+      // glob 模式：**/api/** → 转换为正则
+      if (urlPattern.includes('*')) {
+        try {
+          const regexStr = urlPattern
+            .replace(/\*\*/g, '.*')
+            .replace(/\*/g, '[^/]*')
+            .replace(/\?/g, '.');
+          return new RegExp(regexStr).test(url);
+        } catch (_) { /* fall through */ }
+      }
+      // 字符串包含匹配
+      return (url || '').includes(urlPattern);
+    };
+
+    const matchesMethod = (reqMethod) => {
+      if (!methodFilter) return true;
+      return (reqMethod || '').toUpperCase() === methodFilter;
+    };
+
+    const shouldCapture = (url, method) => {
+      return !isStatic(url) && matchesMethod(method) && matchesUrlPattern(url);
+    };
+
+    const captured = [];
+
+    // 安装响应监听器（observe 模式）
+    const onResponse = async (response) => {
+      try {
+        const request = response.request();
+        const url = request.url();
+        const method = request.method();
+        if (!shouldCapture(url, method)) return;
+
+        const body = await response.text().catch(() => '');
+        const capturedItem = {
+          url: url.slice(0, 300),
+          method: method,
+          requestHeaders: request.headers(),
+          requestPostData: request.postData() ? (request.postData().slice(0, 1000)) : null,
+          response: {
+            status: response.status(),
+            statusText: response.statusText(),
+            headers: response.headers(),
+            body: body.slice(0, 5000),
+            bodySize: body.length
+          },
+          timestamp: new Date().toISOString()
+        };
+        captured.push(capturedItem);
+      } catch (_) { /* ignore response capture error */ }
+    };
+
+    // mock 模式：安装 route 拦截器
+    let routeHandler = null;
+    if (interceptMode === 'mock') {
+      const mockResp = args.mockResponse || { status: 200, body: '{}' };
+      routeHandler = async (route) => {
+        const request = route.request();
+        const url = request.url();
+        const method = request.method();
+        if (!shouldCapture(url, method)) {
+          await route.continue();
+          return;
+        }
+        captured.push({
+          url: url.slice(0, 300),
+          method: method,
+          requestHeaders: request.headers(),
+          requestPostData: request.postData() ? request.postData().slice(0, 1000) : null,
+          mocked: true,
+          mockResponse: {
+            status: mockResp.status || 200,
+            body: (mockResp.body || '{}').slice(0, 500)
+          },
+          timestamp: new Date().toISOString()
+        });
+        await route.fulfill({
+          status: mockResp.status || 200,
+          headers: mockResp.headers || { 'Content-Type': 'application/json' },
+          body: mockResp.body || '{}'
+        });
+      };
+      try {
+        // 将 urlPattern 转换为 Playwright route 的 glob 模式
+        // '/posts' → '**/posts**'，确保匹配完整 URL
+        let routePattern = '**/*';
+        if (urlPattern !== '*') {
+          if (urlPattern.includes('*')) {
+            // 已含通配符，直接使用
+            routePattern = urlPattern;
+          } else {
+            // 字符串包含模式，转换为 glob
+            routePattern = `**${urlPattern}**`;
+          }
+        }
+        await target.route(routePattern, routeHandler);
+      } catch (e) {
+        return text(JSON.stringify({ ok: false, error: `安装 route 拦截器失败: ${e.message}` }, null, 2));
+      }
+    } else {
+      // observe 模式：监听 response 事件
+      target.on('response', onResponse);
+    }
+
+    // 触发动作（在监听器安装后、等待捕获前执行）
+    let triggerResult = null;
+    if (args.trigger && (args.trigger.click || args.trigger.eval)) {
+      const delayMs = args.trigger.delayMs !== undefined ? args.trigger.delayMs : 100;
+      if (delayMs > 0) {
+        await new Promise(r => setTimeout(r, delayMs));
+      }
+      try {
+        if (args.trigger.click) {
+          await target.click(args.trigger.click, { timeout: 3000 }).catch(e => {
+            triggerResult = { ok: false, action: 'click', selector: args.trigger.click, error: e.message };
+          });
+          if (!triggerResult) {
+            triggerResult = { ok: true, action: 'click', selector: args.trigger.click };
+          }
+        } else if (args.trigger.eval) {
+          const evalResult = await target.evaluate(args.trigger.eval).catch(e => {
+            triggerResult = { ok: false, action: 'eval', error: e.message };
+          });
+          if (!triggerResult) {
+            triggerResult = { ok: true, action: 'eval', result: typeof evalResult === 'object' ? JSON.stringify(evalResult).slice(0, 200) : String(evalResult).slice(0, 200) };
+          }
+        }
+      } catch (e) {
+        triggerResult = { ok: false, action: args.trigger.click ? 'click' : 'eval', error: e.message };
+      }
+    }
+
+    // 等待 captureCount 或 waitMs 超时
+    const startTime = Date.now();
+    while (captured.length < captureCount && (Date.now() - startTime) < waitMs) {
+      await new Promise(r => setTimeout(r, 200));
+    }
+
+    // 清理：移除监听器 / route
+    if (interceptMode === 'mock' && routeHandler) {
+      let cleanupPattern = '**/*';
+      if (urlPattern !== '*') {
+        if (urlPattern.includes('*')) {
+          cleanupPattern = urlPattern;
+        } else {
+          cleanupPattern = `**${urlPattern}**`;
+        }
+      }
+      try { await target.unroute(cleanupPattern, routeHandler); } catch (_) { /* ignore */ }
+    } else {
+      try { target.off('response', onResponse); } catch (_) { /* ignore */ }
+    }
+
+    // 进行断言
+    const assertions = [];
+    const matchedCount = captured.length;
+
+    // a) 捕获数量断言
+    if (matchedCount === 0) {
+      assertions.push({
+        name: 'captureCount',
+        passed: false,
+        expected: captureCount,
+        actual: 0,
+        reason: `等待 ${waitMs}ms 未捕获到匹配的请求（urlPattern: ${urlPattern}${methodFilter ? ', method: ' + methodFilter : ''}）`
+      });
+    } else if (matchedCount < captureCount) {
+      assertions.push({
+        name: 'captureCount',
+        passed: false,
+        expected: captureCount,
+        actual: matchedCount,
+        reason: `捕获数量不足，期望 ${captureCount}，实际 ${matchedCount}（等待 ${waitMs}ms）`
+      });
+    } else {
+      assertions.push({
+        name: 'captureCount',
+        passed: true,
+        expected: captureCount,
+        actual: matchedCount,
+        reason: `捕获数量满足: ${matchedCount}`
+      });
+    }
+
+    // b) 对每个捕获的请求进行断言（只对第一个请求进行详细断言）
+    if (captured.length > 0) {
+      const first = captured[0];
+
+      // mock 模式下，将 mockResponse 归一化为 response 以支持断言
+      if (!first.response && first.mockResponse) {
+        first.response = {
+          status: first.mockResponse.status || 200,
+          body: first.mockResponse.body || '',
+          headers: first.mockResponse.headers || {}
+        };
+      }
+
+      // 状态码断言
+      if (args.expectStatus !== undefined && first.response) {
+        const passed = first.response.status === args.expectStatus;
+        assertions.push({
+          name: 'expectStatus',
+          passed,
+          expected: args.expectStatus,
+          actual: first.response.status,
+          reason: passed ? `状态码匹配: ${first.response.status}` : `状态码不匹配，期望 ${args.expectStatus}，实际 ${first.response.status}`
+        });
+      }
+
+      // 响应体包含断言
+      if (args.expectBodyContains && first.response) {
+        const bodyStr = first.response.body || '';
+        const passed = bodyStr.includes(args.expectBodyContains);
+        assertions.push({
+          name: 'expectBodyContains',
+          passed,
+          expected: args.expectBodyContains,
+          actual: bodyStr.slice(0, 200),
+          reason: passed ? `响应体包含 "${args.expectBodyContains}"` : `响应体不包含 "${args.expectBodyContains}"`
+        });
+      }
+
+      // 响应体正则断言
+      if (args.expectBodyMatch && first.response) {
+        const bodyStr = first.response.body || '';
+        let passed = false;
+        try {
+          const regex = new RegExp(args.expectBodyMatch);
+          passed = regex.test(bodyStr);
+        } catch (_) { /* invalid regex */ }
+        assertions.push({
+          name: 'expectBodyMatch',
+          passed,
+          expected: args.expectBodyMatch,
+          reason: passed ? `响应体匹配正则 /${args.expectBodyMatch}/` : `响应体不匹配正则 /${args.expectBodyMatch}/`
+        });
+      }
+
+      // 响应头断言
+      if (args.expectHeaders && typeof args.expectHeaders === 'object' && first.response) {
+        const actualHeaders = first.response.headers || {};
+        for (const [hk, hv] of Object.entries(args.expectHeaders)) {
+          const actualVal = actualHeaders[hk.toLowerCase()] || actualHeaders[hk] || '';
+          const passed = String(actualVal).toLowerCase() === String(hv).toLowerCase();
+          assertions.push({
+            name: `expectHeaders[${hk}]`,
+            passed,
+            expected: hv,
+            actual: actualVal,
+            reason: passed ? `响应头 ${hk} 匹配: ${actualVal}` : `响应头 ${hk} 不匹配，期望 "${hv}"，实际 "${actualVal}"`
+          });
+        }
+      }
+
+      // 与外部预期值比对（数据一致性验证）
+      if (args.compareWith && first.response) {
+        if (args.compareWith.status !== undefined) {
+          const passed = first.response.status === args.compareWith.status;
+          assertions.push({
+            name: 'compareWith.status',
+            passed,
+            expected: args.compareWith.status,
+            actual: first.response.status,
+            reason: passed ? `状态码与预期一致: ${first.response.status}` : `状态码与预期不一致，预期 ${args.compareWith.status}，实际 ${first.response.status}`
+          });
+        }
+        if (args.compareWith.bodyContains) {
+          const bodyStr = first.response.body || '';
+          const passed = bodyStr.includes(args.compareWith.bodyContains);
+          assertions.push({
+            name: 'compareWith.bodyContains',
+            passed,
+            expected: args.compareWith.bodyContains,
+            reason: passed ? `响应体包含预期字符串` : `响应体不包含预期字符串 "${args.compareWith.bodyContains}"`
+          });
+        }
+        if (args.compareWith.bodyMatch) {
+          const bodyStr = first.response.body || '';
+          let passed = false;
+          try {
+            passed = new RegExp(args.compareWith.bodyMatch).test(bodyStr);
+          } catch (_) { /* invalid regex */ }
+          assertions.push({
+            name: 'compareWith.bodyMatch',
+            passed,
+            expected: args.compareWith.bodyMatch,
+            reason: passed ? `响应体匹配预期正则` : `响应体不匹配预期正则 /${args.compareWith.bodyMatch}/`
+          });
+        }
+      }
+    }
+
+    // 组装结果
+    const allPassed = assertions.length > 0 ? assertions.every(a => a.passed) : true;
+    const result = {
+      ok: true,
+      urlPattern,
+      method: methodFilter || 'ANY',
+      mode: interceptMode,
+      captured: captured.slice(0, 10),
+      matchedCount,
+      assertions,
+      allAssertionsPassed: allPassed,
+      trigger: triggerResult,
+      timestamp: new Date().toISOString()
+    };
+
+    result.nextSteps = allPassed && matchedCount > 0 ? [
+      '使用 browser_snapshot 确认页面状态',
+      '使用 browser_errors 检查其他错误'
+    ] : [
+      '使用 browser_snapshot 检查页面是否正确触发了 API 请求',
+      '使用 browser_click 手动触发请求后再调用 browser_api_intercept'
+    ];
+    result.suggestions = allPassed && matchedCount > 0 ? [
+      { type: 'next', tool: 'browser_snapshot', reason: '查看页面整体状态' }
+    ] : [
+      { type: 'diagnose', tool: 'browser_network', reason: '查看完整网络请求日志，定位未匹配的请求' }
+    ];
+    return text(JSON.stringify(redact(result), null, 2));
   }
 
   return mcpError(`未知工具（browser）: ${name}`, { error: 'UNKNOWN_TOOL', toolName: name });

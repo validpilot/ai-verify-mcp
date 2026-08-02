@@ -37,74 +37,22 @@ const toolNames = buildToolNames();
 // browser_sessions
 // ============================================================
 
-describe('browser_sessions', () => {
-  test('schema 文件存在且 JSON 合法', () => {
-    const filePath = path.join(TOOLS_DIR, 'browser_sessions.json');
-    assert.ok(fs.existsSync(filePath));
-    const schema = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    assert.equal(schema.name, 'browser_sessions');
-    assert.ok(schema.description);
-    assert.ok(schema.inputSchema);
-  });
-
-  test('toolNames 中包含 browser_sessions（已注册到 MCP）', () => {
-    assert.ok(toolNames.has('browser_sessions'), '工具 browser_sessions 应在 toolNames 中');
-  });
-});
+// v1.10.0: browser_sessions 已移除（别名 → browser_session mode=list）
 
 // ============================================================
 // browser_session_create
 // ============================================================
 
-describe('browser_session_create', () => {
-  test('schema 文件存在且 JSON 合法', () => {
-    const filePath = path.join(TOOLS_DIR, 'browser_session_create.json');
-    assert.ok(fs.existsSync(filePath));
-    const schema = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    assert.equal(schema.name, 'browser_session_create');
-    assert.ok(schema.description);
-    assert.ok(schema.inputSchema);
-  });
-
-  test('toolNames 中包含 browser_session_create（已注册到 MCP）', () => {
-    assert.ok(toolNames.has('browser_session_create'), '工具 browser_session_create 应在 toolNames 中');
-  });
-});
+// v1.10.0: browser_session_create 已移除（别名 → browser_session mode=create）
 
 // ============================================================
 // browser_session_switch
 // ============================================================
 
-describe('browser_session_switch', () => {
-  test('schema 文件存在且 JSON 合法', () => {
-    const filePath = path.join(TOOLS_DIR, 'browser_session_switch.json');
-    assert.ok(fs.existsSync(filePath));
-    const schema = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    assert.equal(schema.name, 'browser_session_switch');
-    assert.ok(schema.description);
-    assert.ok(schema.inputSchema);
-  });
-
-  test('toolNames 中包含 browser_session_switch（已注册到 MCP）', () => {
-    assert.ok(toolNames.has('browser_session_switch'), '工具 browser_session_switch 应在 toolNames 中');
-  });
-});
+// v1.10.0: browser_session_switch 已移除（别名 → browser_session mode=switch）
 
 // ============================================================
 // browser_session_close
 // ============================================================
 
-describe('browser_session_close', () => {
-  test('schema 文件存在且 JSON 合法', () => {
-    const filePath = path.join(TOOLS_DIR, 'browser_session_close.json');
-    assert.ok(fs.existsSync(filePath));
-    const schema = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    assert.equal(schema.name, 'browser_session_close');
-    assert.ok(schema.description);
-    assert.ok(schema.inputSchema);
-  });
-
-  test('toolNames 中包含 browser_session_close（已注册到 MCP）', () => {
-    assert.ok(toolNames.has('browser_session_close'), '工具 browser_session_close 应在 toolNames 中');
-  });
-});
+// v1.10.0: browser_session_close 已移除（别名 → browser_session mode=close）

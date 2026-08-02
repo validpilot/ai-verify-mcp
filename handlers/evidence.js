@@ -9,7 +9,6 @@ const path = require('path');
 
 const tools = [
   "browser_screenshot",
-  "browser_screenshot_element",
   "browser_artifacts",
   "browser_artifacts_clear",
   "browser_har_export",
@@ -17,8 +16,6 @@ const tools = [
   "browser_trace_start",
   "browser_trace_stop",
   "evidence",
-  "evidence_pack",
-  "evidence_index",
   "trace_correlate"
 ];
 
@@ -189,7 +186,7 @@ async function buildEvidencePack(target, args = {}, ctx = {}) {
 
 function buildEvidenceIndex(args = {}, REPORT_DIR = '.') {
   if (!fs.existsSync(REPORT_DIR)) {
-    return { tool: 'evidence_index', runId: args.runId || null, timeline: [], totalPacks: 0, message: 'reports 目录不存在' };
+    return { tool: 'evidence', runId: args.runId || null, timeline: [], totalPacks: 0, message: 'reports 目录不存在' };
   }
   const files = fs.readdirSync(REPORT_DIR).filter(f => f.endsWith('.evidence.json'));
   const packs = [];
@@ -223,7 +220,7 @@ function buildEvidenceIndex(args = {}, REPORT_DIR = '.') {
   const allTraceIds = [...new Set(packs.flatMap(p => p.traceIds.length > 0 ? p.traceIds : (p.traceId ? [p.traceId] : [])))];
   const totalErrors = packs.reduce((sum, p) => sum + (p.errorCount || 0), 0);
   return {
-    tool: 'evidence_index',
+    tool: 'evidence',
     runId: args.runId || null,
     timeline: packs,
     totalPacks: packs.length,
@@ -363,7 +360,7 @@ async function handle(name, args, deps) {
   if (name === 'browser_screenshot') {
     const mode = args.mode || 'page';
 
-    // v1.9.5 起合并 browser_screenshot_element（mode=element）
+    // v1.9.5 起合并 browser_screenshot（mode=element）
     if (mode === 'element') {
       return handle('browser_screenshot_element', args, deps);
     }
@@ -404,54 +401,71 @@ async function handle(name, args, deps) {
       const viewportWidth = window.innerWidth;
       const viewportHeight = window.innerHeight;
       const viewportArea = viewportWidth * viewportHeight;
-      
+
       const elements = document.querySelectorAll('body *');
       elements.forEach(el => {
         const style = window.getComputedStyle(el);
         if (!style || style.display === 'none' || style.visibility === 'hidden') return;
-        
+
         const rect = el.getBoundingClientRect();
         if (!rect || rect.width === 0 || rect.height === 0) return;
-        
+
         const zIndex = parseInt(style.zIndex) || 0;
         const position = style.position;
         const opacity = parseFloat(style.opacity) || 1;
-        
+
+        const className = typeof el.className === 'string' ? el.className : '';
+        const id = typeof el.id === 'string' ? el.id : '';
+        const tagName = el.tagName.toLowerCase();
+
+        // 不检测 body、html 自身
+        if (tagName === 'body' || tagName === 'html') return;
+
+        // SPA 根节点感知：跳过常见 SPA 框架的根容器
+        const spaRootIds = ['app', 'root', '__next', '__nuxt', '__vue'];
+        const isSpaRoot = (id && spaRootIds.includes(id)) ||
+          (tagName === 'div' && position === 'static' && zIndex === 0 &&
+           rect.top <= 5 && rect.left <= 5 &&
+           rect.width >= viewportWidth * 0.95 &&
+           el.parentElement === document.body);
+        if (isSpaRoot) return;
+
         const viewportOverlapWidth = Math.max(0, Math.min(rect.right, viewportWidth) - Math.max(rect.left, 0));
         const viewportOverlapHeight = Math.max(0, Math.min(rect.bottom, viewportHeight) - Math.max(rect.top, 0));
         const overlapArea = viewportOverlapWidth * viewportOverlapHeight;
         const coveragePercent = Math.round((overlapArea / viewportArea) * 100);
-        
+
+        if (coveragePercent < 5) return;
+
         let isOverlay = false;
         let overlayType = 'unknown';
-        
+
         if (zIndex >= 1000) { isOverlay = true; overlayType = 'high-zindex'; }
         if (position === 'fixed' && coveragePercent >= 10) { isOverlay = true; overlayType = 'fixed-overlay'; }
         if (position === 'absolute' && zIndex > 0 && coveragePercent >= 20) { isOverlay = true; overlayType = 'absolute-overlay'; }
         if (opacity < 1 && opacity > 0.3 && coveragePercent >= 30) { isOverlay = true; overlayType = 'semi-transparent-mask'; }
-        
-        const className = typeof el.className === 'string' ? el.className : '';
-        const id = typeof el.id === 'string' ? el.id : '';
-        
+
         const classLower = className.toLowerCase();
-        if (classLower.includes('cookie') || classLower.includes('banner') || 
+        if (classLower.includes('cookie') || classLower.includes('banner') ||
             classLower.includes('consent') || classLower.includes('modal') ||
             classLower.includes('popup') || classLower.includes('dialog') ||
             classLower.includes('overlay')) {
           isOverlay = true;
           overlayType = 'detected-by-class';
         }
-        
-        if ((el.tagName === 'DIV' || el.tagName === 'SPAN') && 
-            rect.width >= viewportWidth * 0.8 && 
-            rect.height >= viewportHeight * 0.5) {
+
+        // 全屏覆盖 — 必须非 static 定位且有 z-index，排除正常布局容器
+        if ((tagName === 'div' || tagName === 'span' || tagName === 'section' || tagName === 'aside') &&
+            rect.width >= viewportWidth * 0.8 &&
+            rect.height >= viewportHeight * 0.5 &&
+            zIndex >= 100 && position !== 'static') {
           isOverlay = true;
           overlayType = 'fullscreen-overlay';
         }
-        
+
         if (isOverlay) {
           results.push({
-            tagName: el.tagName.toLowerCase(),
+            tagName,
             className: className.slice(0, 100),
             id: id.slice(0, 50),
             rect: { x: Math.round(rect.x), y: Math.round(rect.y), width: Math.round(rect.width), height: Math.round(rect.height) },
@@ -464,14 +478,15 @@ async function handle(name, args, deps) {
           });
         }
       });
-      
+
       return results.sort((a, b) => b.coveragePercent - a.coveragePercent);
     });
-    
-    const hasBlockingOverlay = overlayAnalysis.some(o => 
-      o.coveragePercent >= 50 || 
-      o.overlayType === 'fullscreen-overlay' || 
-      o.overlayType === 'semi-transparent-mask'
+
+    const hasBlockingOverlay = overlayAnalysis.some(o =>
+      (o.coveragePercent >= 50 ||
+      o.overlayType === 'fullscreen-overlay' ||
+      o.overlayType === 'semi-transparent-mask') &&
+      (o.position !== 'static' || o.zIndex > 0)
     );
     const totalCoverage = overlayAnalysis.reduce((sum, o) => sum + o.coveragePercent, 0);
     
@@ -500,22 +515,21 @@ async function handle(name, args, deps) {
         overlays: overlayAnalysis.slice(0, 5)
       },
       nextSteps: hasBlockingOverlay ? [
-        '调用 browser_overlay_dismiss 尝试自动关闭遮挡物',
+        '调用 browser_overlay { mode: \'dismiss\' } 尝试自动关闭遮挡物',
         '调用 browser_click 手动点击关闭按钮',
         '重新调用 browser_screenshot 获取无遮挡截图',
-        '调用 browser_overlay_detect 详细分析遮挡物'
+        '调用 browser_overlay { mode: \'detect\' } 详细分析遮挡物'
       ] : [
-        '调用 screenshot_diff 进行视觉回归对比',
+        '调用 browser_visual { mode: \'diff\' } 进行视觉回归对比',
         '调用 browser_assert 验证截图中的关键元素',
-        '调用 evidence_pack 打包所有证据',
-        '调用 browser_visual_compare 与设计稿对比'
+        '调用 evidence { mode: \'pack\' } 打包所有证据',
+        '调用 browser_visual { mode: \'compare\' } 与设计稿对比'
       ],
       suggestions: [
-        { type: hasBlockingOverlay ? 'fix' : 'next', tool: 'browser_overlay_dismiss', reason: hasBlockingOverlay ? '尝试自动关闭遮挡物' : '继续正常流程' },
-        { type: 'next', tool: 'evidence_pack', reason: '打包截图和其他证据生成报告' },
-        { type: 'next', tool: hasBlockingOverlay ? 'browser_overlay_detect' : 'screenshot_diff', reason: hasBlockingOverlay ? '详细分析遮挡物' : '与之前截图对比' }
-      ],
-      paidUpgradeHint: '需要自动检测并移除所有遮挡物、生成无遮挡测试环境？升级到 Pro 版本获取完整遮挡物处理能力。'
+        { type: hasBlockingOverlay ? 'fix' : 'next', tool: 'browser_overlay', reason: hasBlockingOverlay ? '尝试自动关闭遮挡物' : '继续正常流程' },
+        { type: 'next', tool: 'evidence', reason: '打包截图和其他证据生成报告' },
+        { type: 'next', tool: hasBlockingOverlay ? 'browser_overlay' : 'browser_visual', reason: hasBlockingOverlay ? '详细分析遮挡物' : '与之前截图对比' }
+      ]
     };
     
     let response = `📸 截图成功：${filePath}\n\n`;
@@ -532,7 +546,7 @@ async function handle(name, args, deps) {
       overlayAnalysis.slice(0, 5).forEach((o, i) => {
         response += `   ${i + 1}. [${o.overlayType}] ${o.tagName}.${o.className.split(' ')[0]} | 覆盖率: ${o.coveragePercent}%\n`;
       });
-      response += `\n   🚀 建议：先调用 browser_overlay_dismiss 关闭遮挡物，再重新截图\n`;
+      response += `\n   🚀 建议：先调用 browser_overlay { mode: 'dismiss' } 关闭遮挡物，再重新截图\n`;
     }
     
     if (analysis.hasErrors) {
@@ -544,19 +558,19 @@ async function handle(name, args, deps) {
     
     response += `\n🚀 下一步建议：\n`;
     if (hasBlockingOverlay) {
-      response += `   1. browser_overlay_dismiss → 尝试自动关闭遮挡物\n`;
+      response += `   1. browser_overlay { mode: 'dismiss' } → 尝试自动关闭遮挡物\n`;
       response += `   2. browser_click → 手动点击关闭按钮\n`;
       response += `   3. browser_screenshot → 重新截图\n`;
     } else {
-      response += `   1. screenshot_diff → 视觉回归对比\n`;
-      response += `   2. evidence_pack → 打包证据\n`;
-      response += `   3. browser_visual_compare → 与设计稿对比\n`;
+      response += `   1. browser_visual { mode: 'diff' } → 视觉回归对比\n`;
+      response += `   2. evidence { mode: 'pack' } → 打包证据\n`;
+      response += `   3. browser_visual { mode: 'compare' } → 与设计稿对比\n`;
     }
     
     return text(JSON.stringify(resultData, null, 2));
   }
 
-  // ====== browser_screenshot_element ======
+  // ====== browser_screenshot mode=element ======
   if (name === 'browser_screenshot_element') {
 const { target } = await ensurePage();
     ensureArtifactsDir();
@@ -597,13 +611,12 @@ const { target } = await ensurePage();
         padding,
         nextSteps: [
           '调用 browser_screenshot 进行全页截图对比',
-          '调用 browser_visual_compare 对截图进行视觉比对'
+          '调用 browser_visual { mode: \'compare\' } 对截图进行视觉比对'
         ],
         suggestions: [
           { type: 'next', tool: 'browser_screenshot', reason: '全页截图对比整体页面布局' },
-          { type: 'next', tool: 'browser_visual_compare', reason: '与基线截图进行视觉比对' }
-        ],
-        paidUpgradeHint: '需要更强大的视觉比对能力？升级到 Pro 版本获取 AI 驱动的视觉回归分析。'
+          { type: 'next', tool: 'browser_visual', reason: '与基线截图进行视觉比对' }
+        ]
       }, null, 2));
     } catch (e) {
       return mcpError(`元素截图失败: ${e.message}`, { error: 'SCREENSHOT_FAILED', reason: `元素截图过程中发生错误: ${e.message}`, suggestion: '请检查元素是否在可视区域内，或使用 browser_screenshot 截取全屏截图', toolName: name });
@@ -617,14 +630,13 @@ const { target } = await ensurePage();
       artifacts,
       total: Array.isArray(artifacts) ? artifacts.length : 0,
       nextSteps: [
-        '调用 evidence_pack 打包工件为结构化证据包',
+        '调用 evidence { mode: \'pack\' } 打包工件为结构化证据包',
         '调用 browser_screenshot 补充页面截图作为视觉证据'
       ],
       suggestions: [
-        { type: 'next', tool: 'evidence_pack', reason: '打包所有工件为结构化证据包' },
+        { type: 'next', tool: 'evidence', reason: '打包所有工件为结构化证据包' },
         { type: 'next', tool: 'browser_screenshot', reason: '补充页面截图作为视觉证据' }
-      ],
-      paidUpgradeHint: '需要自动化的完整证据链管理？升级到 Pro 版本获取智能证据编排与自动归档能力。'
+      ]
     };
     return text(JSON.stringify(result, null, 2));
   }
@@ -641,8 +653,7 @@ const { target } = await ensurePage();
       suggestions: [
         { type: 'next', tool: 'browser_screenshot', reason: '清理后重新截图捕获最新页面状态' },
         { type: 'next', tool: 'browser_artifacts', reason: '确认清理结果并查看现有工件' }
-      ],
-      paidUpgradeHint: '需要自动化的证据生命周期管理？升级到 Pro 版本获取智能自动清理与归档策略。'
+      ]
     };
     return text(JSON.stringify(enhancedResult, null, 2));
   }
@@ -654,13 +665,12 @@ const { target } = await ensurePage();
       ...(typeof result === 'object' && result !== null ? result : { result }),
       nextSteps: [
         '调用 browser_network 分析导出的网络请求详情',
-        '调用 browser_performance_check 基于 HAR 数据进行性能分析'
+        '调用 browser_performance { mode: \'check\' } 基于 HAR 数据进行性能分析'
       ],
       suggestions: [
         { type: 'next', tool: 'browser_network', reason: '分析网络请求详情和请求链路' },
-        { type: 'next', tool: 'browser_performance_check', reason: '基于 HAR 数据进行页面性能分析' }
-      ],
-      paidUpgradeHint: '需要深入的网络性能分析？升级到 Pro 版本获取自动化性能瓶颈诊断与优化建议。'
+        { type: 'next', tool: 'browser_performance', reason: '基于 HAR 数据进行页面性能分析' }
+      ]
     };
     return text(JSON.stringify(enhancedResult, null, 2));
   }
@@ -678,8 +688,7 @@ const { target } = await ensurePage();
       suggestions: [
         { type: 'next', tool: 'browser_errors', reason: '检查步骤执行中产生的错误' },
         { type: 'next', tool: 'browser_snapshot', reason: '查看步骤执行后的页面状态快照' }
-      ],
-      paidUpgradeHint: '需要智能化的步骤录制与回放？升级到 Pro 版本获取 AI 驱动的智能步骤录制和自动修复。'
+      ]
     };
     return text(JSON.stringify(enhancedResult, null, 2));
   }
@@ -697,8 +706,7 @@ const { target } = await ensurePage(args);
       suggestions: [
         { type: 'next', tool: 'browser_trace_stop', reason: '完成操作后停止追踪以收集数据' },
         { type: 'next', tool: 'trace_correlate', reason: '对采集的追踪数据进行关联分析' }
-      ],
-      paidUpgradeHint: '需要端到端的分布式追踪能力？升级到 Pro 版本获取全链路追踪与自动关联分析。'
+      ]
     };
     return text(JSON.stringify(enhancedResult, null, 2));
   }
@@ -711,19 +719,18 @@ const { target } = await ensurePage(args);
       ...(typeof result === 'object' && result !== null ? result : { result }),
       nextSteps: [
         '调用 trace_correlate 对追踪数据进行前后端关联分析',
-        '调用 browser_performance_check 基于追踪数据进行性能检查'
+        '调用 browser_performance { mode: \'check\' } 基于追踪数据进行性能检查'
       ],
       suggestions: [
         { type: 'next', tool: 'trace_correlate', reason: '对追踪数据进行前后端关联分析' },
-        { type: 'next', tool: 'browser_performance_check', reason: '基于追踪数据分析页面性能' }
-      ],
-      paidUpgradeHint: '需要更深度的分布式追踪能力？升级到 Pro 版本获取全链路追踪、服务地图和自动根因分析。'
+        { type: 'next', tool: 'browser_performance', reason: '基于追踪数据分析页面性能' }
+      ]
     };
     return text(JSON.stringify(enhancedResult, null, 2));
   }
 
   // ====== evidence ======
-  // v1.9.5 起合并 evidence_pack/evidence_index
+  // v1.9.5 起合并 evidence mode=pack/evidence mode=index
   if (name === 'evidence') {
     const mode = args.mode || 'pack';
     if (mode === 'pack') {
@@ -735,7 +742,7 @@ const { target } = await ensurePage(args);
     return mcpParamMissing('mode', name);
   }
 
-  // ====== evidence_pack ======
+  // ====== evidence mode=pack ======
   if (name === 'evidence_pack') {
 const { target } = await ensurePage(args);
     const result = await buildEvidencePack(target, args, { ensureArtifactsDir, captureStepEvidence, exportHar, filterNetwork, getUnifiedErrors, redact, getArtifacts, REPORT_DIR, consoleLogs, networkLogs, pageErrors });
@@ -743,52 +750,49 @@ const { target } = await ensurePage(args);
       ...(typeof result === 'object' && result !== null ? result : { result }),
       nextSteps: [
         '调用 trace_correlate 关联追踪数据进行端到端分析',
-        '调用 evidence_index 索引管理所有证据包'
+        '调用 evidence { mode: \'index\' } 索引管理所有证据包'
       ],
       suggestions: [
         { type: 'next', tool: 'trace_correlate', reason: '关联追踪数据进行端到端分析' },
-        { type: 'next', tool: 'evidence_index', reason: '索引管理所有证据包便于检索' }
-      ],
-      paidUpgradeHint: '需要更强大的证据管理能力？升级到 Pro 版本获取智能证据链分析、自动差异比对和报告生成。'
+        { type: 'next', tool: 'evidence', reason: '索引管理所有证据包便于检索' }
+      ]
     };
     return text(JSON.stringify(enhancedResult, null, 2));
   }
 
-  // ====== evidence_index ======
+  // ====== evidence mode=index ======
   if (name === 'evidence_index') {
     const result = buildEvidenceIndex(args, REPORT_DIR);
     const enhancedResult = {
       ...(typeof result === 'object' && result !== null ? result : { result }),
       nextSteps: [
-        '调用 evidence_pack 创建新的证据包补充证据链',
+        '调用 evidence { mode: \'pack\' } 创建新的证据包补充证据链',
         '调用 trace_correlate 对索引中的追踪 ID 进行关联分析'
       ],
       suggestions: [
-        { type: 'next', tool: 'evidence_pack', reason: '创建新的证据包补充完整证据链' },
+        { type: 'next', tool: 'evidence', reason: '创建新的证据包补充完整证据链' },
         { type: 'next', tool: 'trace_correlate', reason: '对索引中的追踪 ID 进行前后端关联分析' }
-      ],
-      paidUpgradeHint: '需要完整的关联分析能力？升级到 Pro 版本获取跨证据包的智能关联分析、趋势检测和自动化报告。'
+      ]
     };
     return text(JSON.stringify(enhancedResult, null, 2));
   }
 
   // ====== trace_correlate ======
-  // v1.9.5 起合并 browser_trace_chain（mode=chain）和 trace_correlation_check（mode=check）
+  // v1.9.5 起合并 trace_correlate（mode=chain）和 trace_correlate（mode=check）
   if (name === 'trace_correlate') {
     const mode = args.mode || 'view';
 
-    // mode=chain：等价于已废弃的 browser_trace_chain
+    // mode=chain：等价于已废弃的 trace_correlate mode=chain
     if (mode === 'chain') {
       const _traceResult = buildTraceChain(args);
       return text(JSON.stringify({
         mode: 'chain',
         ..._traceResult,
-        nextSteps: ['使用 trace_correlate(mode=view) 关联分析', '使用 evidence_pack 打包证据'],
-        paidUpgradeHint: '需要全链路追踪、跨服务关联分析、性能瓶颈自动定位？升级到 Pro 版本获取完整追踪能力。'
+        nextSteps: ['使用 trace_correlate(mode=view) 关联分析', '使用 evidence { mode: \'pack\' } 打包证据']
       }, null, 2));
     }
 
-    // mode=check：等价于已废弃的 trace_correlation_check
+    // mode=check：等价于已废弃的 trace_correlate mode=check
     if (mode === 'check') {
       const checkResult = await runTraceCorrelationCheck(args, {
         currentCheckpoint, filterNetwork, networkLogs, fetchBackendLogs, findTraceId
@@ -798,9 +802,8 @@ const { target } = await ensurePage(args);
         ...checkResult,
         nextSteps: [
           '调用 trace_correlate(mode=view) 对特定 traceId 做深度关联',
-          '调用 evidence_pack 基于关联结果打包完整证据链'
-        ],
-        paidUpgradeHint: '需要端到端的全链路关联分析？升级到 Pro 版本获取全链路追踪、服务拓扑映射和自动根因定位。'
+          '调用 evidence { mode: \'pack\' } 基于关联结果打包完整证据链'
+        ]
       }, null, 2));
     }
 
@@ -810,14 +813,13 @@ const { target } = await ensurePage(args);
       mode: 'view',
       ...(typeof result === 'object' && result !== null ? result : { result }),
       nextSteps: [
-        '调用 evidence_pack 基于关联结果打包完整证据链',
-        '调用 evidence_index 更新证据索引以包含关联分析结果'
+        '调用 evidence { mode: \'pack\' } 基于关联结果打包完整证据链',
+        '调用 evidence { mode: \'index\' } 更新证据索引以包含关联分析结果'
       ],
       suggestions: [
-        { type: 'next', tool: 'evidence_pack', reason: '基于关联结果打包完整证据链' },
-        { type: 'next', tool: 'evidence_index', reason: '更新证据索引以包含关联分析结果' }
-      ],
-      paidUpgradeHint: '需要端到端的全链路关联分析？升级到 Pro 版本获取全链路追踪、服务拓扑映射和自动根因定位。'
+        { type: 'next', tool: 'evidence', reason: '基于关联结果打包完整证据链' },
+        { type: 'next', tool: 'evidence', reason: '更新证据索引以包含关联分析结果' }
+      ]
     };
     return text(JSON.stringify(enhancedResult, null, 2));
   }

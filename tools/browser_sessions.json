@@ -1,8 +1,0 @@
-{
-  "name": "browser_sessions",
-  "description": "List all current browser sessions with their active state, current URL, creation time, last-used time, and trace status.\n\n中文详情：\n- 用途：列出当前所有浏览器会话，显示活跃状态、URL、创建时间、最后使用时间和 trace 录制状态\n- 何时使用：多会话测试前查看会话清单时；确认会话是否仍活跃时；排查 trace 录制状态时；调试并发会话问题时\n- 输出：{ ok: boolean, sessions: array, total: number } — 每项含 { name, active, url, createdAt, lastUsedAt, traceEnabled }\n- 参数：无\n- 错误：无活跃会话时返回空数组但 ok=true\n- 示例：{}",
-  "inputSchema": {
-    "type": "object",
-    "properties": {}
-  }
-}

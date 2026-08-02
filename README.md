@@ -8,7 +8,7 @@
 [![npm downloads](https://img.shields.io/npm/dm/@validpilot/ai-verify-mcp.svg?style=flat-square)](https://www.npmjs.com/package/@validpilot/ai-verify-mcp)
 [![CI](https://img.shields.io/github/actions/workflow/status/validpilot/ai-verify-mcp/ci.yml?style=flat-square&label=CI)](https://github.com/validpilot/ai-verify-mcp/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](LICENSE)
-[![MCP Protocol](https://img.shields.io/badge/MCP-154%20tools-brightgreen.svg?style=flat-square)](https://modelcontextprotocol.io/)
+[![MCP Protocol](https://img.shields.io/badge/MCP-93%20tools-brightgreen.svg?style=flat-square)](https://modelcontextprotocol.io/)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D18-green.svg?style=flat-square)](https://nodejs.org/)
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg?style=flat-square)](CODE_OF_CONDUCT.md)
 [![English](https://img.shields.io/badge/English-blue?style=flat-square)](README.en.md)
@@ -437,10 +437,10 @@ browser_captcha({ mode: 'screenshot' })
 
 ### 迁移建议
 
-1. **无需立即迁移**：v1.9.5 ~ v1.10.0 期间，所有旧工具名通过 `TOOL_ALIASES` 继续可用
-2. **推荐使用新主工具**：新代码建议使用主工具 + `mode` 参数，工具列表更简洁
-3. **v1.10.0 将移除别名**：计划在 v1.10.0 移除 `TOOL_ALIASES`，届时旧工具名不再可用
-4. **IDE 工具列表缓存**：新增主工具可能需要重启 IDE 才能在自动补全中显示（别名工具立即可用）
+1. **v1.10.0 已移除别名**：自 v1.10.0 起，`TOOL_ALIASES` 正式移除，旧工具名不再可用，必须使用主工具 + `mode` 参数
+2. **升级前必做**：从 v1.9.5 升级到 v1.10.0 前，请按上方映射表将代码中所有旧工具名调用替换为主工具 + `mode` 参数
+3. **推荐使用新主工具**：新代码直接使用主工具 + `mode` 参数，工具列表更简洁
+4. **IDE 工具列表缓存**：升级后需重启 IDE 才能在自动补全中显示新的 93 个主工具列表
 
 ---
 

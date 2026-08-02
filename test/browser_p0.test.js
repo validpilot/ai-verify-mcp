@@ -34,38 +34,7 @@ function buildToolNames() {
 
 const toolNames = buildToolNames();
 
-// ============================================================
-// browser_diagnose
-// ============================================================
-
-describe('browser_diagnose', () => {
-  test('schema 文件存在且 JSON 合法', () => {
-    const filePath = path.join(TOOLS_DIR, 'browser_diagnose.json');
-    assert.ok(fs.existsSync(filePath));
-    const schema = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    assert.equal(schema.name, 'browser_diagnose');
-    assert.ok(schema.description);
-    assert.ok(schema.inputSchema);
-    assert.ok(schema.inputSchema.properties);
-  });
-
-  test('schema 包含 selector/errorType/includeStackTrace 参数', () => {
-    const schema = JSON.parse(fs.readFileSync(path.join(TOOLS_DIR, 'browser_diagnose.json'), 'utf8'));
-    const props = schema.inputSchema.properties;
-    assert.ok(props.selector);
-    assert.equal(props.selector.type, 'string');
-    assert.ok(props.errorType);
-    assert.equal(props.errorType.type, 'string');
-    assert.ok(props.errorType.enum);
-    assert.deepEqual(props.errorType.enum, ['all', 'js', 'network', 'element', 'interaction']);
-    assert.ok(props.includeStackTrace);
-    assert.equal(props.includeStackTrace.type, 'boolean');
-  });
-
-  test('toolNames 中包含 browser_diagnose（已注册到 MCP）', () => {
-    assert.ok(toolNames.has('browser_diagnose'), '工具 browser_diagnose 应在 toolNames 中');
-  });
-});
+// v1.10.0: browser_diagnose 已移除（别名 → browser_debug mode=diagnose）
 
 // ============================================================
 // browser_element_status

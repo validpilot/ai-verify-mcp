@@ -1,0 +1,35 @@
+{
+  "name": "backend_docker_exec",
+  "description": "通过 SSH 在目标服务器上执行 Docker 命令。需开发者预先配置 SSH 环境变量授权。支持 ps/logs/inspect/stats/images/compose 等命令。不消耗 Credits，属基础设施工具。\n\n中文详情：\n- 用途：在远程服务器上执行 Docker 命令，用于管理容器、查看日志、监控资源等\n- 何时使用：需要查看容器列表时；需要查看容器日志时；需要检查容器资源占用时；需要管理 Docker Compose 时\n- 输出：{ success, code, stdout, stderr, environment, auditWarning }\n- 参数：\n  - command (string, 必填)：要执行的 Docker 命令，如 'ps', 'logs -n 50 my-container', 'inspect my-container', 'stats --no-stream', 'compose ps', 'images'\n  - host (string, 可选)：目标主机地址（默认使用 SSH 环境变量）\n  - container (string, 可选)：容器名称或 ID（留空则作用于所有容器）\n  - timeout (integer, 可选)：命令超时时间（毫秒），默认 30000\n- 安全：内置红线/黄线命令拦截，docker rm/rmi/volume rm 在非 DEV 环境需审批",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "host": {
+        "type": "string",
+        "description": "目标主机地址（默认使用 SSH 环境变量）"
+      },
+      "container": {
+        "type": "string",
+        "description": "容器名称或 ID（可选，留空则作用于所有容器）"
+      },
+      "command": {
+        "type": "string",
+        "description": "要执行的 Docker 命令，如 'ps', 'logs -n 50 my-container', 'inspect my-container', 'stats --no-stream', 'compose ps', 'images'",
+        "examples": [
+          "ps",
+          "logs -n 50 my-container",
+          "inspect my-container",
+          "stats --no-stream",
+          "compose ps",
+          "images"
+        ]
+      },
+      "timeout": {
+        "type": "integer",
+        "description": "命令超时时间（毫秒）",
+        "default": 30000
+      }
+    },
+    "required": ["command"]
+  }
+}

@@ -150,31 +150,6 @@ describe('validation_report', () => {
 });
 
 // ============================================================
-// validation_report_export
-// ============================================================
-
-describe('validation_report_export', () => {
-  test('schema 文件存在且 JSON 合法', () => {
-    const filePath = path.join(TOOLS_DIR, 'validation_report_export.json');
-    assert.ok(fs.existsSync(filePath));
-    const schema = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    assert.equal(schema.name, 'validation_report_export');
-    assert.ok(schema.description);
-    assert.ok(schema.inputSchema);
-  });
-
-  test('schema 无入参（inputSchema properties 为空对象）', () => {
-    const schema = JSON.parse(fs.readFileSync(path.join(TOOLS_DIR, 'validation_report_export.json'), 'utf8'));
-    const props = schema.inputSchema.properties;
-    assert.deepEqual(props, {});
-  });
-
-  test('toolNames 中包含 validation_report_export（已注册到 MCP）', () => {
-    assert.ok(toolNames.has('validation_report_export'), '工具 validation_report_export 应在 toolNames 中');
-  });
-});
-
-// ============================================================
 // validation_matrix（占位工具，仅验证注册）
 // ============================================================
 

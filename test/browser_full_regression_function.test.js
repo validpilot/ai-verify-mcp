@@ -113,7 +113,6 @@ describe('browser_full_regression handler 功能', () => {
   test('browser_full_regression 与其他 system 工具共存', () => {
     const system = require('../handlers/system');
     assert.ok(system.tools.length > 1, 'system handler 应有多个工具');
-    assert.ok(system.tools.includes('mcp_health_check'), 'system handler 应包含 mcp_health_check');
   });
 
   test('browser_full_regression 参数默认值合理', () => {

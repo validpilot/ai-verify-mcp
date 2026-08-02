@@ -70,7 +70,7 @@ describe('prompts handler', () => {
       });
       const text = result.messages[0].content.text;
       const callLines = (text.match(/Call: `[^`]+`/g) || []).map(s => s.replace(/^Call: `/, '').replace(/`$/, ''));
-      const expectedTools = ['browser_open', 'browser_snapshot', 'browser_form_validate', 'browser_form_fill', 'browser_click', 'browser_assert', 'evidence_pack'];
+      const expectedTools = ['browser_open', 'browser_snapshot', 'browser_form_validate', 'browser_form_fill', 'browser_click', 'browser_assert', 'evidence'];
       for (let i = 0; i < expectedTools.length; i++) {
         assert.ok(callLines[i].startsWith(expectedTools[i]), `step ${i + 1} should call ${expectedTools[i]}, got: ${callLines[i]}`);
       }

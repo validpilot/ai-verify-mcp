@@ -1,0 +1,40 @@
+{
+  "name": "backend_sql_query",
+  "description": "通过 SSH 隧道对远程 PostgreSQL 执行 SQL 查询。需开发者预先配置 SSH/DB 环境变量授权。返回 JSON 数组格式结果。内置脱敏机制自动过滤敏感字段。不消耗 Credits，属基础设施工具。\n\n中文详情：\n- 用途：在远程 PostgreSQL 数据库上执行 SQL 查询，用于数据验证、状态检查、问题排查等\n- 何时使用：需要验证数据库中的数据时；需要检查用户/订单/配置等记录时；需要排查数据一致性问题时\n- 输出：{ success, rowCount, rows, truncated, redacted, environment, auditWarning }\n- 参数：\n  - query (string, 必填)：SQL 查询语句（仅支持 SELECT，写操作受安全策略限制）\n  - database (string, 可选)：数据库名（默认取 SSH_DB_NAME/DB_NAME 环境变量）\n  - limit (number, 可选)：返回行数上限，默认 100\n  - redact (boolean, 可选)：是否自动脱敏敏感字段，默认 true\n- 安全：内置红线/黄线命令拦截，DROP DATABASE/TRUNCATE TABLE 永远禁止，DROP TABLE/DELETE/UPDATE 在非 DEV 环境需审批\n- 环境变量：SSH_DB_HOST/DB_HOST, SSH_DB_PORT/DB_PORT, SSH_DB_USER/DB_USER, SSH_DB_NAME/DB_NAME, SSH_PASS/DB_PASS, DB_URL, SSH_DB_DOCKER_EXEC",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "query": {
+        "type": "string",
+        "description": "SQL 查询语句"
+      },
+      "database": {
+        "type": "string",
+        "description": "数据库名（默认取 SSH_DB_NAME/DB_NAME 环境变量）"
+      },
+      "host": {
+        "type": "string",
+        "description": "SSH 主机地址（默认取 SSH_HOST 环境变量，兜底 localhost）"
+      },
+      "username": {
+        "type": "string",
+        "description": "SSH 登录用户（默认取 SSH_USER 环境变量，兜底 root）"
+      },
+      "dockerExec": {
+        "type": "string",
+        "description": "Docker-exec 模式：指定 PostgreSQL 容器名（如 'validpilot-postgres'），psql 在容器内执行。优先于环境变量 SSH_DB_DOCKER_EXEC"
+      },
+      "limit": {
+        "type": "number",
+        "description": "返回行数上限",
+        "default": 100
+      },
+      "redact": {
+        "type": "boolean",
+        "description": "是否自动脱敏敏感字段",
+        "default": true
+      }
+    },
+    "required": ["query"]
+  }
+}

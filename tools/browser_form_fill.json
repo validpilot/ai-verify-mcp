@@ -1,14 +1,28 @@
 {
   "name": "browser_form_fill",
-  "description": "表单填充工具（v1.9.5 起合并 browser_smart_fill）。通过 mode 参数区分子模式：basic（默认，批量填充表单字段并可选提交检测，支持 CSS 选择器模式和字段名模式）/ smart（智能填充单个字段，按 fieldType 自动生成符合格式的测试数据，等价于已废弃的 browser_smart_fill）。\n\n中文详情：\n- 用途：批量或智能填充表单字段并可选提交检测\n- 何时使用：登录/注册表单批量填写时；多字段表单快速测试时；表单提交流程端到端验证时；需要 mock 数据填充表单时\n- 输出：basic 模式返回 { ok, url, filledFields, submitResult, timestamp }；smart 模式返回 { success, selector, fieldType, value }\n- 参数：\n  - mode (string, 可选)：basic（默认）/ smart\n  - url (string, basic 模式必填)：目标页面 URL\n  - selector (string, 可选)：表单选择器（basic 模式）或字段选择器（smart 模式必填）\n  - fields (object, basic 模式可选)：手动指定的字段值\n  - fieldType (string, smart 模式必填)：字段类型（email/phone/name/address/idCard/number/text/url/date/password）\n  - options (object, smart 模式可选)：数据生成选项\n  - submit (boolean, 可选)：basic 模式填充后是否自动提交，默认 true\n  - submitSelector (string, 可选)：提交按钮选择器",
+  "description": "表单填充工具（v1.9.5 起合并 browser_smart_fill）。通过 mode 参数区分子模式：basic（默认，批量填充表单字段并可选提交检测）/ smart（智能填充单个字段，自动生成测试数据）/ select（下拉框和级联选择，支持 Ant Design Select/Cascader, Element UI Select, 原生 select）。\n\n中文详情：\n- 用途：批量或智能填充表单字段、下拉框选择、级联选择器操作\n- 何时使用：登录/注册表单批量填写时；下拉框选择时；级联选择器多级选择时；表单提交流程端到端验证时\n- 输出：basic 返回 { ok, url, filledFields, submitResult }；smart 返回 { success, selector, fieldType, value }；select 返回 { success, mode, selector, selectValue/selectPath, finalValue }\n- 参数：\n  - mode (string, 可选)：basic（默认）/ smart / select\n  - url (string, basic 模式必填)：目标页面 URL\n  - selector (string, 可选)：表单/字段/下拉框容器选择器\n  - fields (object, basic 模式可选)：手动指定的字段值\n  - fieldType (string, smart 模式必填)：字段类型\n  - selectValue (string, select 模式)：单选下拉框选项文本\n  - selectPath (array, select 模式)：级联选择路径，如 [\"省\", \"市\", \"区\"]\n  - waitMs (number, select 模式可选)：选择等待时间，默认 800ms",
   "inputSchema": {
     "type": "object",
     "properties": {
       "mode": {
         "type": "string",
-        "description": "填充模式：basic（默认，批量填充表单）/ smart（智能填充单个字段，自动生成符合 fieldType 的测试数据，等价于已废弃的 browser_smart_fill）",
-        "enum": ["basic", "smart"],
+        "description": "填充模式：basic（默认，批量填充表单）/ smart（智能填充单个字段）/ select（下拉框选择和级联选择，支持 Ant Design Select/Cascader, Element UI Select, 原生 select）",
+        "enum": ["basic", "smart", "select"],
         "default": "basic"
+      },
+      "selectValue": {
+        "type": "string",
+        "description": "（select 模式）单选下拉框要选择的选项文本。工具会打开下拉菜单，按文本匹配并点击选项"
+      },
+      "selectPath": {
+        "type": "array",
+        "items": {"type": "string"},
+        "description": "（select 模式）级联选择器的选择路径，如 [\"contributors\", \"thinkasany\"]。工具会逐级打开菜单并选择"
+      },
+      "waitMs": {
+        "type": "number",
+        "default": 800,
+        "description": "（select 模式）每级选择后的等待时间（毫秒），确保下拉菜单渲染完成。默认 800ms"
       },
       "url": {
         "type": "string",
@@ -40,10 +54,12 @@
       "options": {
         "type": "object",
         "description": "smart 模式可选：数据生成选项（如 locale、format 等）"
+      },
+      "scope": {
+        "type": "string",
+        "description": "表单填充范围限定（CSS 选择器）。SPA 多表单场景下用于限定填充范围，如 \".el-tab-pane.is-active\" 只填充当前激活 Tab 内的表单字段。未提供时填充页面内所有匹配字段"
       }
     },
-    "required": [
-      "url"
-    ]
+    "required": []
   }
 }

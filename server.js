@@ -1,6 +1,6 @@
 'use strict';
 
-try { require('dotenv').config({ quiet: true }); } catch(e) { console.warn('[ValidPilot] dotenv not loaded:', e.message); }
+try { require('dotenv').config({ path: require('path').join(__dirname, '.env'), quiet: true }); } catch(e) { console.warn('[ValidPilot] dotenv not loaded:', e.message); }
 // 修复 Windows 终端中文编码
 require('./core/win-encoding');
 const fs = require('fs');
@@ -40,19 +40,16 @@ const traceManager = new TraceManager();
 
 const FEATURE_GATE = {
   ossFeatures: [
-    'mcp_health_check', 'mcp_self_test', 'browser_open', 'browser_click', 'browser_type',
+    'mcp_diag', 'browser_open', 'browser_click', 'browser_type',
     'browser_navigate', 'browser_snapshot', 'browser_screenshot', 'browser_eval',
-    'browser_network', 'browser_errors', 'evidence_pack', 'evidence_index',
-    'error_summary_md', 'contract_guard', 'contract_baseline', 'validation_run',
-    'browser_memory_check', 'browser_performance_check', 'browser_visual_component',
+    'browser_network', 'browser_errors', 'evidence', 'error_analyze', 'contract',
+    'validation_run', 'browser_memory_check', 'browser_performance', 'browser_visual_component',
     'browser_full_regression', 'browser_dom', 'browser_wait',
-    'browser_chain', 'validation_chain', 'validation_flow', 'browser_assert',
-    'exploration_quick', 'atl_learn', 'atl_fix', 'correlate_triple_check', 'bypass_login', 'asset_endpoint_probe', 'asset_endpoint_enum', 'asset_routes_discover',
-    'business_loop_validate', 'arch_reverse_probe', 'memory_recall',
-    'browser_captcha_detect', 'browser_captcha_screenshot', 'browser_captcha_read',
-    'browser_find_element', 'browser_find_page', 'browser_locator_suggest', 'browser_locator_validate',
-    'browser_data_compare', 'dual_chain_explore',
-    'browser_flow', 'trace_correlate'
+    'browser_flow', 'validation_flow', 'browser_assert',
+    'exploration_quick', 'atl_learn', 'atl_fix', 'correlate_triple_check', 'bypass_login',
+    'asset_discovery', 'business_loop_validate', 'arch_reverse_probe', 'memory_recall',
+    'browser_captcha', 'browser_find', 'browser_locator',
+    'browser_data_compare', 'dual_chain_explore', 'trace_correlate'
   ],
   proFeatures: [
     'backend_logs', 'auto_fix_pipeline', 'fix_verify',
@@ -109,11 +106,13 @@ const handlerDataCompare = require('./handlers/data_compare');
 const handlerDualChain = require('./handlers/dual_chain');
 const handlerSecurity = require('./handlers/security');
 const handlerPrompts = require('./handlers/prompts');
+const handlerBackend = require('./handlers/backend');
 
 const allHandlers = [
   handlerBrowser, handlerSession, handlerEvidence, handlerNetwork,
   handlerValidation, handlerDiagnose, handlerVisual, handlerLocator, handlerSystem,
-  handlerAsset, handlerExploration, handlerCorrelate, handlerAtl, handlerArchReverse, handlerMemory, handlerDataCompare, handlerDualChain, handlerSecurity
+  handlerAsset, handlerExploration, handlerCorrelate, handlerAtl, handlerArchReverse, handlerMemory, handlerDataCompare, handlerDualChain, handlerSecurity,
+  handlerBackend
 ];
 
 const handlerMap = new Map();
@@ -226,6 +225,8 @@ let sessionCounter = 0;
 let browser = null;
 let page = null;
 let browserSessionId = 0;
+// 跟踪已注册监听器的页面，防止页面复用时重复注册导致网络日志重复记录
+const pagesWithListeners = new WeakSet();
 let backendProbeResults = []; // 后端主动探测缓存，由 browser_open 异步触发填充
 let eventCheckpoint = new Date().toISOString();
 let instrumentationEnabled = false;
@@ -350,6 +351,13 @@ function trimLogs() {
 // 给页面挂载监听器
 function setupPageListeners(targetPage) {
   resetRuntimeLogs();
+
+  // 防止同一页面重复注册监听器（页面复用场景下 setupPageListeners 会被多次调用，
+  // 但 Playwright page.on() 不支持去重，重复注册会导致每个响应被记录 N 次）
+  if (pagesWithListeners.has(targetPage)) {
+    return;
+  }
+  pagesWithListeners.add(targetPage);
 
   targetPage.on('console', msg => {
     stateManager.consoleLogs.push(redact({ source: 'console', type: msg.type(), text: msg.text(), location: msg.location(), timestamp: new Date().toISOString() }));
@@ -549,18 +557,35 @@ async function analyzeScreenshotForErrors(target, imagePath) {
           const rgb = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
           if (rgb) {
             const r = parseInt(rgb[1]), g = parseInt(rgb[2]), b = parseInt(rgb[3]);
-            // 红色: R 明显大于 G 和 B，且 G 和 B 较低
-            isRed = (r > 160 && g < 130 && r - g > 40) ||
-                    (r > 200 && r - g > 30 && r - b > 30);
+            // 先过滤 amber/橙色/黄色（非错误色，常用于警告或品牌色）
+            // amber 特征: R 高(>150), G 中等(60-140), B 很低(<50)  如 rgb(180,83,9)
+            const isAmber = r > 150 && g >= 60 && g <= 140 && b < 50;
+            // yellow 特征: R 高(>200), G 较高(>130), B 低(<80)  如 rgb(245,158,11)
+            const isYellow = r > 200 && g > 130 && b < 80;
+            // orange 特征: R 高(>200), G 中等(80-160), B 低(<60)  如 rgb(234,88,12)
+            const isOrange = r > 200 && g >= 80 && g <= 160 && b < 60;
+            if (!isAmber && !isYellow && !isOrange) {
+              // 红色: R 明显大于 G 和 B，且 G 和 B 都较低
+              isRed = (r > 160 && g < 100 && b < 100 && (r - g) > 80) ||
+                      (r > 200 && g < 80 && b < 80);
+            }
           }
           // 解析 hsl (如 hsl(0, 100%, 50%) 是红色)
           const hsl = color.match(/hsl\((\d+)/);
           if (hsl) {
             const h = parseInt(hsl[1]);
-            isRed = (h >= 340 || h <= 20);
+            // 红色色相在 340-360° 或 0-20°；amber/yellow/orange 在 20-60° 需排除
+            const sMatch = color.match(/hsla?\(\d+,\s*(\d+)%/);
+            const s = sMatch ? parseInt(sMatch[1]) : 100;
+            // 仅高饱和度才算红色，避免灰粉色等误判
+            if (s >= 60) {
+              isRed = (h >= 340 || h <= 20) && !(h > 20 && h < 60);
+            } else {
+              isRed = false;
+            }
           }
-          // 已知红色颜色名
-          if (['red', '#ff0000', '#f00', '#d32f2f', '#f44336', '#e53935', '#c62828', '#b71c1c'].includes(color.toLowerCase())) {
+          // 已知红色颜色名（仅纯红及深红，排除 orange/crimson 等边界色）
+          if (['red', '#ff0000', '#f00', '#d32f2f', '#f44336', '#e53935', '#c62828', '#b71c1c', '#dc2626', '#ef4444'].includes(color.toLowerCase())) {
             isRed = true;
           }
 
@@ -659,6 +684,11 @@ async function ensurePage(args = {}) {
           await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: args.timeout || 30000 }).catch(() => {});
         }
         return { target: page, reused: true, sessionId: browserSessionId };
+      } else if (targetUrl) {
+        // about:blank 但有 targetUrl — 直接导航，不关闭页面，避免 target 引用失效
+        logger.log('DEBUG', 'ensurePage - navigating from about:blank to targetUrl', { targetUrl });
+        await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: args.timeout || 30000 }).catch(() => {});
+        return { target: page, reused: true, sessionId: browserSessionId };
       } else {
         logger.log('DEBUG', 'ensurePage - closing about:blank page');
         await page.close().catch(() => {});
@@ -690,12 +720,12 @@ async function ensurePage(args = {}) {
           newPage = await context.newPage();
         }
         page = newPage;
-        if (targetUrl) {
-          await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: args.timeout || 30000 }).catch(() => {});
-        }
         browserSessionId += 1;
         setupPageListeners(page);
         installInstrumentation(page).catch(e => logger.log('WARN', 'installInstrumentation 失败', { error: e.message }));
+        if (targetUrl) {
+          await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: args.timeout || 30000 }).catch(() => {});
+        }
         logger.log('INFO', '复用现有浏览器实例');
         return { target: page, reused: true, sessionId: browserSessionId };
       }
@@ -717,11 +747,11 @@ async function ensurePage(args = {}) {
         browser = poolItem.browser;
         page = poolItem.page;
         browserPool.delete(id);
+        setupPageListeners(page);
+        browserSessionId += 1;
         if (targetUrl && poolUrl !== targetUrl) {
           await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: args.timeout || 30000 }).catch(() => {});
         }
-        setupPageListeners(page);
-        browserSessionId += 1;
         logger.log('INFO', '复用池中页面', { poolId: id });
         return { target: page, reused: true, sessionId: browserSessionId };
       } catch (e) {
@@ -783,13 +813,13 @@ async function ensurePage(args = {}) {
     });
     page = await context.newPage();
 
+    browserSessionId += 1;
+    setupPageListeners(page);
+    installInstrumentation(page).catch(e => logger.log('WARN', 'installInstrumentation 失败', { error: e.message }));
     if (targetUrl) {
       await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: args.timeout || 30000 }).catch(() => {});
     }
   }
-  browserSessionId += 1;
-  setupPageListeners(page);
-  installInstrumentation(page).catch(e => logger.log('WARN', 'installInstrumentation 失败', { error: e.message }));
 
   return { target: page, reused, sessionId: browserSessionId };
 }
@@ -1282,7 +1312,21 @@ function detectSilentFailures(args = {}) {
       // Skip frontend source files in dev mode (Vite serves src files directly)
       if (url.includes('/src/')) return false;
       // Check body for error patterns
-      return RESPONSE_BODY_ERROR_PATTERNS.some(p => p.test(item.responseBody));
+      // 语义过滤：如果响应体中所有 error 相关字段的值都是 0/false/null/空字符串/空数组，
+      // 则不视为静默失败（避免 "error_count": 0 等正常响应被误报）
+      const bodyStr = item.responseBody;
+      const errorFieldMatches = bodyStr.match(/"(?:error|error_count|error_message|errors|errorMessage)"\s*:\s*("[^"]*"|true|false|null|\d+|\[[^\]]*\])/gi) || [];
+      const hasRealError = errorFieldMatches.some(m => {
+        const val = m.replace(/^.*:\s*/, '').trim();
+        if (['0', 'false', 'null', '""', '[]'].includes(val)) return false;
+        const strVal = val.replace(/^"|"$/g, '');
+        if (['none', 'ok', 'success', 'no error', 'no errors'].includes(strVal.toLowerCase())) return false;
+        return true;
+      });
+      if (hasRealError) return true;
+      // 没有 error 字段或所有 error 字段都是安全值时，只检查 SQL/stack trace 等非字段名模式
+      const nonFieldPatterns = RESPONSE_BODY_ERROR_PATTERNS.slice(0, -1); // 排除最后的宽泛匹配模式
+      return nonFieldPatterns.some(p => p.test(bodyStr));
     })
     .map(item => ({
       source: 'silentFail',
@@ -1403,10 +1447,14 @@ async function inspectDom(target, selector) {
 async function getStorageSnapshot(target, scope = 'all') {
   try {
     return redact(await target.evaluate(requestedScope => {
-      const readStorage = storage => Object.keys(storage).reduce((acc, key) => {
-        acc[key] = storage.getItem(key);
-        return acc;
-      }, {});
+      const readStorage = storage => {
+        const result = {};
+        for (let i = 0; i < storage.length; i++) {
+          const key = storage.key(i);
+          if (key !== null) result[key] = storage.getItem(key);
+        }
+        return result;
+      };
       const result = {};
       if (requestedScope === 'all' || requestedScope === 'localStorage') result.localStorage = readStorage(localStorage);
       if (requestedScope === 'all' || requestedScope === 'sessionStorage') result.sessionStorage = readStorage(sessionStorage);
@@ -1659,9 +1707,15 @@ async function runFlow(target, args = {}) {
       else if (step.type === 'har') await callTool('browser_har_export', step);
       else throw new Error(`未知 flow step 类型：${step.type}`);
 
+      // 修复：callTool 内部 ensurePage 可能关闭旧 about:blank 页面并创建新页面，
+      // 导致传入的 target 失效。每次调用后同步 target 为最新的全局 page。
+      if (page && !page.isClosed()) target = page;
+
       const evidence = step.evidence === false ? null : await captureStepEvidence(target, label, { screenshot: step.screenshot, snapshot: step.snapshot });
       results.push({ label, type: step.type, ok: true, evidence });
     } catch (error) {
+      // 失败路径同样需要同步 target，避免 captureStepEvidence 操作已关闭的页面
+      if (page && !page.isClosed()) target = page;
       const evidence = await captureStepEvidence(target, `${label}-failed`, { screenshot: true, snapshot: true }).catch(() => null);
       results.push({ label, type: step.type, ok: false, error: error.message, evidence });
       if (args.continueOnError !== true) break;
@@ -2220,7 +2274,7 @@ async function investigateDebug(target, args = {}) {
     evidence: { errors, networkDetails, events, storage, artifacts },
     nextSteps: [
       '根据 hypotheses 中的最高优先级假设定位代码或配置。',
-      '修复后重新执行 browser_errors_clear、browser_events_clear、browser_flow、browser_assert。',
+      '修复后重新执行 browser_errors（mode: clear）、browser_events（mode: clear）、browser_flow、browser_assert。',
       '若仍失败，导出 browser_har_export 和 browser_trace_stop 产物继续分析。'
     ]
   });
@@ -2799,6 +2853,8 @@ async function runValidationPlan(target, args = {}) {
     try {
       await clearBrowserEvents(target).catch(() => {});
       const flow = await runFlow(target, { steps: testCase.steps || [], continueOnError: testCase.continueOnError === true });
+      // 修复：runFlow 内部 callTool 可能切换页面，同步 target 避免后续操作失效
+      if (page && !page.isClosed()) target = page;
       let assertion = null;
       if (testCase.assertions) assertion = await assertPage(target, testCase.assertions);
       const errors = getUnifiedErrors({ currentOnly: true, urlContains: testCase.focus || undefined });
@@ -2816,6 +2872,7 @@ async function runValidationPlan(target, args = {}) {
       }
     } catch (error) {
       caseResult.error = error.message;
+      if (page && !page.isClosed()) target = page;
       caseResult.evidence = await captureStepEvidence(target, `${caseResult.name}-exception`, { screenshot: true, snapshot: true }).catch(() => null);
       if (args.investigateOnFailure !== false) {
         caseResult.investigation = await investigateDebug(target, { symptom: caseResult.error, focus: testCase.focus || '', limit: 20 }).catch(e => ({ error: e.message }));
@@ -3326,14 +3383,13 @@ function buildValidationReport(args = {}) {
 function validateToolSchemas() {
   const requiredTools = [
     'browser_open', 'browser_click', 'browser_type', 'browser_snapshot', 'browser_console', 'browser_network',
-    'browser_errors', 'browser_errors_clear', 'browser_wait', 'browser_assert', 'browser_step',
+    'browser_errors', 'browser_wait', 'browser_assert', 'browser_step',
     'browser_trace_start', 'browser_trace_stop', 'browser_artifacts', 'browser_artifacts_clear',
-    'browser_instrument', 'browser_events', 'browser_events_clear', 'browser_network_detail', 'browser_har_export',
-    'debug_investigate', 'validation_check', 'validation_flow', 'validation_run', 'validation_report',
-    'validation_report_export', 'browser_visual_baseline', 'browser_visual_compare', 'browser_visual_report',
-    'browser_a11y_check', 'browser_performance_check', 'browser_locator_validate', 'browser_locator_suggest',
+    'browser_instrument', 'browser_events', 'browser_har_export',
+    'browser_debug', 'validation_check', 'validation_flow', 'validation_run', 'validation_report',
+    'browser_visual', 'browser_a11y_check', 'browser_performance', 'browser_locator',
     'browser_hover', 'browser_scroll', 'browser_press_key',
-    'mcp_health_check', 'mcp_self_test', 'project_audit', 'css_var_check'
+    'mcp_diag', 'project_audit', 'css_var_check'
   ];
   const registered = new Set(tools.map(tool => tool.name));
   const missing = requiredTools.filter(name => !registered.has(name));
@@ -3439,7 +3495,7 @@ async function mcpSelfTest(args = {}) {
     return { ok: val === 2, actual: val };
   });
 
-  await testTool('browser_find_element', async () => {
+  await testTool('browser_find', async () => {
     const el = await target.$('#btn');
     const visible = el ? await el.isVisible().catch(() => false) : false;
     return { ok: !!el && visible, found: !!el, visible };
@@ -3799,104 +3855,8 @@ const deps = {
 async function callTool(name, args = {}) {
   logger.log('INFO', '调用工具', { name, args });
 
-  // ===== v1.9.5 工具别名转发 =====
-  // 旧工具名 → 新工具名 + 自动注入的参数
-  // 保留 2 个版本过渡期（v1.9.5 ~ v1.10.0），之后移除别名
-  // 注意：只添加新工具已实现的别名，未实现的在对应 Phase 完成后再添加
-  const TOOL_ALIASES = {
-    // G1: 多步编排工具合并（Phase A 已完成）
-    browser_chain: { target: 'browser_flow', inject: { mode: 'chain' } },
-    browser_batch: { target: 'browser_flow', inject: { mode: 'batch' } },
-    validation_chain: { target: 'validation_flow', inject: { mode: 'chain' } },
-    browser_errors_aggregate: { target: 'browser_errors', inject: { mode: 'aggregate' } },
-    browser_errors_clear: { target: 'browser_errors', inject: { mode: 'clear' } },
-    browser_events_clear: { target: 'browser_events', inject: { mode: 'clear' } },
-    browser_smart_fill: { target: 'browser_form_fill', inject: { mode: 'smart' } },
-    browser_network_detail: { target: 'browser_network', inject: { mode: 'detail' } },
-    // G5: validation_quick_run → validation_check(mode=quick)（Phase J 已完成）
-    validation_quick_run: { target: 'validation_check', inject: { mode: 'quick' } },
-    // G6: validation_report_export → validation_report(mode=export)（Phase J 已完成）
-    validation_report_export: { target: 'validation_report', inject: { mode: 'export' } },
-    // G2: trace_correlation_check → trace_correlate(mode=check)（Phase B 已完成）
-    trace_correlation_check: { target: 'trace_correlate', inject: { mode: 'check' } },
-    // G2: browser_trace_chain → trace_correlate(mode=chain)（Phase B 已完成）
-    browser_trace_chain: { target: 'trace_correlate', inject: { mode: 'chain' } },
-    // G3: browser_visual_* + screenshot_diff → browser_visual（Phase C 已完成）
-    browser_visual_baseline: { target: 'browser_visual', inject: { mode: 'baseline' } },
-    browser_visual_compare: { target: 'browser_visual', inject: { mode: 'compare' } },
-    browser_visual_report: { target: 'browser_visual', inject: { mode: 'report' } },
-    browser_visual_check: { target: 'browser_visual', inject: { mode: 'check' } },
-    browser_visual_snapshot: { target: 'browser_visual', inject: { mode: 'snapshot' } },
-    // 注意：browser_visual_component 不合并，保留独立工具（组件级截图对比逻辑与全页视觉回归差异较大）
-    screenshot_diff: { target: 'browser_visual', inject: { mode: 'diff' } },
-    // G4: browser_screenshot_element → browser_screenshot(mode=element)（Phase C 已完成）
-    browser_screenshot_element: { target: 'browser_screenshot', inject: { mode: 'element' } },
-    // G7: browser_session_create/switch/close + browser_sessions → browser_session（Phase H 已完成）
-    browser_session_create: { target: 'browser_session', inject: { mode: 'create' } },
-    browser_session_switch: { target: 'browser_session', inject: { mode: 'switch' } },
-    browser_session_close: { target: 'browser_session', inject: { mode: 'close' } },
-    browser_sessions: { target: 'browser_session', inject: { mode: 'list' } },
-    // G8: browser_captcha_detect/read/screenshot → browser_captcha（Phase F 已完成）
-    browser_captcha_detect: { target: 'browser_captcha', inject: { mode: 'detect' } },
-    browser_captcha_read: { target: 'browser_captcha', inject: { mode: 'read' } },
-    browser_captcha_screenshot: { target: 'browser_captcha', inject: { mode: 'screenshot' } },
-    // G10: browser_overlay_detect/dismiss → browser_overlay（Phase G 已完成）
-    browser_overlay_detect: { target: 'browser_overlay', inject: { mode: 'detect' } },
-    browser_overlay_dismiss: { target: 'browser_overlay', inject: { mode: 'dismiss' } },
-    // G11: browser_locator_suggest/validate → browser_locator（Phase Q 已完成）
-    browser_locator_suggest: { target: 'browser_locator', inject: { mode: 'suggest' } },
-    browser_locator_validate: { target: 'browser_locator', inject: { mode: 'validate' } },
-    // G12: browser_find_element/find_page → browser_find（Phase R 已完成）
-    browser_find_element: { target: 'browser_find', inject: { mode: 'element' } },
-    browser_find_page: { target: 'browser_find', inject: { mode: 'page' } },
-    // G13: browser_performance_check/trace → browser_performance（Phase S 已完成）
-    browser_performance_check: { target: 'browser_performance', inject: { mode: 'check' } },
-    browser_performance_trace: { target: 'browser_performance', inject: { mode: 'trace' } },
-    // G14: browser_cookies/storage → browser_state（Phase U 已完成）
-    browser_cookies: { target: 'browser_state', inject: { mode: 'cookies' } },
-    browser_storage: { target: 'browser_state', inject: { mode: 'storage' } },
-    // G15: browser_debug_report/browser_diagnose/debug_investigate → browser_debug（Phase V 已完成）
-    browser_debug_report: { target: 'browser_debug', inject: { mode: 'report' } },
-    browser_diagnose: { target: 'browser_debug', inject: { mode: 'diagnose' } },
-    debug_investigate: { target: 'browser_debug', inject: { mode: 'investigate' } },
-    // M2: error_fix_suggestion/error_summary_md → error_analyze（Phase L 已完成）
-    error_fix_suggestion: { target: 'error_analyze', inject: { mode: 'fix' } },
-    error_summary_md: { target: 'error_analyze', inject: { mode: 'summary' } },
-    // G8: skill_mcp_validate/skill_consistency_check/skill_tools_map → skill_validate（Phase K 已完成）
-    skill_mcp_validate: { target: 'skill_validate', inject: { mode: 'mcp_validate' } },
-    skill_consistency_check: { target: 'skill_validate', inject: { mode: 'consistency' } },
-    skill_tools_map: { target: 'skill_validate', inject: { mode: 'tools_map' } },
-    // G16: security_* → security_scan（Phase M 已完成）
-    security_headers_check: { target: 'security_scan', inject: { mode: 'headers' } },
-    security_csp_analyze: { target: 'security_scan', inject: { mode: 'csp' } },
-    security_sql_injection_scan: { target: 'security_scan', inject: { mode: 'sqli' } },
-    security_xss_scan: { target: 'security_scan', inject: { mode: 'xss' } },
-    security_owasp_top10: { target: 'security_scan', inject: { mode: 'owasp' } },
-    // G17: evidence_pack/evidence_index → evidence（Phase N 已完成）
-    evidence_pack: { target: 'evidence', inject: { mode: 'pack' } },
-    evidence_index: { target: 'evidence', inject: { mode: 'index' } },
-    // G18: chain_list_templates/chain_spec_run/chain_score_report → chain_spec（Phase O 已完成）
-    chain_list_templates: { target: 'chain_spec', inject: { mode: 'list' } },
-    chain_spec_run: { target: 'chain_spec', inject: { mode: 'run' } },
-    chain_score_report: { target: 'chain_spec', inject: { mode: 'score' } },
-    // G19: mcp_health_check/mcp_self_test → mcp_diag（Phase P 已完成）
-    mcp_health_check: { target: 'mcp_diag', inject: { mode: 'health' } },
-    mcp_self_test: { target: 'mcp_diag', inject: { mode: 'selftest' } },
-    // G20: contract_baseline/contract_guard → contract（Phase W 已完成）
-    contract_baseline: { target: 'contract', inject: { mode: 'baseline' } },
-    contract_guard: { target: 'contract', inject: { mode: 'guard' } },
-    // G21: asset_routes_discover/asset_endpoint_enum/asset_endpoint_probe → asset_discovery（Phase X 已完成）
-    asset_routes_discover: { target: 'asset_discovery', inject: { mode: 'routes' } },
-    asset_endpoint_enum: { target: 'asset_discovery', inject: { mode: 'enum' } },
-    asset_endpoint_probe: { target: 'asset_discovery', inject: { mode: 'probe' } }
-  };
-
-  const alias = TOOL_ALIASES[name];
-  if (alias) {
-    logger.log('INFO', '工具别名转发', { from: name, to: alias.target, inject: alias.inject });
-    name = alias.target;
-    args = { ...alias.inject, ...args };
-  }
+  // v1.10.0: TOOL_ALIASES 已移除（61 个别名在 v1.9.5 过渡期后清理）
+  // 用户应使用主工具名 + mode 参数替代旧工具名
 
   const featureCheck = checkFeatureGate(name);
   if (!featureCheck.allowed) {
@@ -3944,6 +3904,25 @@ async function callTool(name, args = {}) {
     if (stateManager.currentCheckpoint !== currentCheckpoint) {
       stateManager.currentCheckpoint = currentCheckpoint;
     }
+
+    // v1.12.0: 注入 workflowHint，引导 AI 进行下一步验证操作
+    // 仅对 TOOL_WORKFLOW_HINTS 中列出的关键工具注入，避免对所有工具的返回结果进行 JSON 解析
+    if (result && !result.isError && result.content && result.content[0] && result.content[0].text) {
+      const _skillMap = require('./handlers/skill_map');
+      const hint = _skillMap.getToolWorkflowHint ? _skillMap.getToolWorkflowHint(name) : null;
+      if (hint) {
+        try {
+          const parsed = JSON.parse(result.content[0].text);
+          if (typeof parsed === 'object' && parsed !== null && !parsed.workflowHint) {
+            parsed.workflowHint = hint;
+            result.content[0].text = JSON.stringify(parsed, null, 2);
+          }
+        } catch (_e) {
+          // 非 JSON 格式，跳过注入
+        }
+      }
+    }
+
     return result;
 
   } catch (error) {

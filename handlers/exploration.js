@@ -198,18 +198,12 @@ async function explorationQuick(args, deps) {
       explorationCheckpoint: new Date().toISOString()
     };
 
-    // 付费升级提示（数据驱动，只在发现高价值线索时触发）
-    const premiumHints = buildPremiumHints(findings);
-
     log('INFO', `[Exploration] 完成: ${findings.summary.apiPatterns} API 模式, ${findings.summary.routes} 路由, ${techStack.frameworks.length} 框架, ${consoleErrors.length} 错误, ${Date.now() - startTime}ms`);
 
     return {
       content: [{
         type: 'text',
-        text: JSON.stringify({
-          ...findings,
-          premiumHints: premiumHints.length > 0 ? premiumHints : undefined
-        }, null, 2)
+        text: JSON.stringify(findings, null, 2)
       }]
     };
 
@@ -521,51 +515,6 @@ async function detectConsoleErrors(deps, checkpoint) {
     }));
 }
 
-/**
- * 构建 Premium 升级提示
- * 只在发现高价值线索时触发
- */
-function buildPremiumHints(findings) {
-  const hints = [];
-
-  const apiCount = findings.phases.endpoints?.apiPatterns?.length || 0;
-  const formCount = findings.phases.forms?.forms?.length || 0;
-  const errorCount = findings.summary?.consoleErrors || 0;
-
-  if (apiCount > 5) {
-    hints.push({
-      type: 'api_fuzz',
-      message: `发现 ${apiCount} 个 API 端点。升级 Pro 解锁参数 Fuzz 注入探测（SQLi/XSS/IDOR）`,
-      tier: 'pro'
-    });
-  }
-
-  if (formCount > 0) {
-    hints.push({
-      type: 'form_fuzz',
-      message: `发现 ${formCount} 个表单。升级 Pro 解锁自动化表单模糊测试（25+ 注入 payload）`,
-      tier: 'pro'
-    });
-  }
-
-  if (errorCount > 0) {
-    hints.push({
-      type: 'error_investigation',
-      message: `发现 ${errorCount} 个控制台错误。升级 Pro 解锁 ATL 假设驱动调试引擎`,
-      tier: 'pro'
-    });
-  }
-
-  if (apiCount > 10 || findings.phases.techStack?.frameworks?.length > 2) {
-    hints.push({
-      type: 'cross_layer',
-      message: `复杂技术栈 + 大量 API。升级 Team 解锁跨层 Pivot（DB/SSH/Infra 关联分析）`,
-      tier: 'team'
-    });
-  }
-
-  return hints;
-}
 
 // ============================================================
 // business_loop_validate — 业务闭环验证
@@ -836,14 +785,10 @@ async function businessLoopValidate(args, deps) {
 
     result.nextSteps = [
       '使用 browser_form_validate 深入检查表单字段验证规则',
-      '使用 browser_chain 自动化测试完整业务流程',
+      '使用 browser_flow 自动化测试完整业务流程',
       '使用 exploration_quick 获取页面技术栈和 API 端点',
-      result.summary.completeness < 100 ? '使用 browser_smart_fill 自动填充并测试表单提交' : '使用 validation_flow 执行端到端流程验证'
+      result.summary.completeness < 100 ? '使用 browser_form_fill { mode: \'smart\' } 自动填充并测试表单提交' : '使用 validation_flow 执行端到端流程验证'
     ];
-
-    result.paidUpgradeHint = result.summary.completeness < 100
-      ? `开源版识别到 ${foundNodes.size}/${loopDef.nodes.length} 个业务节点。升级 Pro 启用跨层 Pivot 验证（UI→API→DB 三方数据一致性），升级 Team 解锁自动化端到端流程测试（validation_flow）。`
-      : `业务闭环完整。升级 Pro 启用跨层 Pivot 验证（UI 显示 vs API 响应 vs DB 记录三方比对），确保数据一致性。`;
 
     log('INFO', `[BusinessLoop] 验证完成: ${result.summary.foundNodes}/${result.summary.totalNodes} 节点, 完整度 ${result.summary.completeness}%`);
 

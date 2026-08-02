@@ -1,16 +1,17 @@
 {
   "name": "skill_validate",
-  "description": "Skill 与 MCP 工具一致性校验与映射查询。v1.9.5 起合并 skill_consistency_check / skill_mcp_validate / skill_tools_map。mode=consistency 批量校验所有 Skill 引用的工具是否与 tools/ 目录一致；mode=mcp_validate 校验单个 Skill 定义的工具依赖是否与 MCP 服务器一致；mode=tools_map 查询 Skill↔Tool 双向映射。",
+  "description": "Skill 与 MCP 工具一致性校验与映射查询。v1.9.5 起合并 skill_consistency_check / skill_mcp_validate / skill_tools_map。v1.12.0 起新增 mode=task_recommend 根据任务类型推荐 Skill 和验证流程。mode=consistency 批量校验所有 Skill 引用的工具是否与 tools/ 目录一致；mode=mcp_validate 校验单个 Skill 定义的工具依赖是否与 MCP 服务器一致；mode=tools_map 查询 Skill↔Tool 双向映射；mode=task_recommend 根据任务类型（login/form/crud/bugfix 等）推荐对应的 Skill 和 MCP 工具链。",
   "inputSchema": {
     "type": "object",
     "properties": {
       "mode": {
         "type": "string",
-        "description": "工作模式：consistency（批量校验全部 Skill，默认）、mcp_validate（校验单个 Skill，需传 skillName）、tools_map（查询 Skill↔Tool 映射，需传 skillName 或 toolName）",
+        "description": "工作模式：consistency（批量校验全部 Skill，默认）、mcp_validate（校验单个 Skill，需传 skillName）、tools_map（查询 Skill↔Tool 映射，需传 skillName 或 toolName）、task_recommend（根据 taskType 推荐 Skill 和验证流程，需传 taskType）",
         "enum": [
           "consistency",
           "mcp_validate",
-          "tools_map"
+          "tools_map",
+          "task_recommend"
         ],
         "default": "consistency"
       },
@@ -21,6 +22,27 @@
       "toolName": {
         "type": "string",
         "description": "工具名称（仅 mode=tools_map 生效），返回引用该工具的所有 Skill"
+      },
+      "taskType": {
+        "type": "string",
+        "description": "任务类型（仅 mode=task_recommend 生效）。根据当前开发任务选择：login/form/crud/navigation/display/bugfix/refactor/full_feature/deploy/performance/security。返回推荐的 Skill 和完整验证工具链",
+        "enum": [
+          "login",
+          "form",
+          "crud",
+          "navigation",
+          "display",
+          "bugfix",
+          "refactor",
+          "full_feature",
+          "deploy",
+          "performance",
+          "security"
+        ]
+      },
+      "url": {
+        "type": "string",
+        "description": "待验证页面 URL（仅 mode=task_recommend 生效，可选），提供时会在推荐步骤中预填 URL 参数"
       },
       "includeDetails": {
         "type": "boolean",

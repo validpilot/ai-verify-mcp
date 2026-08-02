@@ -177,6 +177,11 @@
         "type": "number",
         "description": "batch 模式专用：最大步骤数限制（默认 20）。超出则报错",
         "default": 20
+      },
+      "compact": {
+        "type": "boolean",
+        "description": "精简输出模式（默认 false）。设为 true 时每步只返回 label/ok/url/errorsSummary，不返回完整 evidence 对象（截图路径、DOM 快照、错误详情），大幅减少输出体积。适合步骤数超过 5 的长流程",
+        "default": false
       }
     },
     "required": [

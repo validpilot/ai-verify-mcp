@@ -62,10 +62,10 @@ const PROMPTS = [
             `Expected: passed: true, all assertions pass`,
             ``,
             `**Step 7: Collect evidence**`,
-            `Call: \`evidence_pack({ name: "login-validation" })\``,
+            `Call: \`evidence({ mode: 'pack', name: "login-validation" })\``,
             `Expected: artifacts include screenshots, trace, HAR`,
             ``,
-            `If any step fails, use \`browser_errors\` and \`browser_network_detail\` to diagnose. Report the failure with reproduction steps and root cause.`
+            `If any step fails, use \`browser_errors\` and \`browser_network({ mode: 'detail' })\` to diagnose. Report the failure with reproduction steps and root cause.`
           ].join('\n')
         }
       }];
@@ -103,11 +103,11 @@ const PROMPTS = [
             `Expected: 4 dimension scores (0-100), key metrics (LCP/CLS/FID/TBT/SI), diagnostic advice`,
             ``,
             `**Step 3: Collect Core Web Vitals and compare against budgets**`,
-            `Call: \`browser_performance_check({ budgets: { lcp: 2500, cls: 0.1, fcp: 1800, load: 3000, longTaskCount: 5 }, slowRequestMs: 1000 })\``,
+            `Call: \`browser_performance({ mode: 'check', budgets: { lcp: 2500, cls: 0.1, fcp: 1800, load: 3000, longTaskCount: 5 }, slowRequestMs: 1000 })\``,
             `Expected: Core Web Vitals ratings (good/needs-improvement/poor), budget pass/fail per metric`,
             ``,
             `**Step 4: Record full performance trace + HAR**`,
-            `Call: \`browser_performance_trace({ url: "${url}", categories: ["paint", "timing", "resource"], duration: 10000, enableScreenshots: true, exportHar: true })\``,
+            `Call: \`browser_performance({ mode: 'trace', url: "${url}", categories: ["paint", "timing", "resource"], duration: 10000, enableScreenshots: true, exportHar: true })\``,
             `Expected: HAR file path, trace JSON, screenshots`,
             ``,
             `**Step 5: Detect memory leaks**`,
@@ -115,7 +115,7 @@ const PROMPTS = [
             `Expected: leakRisk level (low/medium/high/critical), detached DOM count, JS heap size`,
             ``,
             `**Step 6: Collect evidence**`,
-            `Call: \`evidence_pack({ name: "performance-audit" })\``,
+            `Call: \`evidence({ mode: 'pack', name: "performance-audit" })\``,
             `Expected: comprehensive audit report including Lighthouse HTML, HAR, trace, memory report`,
             ``,
             `After execution, summarize: ① Lighthouse scores ② Core Web Vitals rating ③ Memory leak risk ④ Top 3 optimization recommendations.`
@@ -146,28 +146,28 @@ const PROMPTS = [
             `- Injection test URL: ${injectionUrl} (must contain query parameters like ?id=1 or ?q=test)`,
             ``,
             `**Step 1: Check HTTP security response headers**`,
-            `Call: \`security_headers_check({ url: "${url}" })\``,
+            `Call: \`security_scan({ mode: 'headers', url: "${url}" })\``,
             `Expected: presence and correctness of CSP, X-Content-Type-Options, X-Frame-Options, HSTS, Referrer-Policy`,
             ``,
             `**Step 2: Deep CSP analysis**`,
-            `Call: \`security_csp_analyze({ url: "${url}" })\``,
+            `Call: \`security_scan({ mode: 'csp', url: "${url}" })\``,
             `Expected: CSP directive parsing, detection of unsafe-inline/unsafe-eval/wildcard *`,
             ``,
             `**Step 3: OWASP Top 10 quick scan**`,
-            `Call: \`security_owasp_top10({ url: "${url}" })\``,
+            `Call: \`security_scan({ mode: 'owasp', url: "${url}" })\``,
             `Expected: risk categories A01-A10 status (pass/warn/fail) and overall risk level`,
             ``,
             `**Step 4: SQL injection scan**`,
-            `Call: \`security_sql_injection_scan({ url: "${injectionUrl}" })\``,
+            `Call: \`security_scan({ mode: 'sqli', url: "${injectionUrl}" })\``,
             `Expected: 20 SQLi payloads tested, vulnerable: true/false, dbms detection if vulnerable`,
             `Note: injectionUrl must contain query parameters (e.g. ?id=1)`,
             ``,
             `**Step 5: XSS vulnerability scan**`,
-            `Call: \`security_xss_scan({ url: "${injectionUrl}" })\``,
+            `Call: \`security_scan({ mode: 'xss', url: "${injectionUrl}" })\``,
             `Expected: 26 XSS payloads tested, vulnerable: true/false, reflected payload evidence`,
             ``,
             `**Step 6: Collect evidence**`,
-            `Call: \`evidence_pack({ name: "security-audit" })\``,
+            `Call: \`evidence({ mode: 'pack', name: "security-audit" })\``,
             `Expected: comprehensive security audit report`,
             ``,
             `After execution, summarize findings by severity: ① blocking (must fix before launch) ② critical (strongly recommend) ③ major (short-term) ④ optimization. Include specific remediation for each finding.`
@@ -189,7 +189,7 @@ const PROMPTS = [
     buildMessages: (args) => {
       const { url, baselineName, selector, maxDiffPixelRatio = '0.01' } = args;
       const isComponent = !!selector;
-      const tool = isComponent ? 'browser_visual_component' : 'browser_visual_compare';
+      const tool = isComponent ? 'browser_visual_component' : 'browser_visual';
       return [{
         role: 'user',
         content: {
@@ -210,16 +210,16 @@ const PROMPTS = [
             ``,
             isComponent
               ? `**Step 2: Component-level visual comparison (one call)**\nCall: \`${tool}({ name: "${baselineName}", selector: "${selector}", maxDiffPixelRatio: ${maxDiffPixelRatio} })\`\nExpected: baseline_created: true (first time) or false (subsequent), diffPixels, diffRatio, passed flag`
-              : `**Step 2a: Establish baseline (first time only)**\nCall: \`browser_visual_baseline({ name: "${baselineName}", fullPage: true, maskSelectors: [".ad-banner", ".timestamp"] })\`\nExpected: baseline PNG created at visual/baselines/${baselineName}.png`,
+              : `**Step 2a: Establish baseline (first time only)**\nCall: \`browser_visual({ mode: 'baseline', name: "${baselineName}", fullPage: true, maskSelectors: [".ad-banner", ".timestamp"] })\`\nExpected: baseline PNG created at visual/baselines/${baselineName}.png`,
             ``,
-            !isComponent ? `**Step 2b: Compare against baseline (after UI changes)**\nCall: \`${tool}({ name: "${baselineName}", fullPage: true, maskSelectors: [".ad-banner", ".timestamp"], maxDiffPixelRatio: ${maxDiffPixelRatio} })\`\nExpected: diffPixels, diffRatio, passed (diffRatio <= maxDiffPixelRatio)` : '',
+            !isComponent ? `**Step 2b: Compare against baseline (after UI changes)**\nCall: \`${tool}({ mode: 'compare', name: "${baselineName}", fullPage: true, maskSelectors: [".ad-banner", ".timestamp"], maxDiffPixelRatio: ${maxDiffPixelRatio} })\`\nExpected: diffPixels, diffRatio, passed (diffRatio <= maxDiffPixelRatio)` : '',
             ``,
             `**Step 3: List all visual artifacts**`,
-            `Call: \`browser_visual_report()\``,
+            `Call: \`browser_visual({ mode: 'report' })\``,
             `Expected: list of baselines, actuals, diffs, and recent comparison results`,
             ``,
             `**Step 4: Collect evidence**`,
-            `Call: \`evidence_pack({ name: "visual-regression" })\``,
+            `Call: \`evidence({ mode: 'pack', name: "visual-regression" })\``,
             `Expected: baseline PNG, actual PNG, diff PNG (red-highlighted), comparison report`,
             ``,
             `After execution, report: ① passed: true/false ② diffPixels and diffRatio ③ if failed, top 3 areas with most differences ④ recommendation (accept as new baseline / investigate / mask dynamic regions).`
@@ -258,7 +258,7 @@ const PROMPTS = [
             `Expected: page loads (may show error state)`,
             ``,
             `**Step 2: Clear old errors and establish checkpoint**`,
-            `Call: \`browser_errors_clear()\``,
+            `Call: \`browser_errors({ mode: 'clear' })\``,
             `Expected: clean checkpoint established`,
             ``,
             `**Step 3: Reproduce the issue**`,
@@ -266,7 +266,7 @@ const PROMPTS = [
             `Expected: symptom manifests`,
             ``,
             `**Step 4: Run automated diagnosis**`,
-            `Call: \`debug_investigate({ symptom: "${symptom}", expected: "${expected}", ${focus ? `focus: "${focus}", ` : ''}statusMin: 400, includeStorage: true, includeArtifacts: true })\``,
+            `Call: \`browser_debug({ mode: 'investigate', symptom: "${symptom}", expected: "${expected}", ${focus ? `focus: "${focus}", ` : ''}statusMin: 400, includeStorage: true, includeArtifacts: true })\``,
             `Expected: root cause hypotheses (ranked), evidence chain (errors + network + DOM + storage), next-step suggestions`,
             ``,
             `**Step 5: Review unified errors**`,
@@ -274,18 +274,18 @@ const PROMPTS = [
             `Expected: Console errors, PageErrors, HTTP 4xx/5xx, silent failures`,
             ``,
             `**Step 6: Inspect failed network requests**`,
-            `Call: \`browser_network_detail({ ${focus ? `urlContains: "${focus}", ` : ''}statusMin: 400 })\``,
+            `Call: \`browser_network({ mode: 'detail', ${focus ? `urlContains: "${focus}", ` : ''}statusMin: 400 })\``,
             `Expected: request/response headers, body (redacted), duration, failure reason`,
             ``,
             `**Step 7: Get fix suggestions**`,
-            `Call: \`error_fix_suggestion({ errorSummary: "${symptom}", contextFiles: [] })\``,
+            `Call: \`error_analyze({ mode: 'fix', errorSummary: "${symptom}", contextFiles: [] })\``,
             `Expected: up to 3 minimal fix suggestions (does NOT auto-modify code)`,
             ``,
             `**Step 8: Collect evidence**`,
-            `Call: \`evidence_pack({ stepId: "debug-investigation", label: "issue diagnosis evidence" })\``,
+            `Call: \`evidence({ mode: 'pack', stepId: "debug-investigation", label: "issue diagnosis evidence" })\``,
             `Expected: comprehensive evidence pack with screenshots, DOM, errors, network, console`,
             ``,
-            `After execution, report: ① Top hypothesis (most likely root cause) ② Supporting evidence ③ Recommended fix (from error_fix_suggestion) ④ Verification steps to confirm the fix.`
+            `After execution, report: ① Top hypothesis (most likely root cause) ② Supporting evidence ③ Recommended fix (from error_analyze) ④ Verification steps to confirm the fix.`
           ].join('\n')
         }
       }];
@@ -341,7 +341,7 @@ const PROMPTS = [
             `Expected: runId, case pass/fail stats, trace/har/report paths`,
             ``,
             `**Step 3: Build evidence timeline**`,
-            `Call: \`evidence_index({ includeTraceIds: true })\``,
+            `Call: \`evidence({ mode: 'index', includeTraceIds: true })\``,
             `Expected: cross-step evidence timeline linked by runId`,
             ``,
             `**Step 4: Generate six-section Markdown report**`,
@@ -349,7 +349,7 @@ const PROMPTS = [
             `Expected: report with 6 sections: Summary / Toolchain / Findings / NetworkEvidence / Artifacts / Unclassified`,
             ``,
             `**Step 5: Export HTML report**`,
-            `Call: \`validation_report_export()\``,
+            `Call: \`validation_report({ mode: 'export' })\``,
             `Expected: local HTML report path for archival`,
             ``,
             `After execution, summarize: ① Total cases and pass rate ② Critical/blocking findings (if any) ③ Network evidence highlights ④ Recommendation (pass / fix and retest / block release).`
@@ -413,10 +413,10 @@ const PROMPTS = [
             `Expected: passed: true, all assertions pass (URL/text/noErrors)`,
             ``,
             `**Step 7: Collect evidence**`,
-            `Call: \`evidence_pack({ name: "form-submission" })\``,
+            `Call: \`evidence({ mode: 'pack', name: "form-submission" })\``,
             `Expected: artifacts include form-before/after screenshots, trace, validation report`,
             ``,
-            `If any step fails, use \`browser_errors\` and \`browser_network_detail\` to diagnose. Test both paths: ① valid data should submit successfully ② invalid data (empty required fields, wrong format) should be rejected with proper error messages.`
+            `If any step fails, use \`browser_errors\` and \`browser_network({ mode: 'detail' })\` to diagnose. Test both paths: ① valid data should submit successfully ② invalid data (empty required fields, wrong format) should be rejected with proper error messages.`
           ].join('\n')
         }
       }];

@@ -56,7 +56,7 @@ describe('validation_matrix handler', () => {
     const val = require('../handlers/validation');
     const expectedTools = ['validation_start', 'validation_check', 'validation_run',
       'validation_element', 'validation_flow', 'validation_matrix', 'validation_decision',
-      'validation_quick_run', 'validation_report', 'validation_report_export'];
+      'validation_report'];
     for (const tool of expectedTools) {
       assert.ok(val.tools.includes(tool), `缺少工具: ${tool}`);
     }
@@ -147,9 +147,8 @@ describe('validation_matrix cross-module consistency', () => {
     assert.ok(allTools.has('validation_matrix'));
   });
 
-  test('validation_report 和 validation_report_export 也同时在 handler 中', () => {
+  test('validation_report 也同时在 handler 中', () => {
     const val = require('../handlers/validation');
     assert.ok(val.tools.includes('validation_report'));
-    assert.ok(val.tools.includes('validation_report_export'));
   });
 });

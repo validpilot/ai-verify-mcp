@@ -139,10 +139,7 @@ describe('新增工具 handler 注册验证', () => {
     assert.ok(session.tools.includes('browser_emulate_device'));
   });
 
-  test('browser_performance_trace 在 visual handler 中注册', () => {
-    const visual = require('../handlers/visual');
-    assert.ok(visual.tools.includes('browser_performance_trace'));
-  });
+  // v1.10.0: browser_performance_trace 已移除（别名 → browser_performance mode=trace）
 });
 
 // core 模块测试

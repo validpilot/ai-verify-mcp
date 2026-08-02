@@ -1,0 +1,27 @@
+{
+  "name": "backend_ssh_exec",
+  "description": "通过 SSH 在远程服务器执行 Shell 命令。需开发者预先配置 SSH_HOST/SSH_USER/SSH_PASS/SSH_KEY_PATH 等环境变量授权。支持密码/密钥/agent 多种认证方式。不消耗 Credits，属基础设施工具。\n\n中文详情：\n- 用途：在远程服务器上执行 Shell 命令，用于查看服务状态、排查问题、管理容器等\n- 何时使用：需要查看远程服务器日志时；需要检查 Docker 容器状态时；需要重启服务时；需要查看系统资源（CPU/内存/磁盘）时\n- 输出：{ success, code, stdout, stderr, environment, auditWarning }\n- 参数：\n  - command (string, 必填)：要执行的 Shell 命令\n  - host (string, 可选)：SSH 主机地址（默认取 SSH_HOST 环境变量）\n  - username (string, 可选)：SSH 登录用户（默认取 SSH_USER 环境变量）\n  - timeout (number, 可选)：命令执行超时时间（毫秒），默认 30000\n- 安全：内置红线/黄线命令拦截，DROP DATABASE/rm -rf //shutdown 等危险命令永远禁止\n- 环境变量：SSH_HOST, SSH_USER, SSH_PASS, SSH_PRIVATE_KEY, SSH_KEY_PATH, SSH_KEY_PASSPHRASE, SSH_PORT, SSH_TIMEOUT",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "command": {
+        "type": "string",
+        "description": "要执行的 Shell 命令"
+      },
+      "host": {
+        "type": "string",
+        "description": "SSH 主机地址（默认取 SSH_HOST 环境变量，兜底 localhost）"
+      },
+      "username": {
+        "type": "string",
+        "description": "SSH 登录用户（默认取 SSH_USER 环境变量，兜底 root）"
+      },
+      "timeout": {
+        "type": "number",
+        "description": "命令执行超时时间（毫秒）",
+        "default": 30000
+      }
+    },
+    "required": ["command"]
+  }
+}

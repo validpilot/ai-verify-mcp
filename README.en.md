@@ -93,7 +93,7 @@ flowchart LR
 
 | Responsibility | Description |
 |------|------|
-| **147 Tools (after v1.9.5 refactor)** | `browser_open` / `browser_visual` / `browser_session` / `browser_locator` / `browser_find` / `browser_performance` / `browser_state` / `browser_debug` / `browser_captcha` / `browser_overlay` / `validation_check` / `validation_report` / `trace_correlate` / `browser_smoke_test` / `browser_a11y_check` / `security_headers_check` / `security_owasp_top10` / `api_probe`, etc. (Legacy tool names remain available via `TOOL_ALIASES` forwarding, fully backward-compatible) |
+| **93 Tools (after v1.10.0 refactor)** | `browser_open` / `browser_visual` / `browser_session` / `browser_locator` / `browser_find` / `browser_performance` / `browser_state` / `browser_debug` / `browser_captcha` / `browser_overlay` / `validation_check` / `validation_report` / `trace_correlate` / `browser_smoke_test` / `browser_a11y_check` / `security_scan` / `api_probe`, etc. (v1.10.0 removed 61 alias tools introduced in v1.9.5; use main tool + `mode` parameter instead of legacy tool names) |
 | **7 MCP Prompts** | `/validate-login`, `/submit-form`, `/audit-performance`, `/audit-security`, `/visual-regression`, `/debug-page`, `/e2e-flow` built-in workflows |
 | **Evidence Chain Collection** | Automatic screenshots at each step, recording Console logs and network requests |
 | **Contrast/CSS Variable Scanning** | axe-core integration, CSS variable tracking |

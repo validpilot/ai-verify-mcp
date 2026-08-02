@@ -4,8 +4,7 @@ const { mcpError, mcpParamMissing } = require('../core/mcp-error');
 
 const tools = [
   "correlate_triple_check",
-  "bypass_login",
-  "asset_endpoint_probe"
+  "bypass_login"
 ];
 
 async function handle(name, args, deps) {

@@ -71,44 +71,7 @@ describe('browser_network', () => {
   });
 });
 
-// ============================================================
-// browser_network_detail
-// ============================================================
-
-describe('browser_network_detail', () => {
-  test('schema 文件存在且 JSON 合法', () => {
-    const filePath = path.join(TOOLS_DIR, 'browser_network_detail.json');
-    assert.ok(fs.existsSync(filePath));
-    const schema = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    assert.equal(schema.name, 'browser_network_detail');
-    assert.ok(schema.inputSchema);
-  });
-
-  test('schema 包含 contains/urlContains/method/status/limit 参数', () => {
-    const schema = JSON.parse(fs.readFileSync(path.join(TOOLS_DIR, 'browser_network_detail.json'), 'utf8'));
-    const props = schema.inputSchema.properties;
-    assert.ok(props.contains);
-    assert.equal(props.contains.type, 'string');
-    assert.ok(props.urlContains);
-    assert.equal(props.urlContains.type, 'string');
-    assert.ok(props.method);
-    assert.equal(props.method.type, 'string');
-    assert.ok(props.statusMin);
-    assert.equal(props.statusMin.type, 'number');
-    assert.ok(props.statusMax);
-    assert.equal(props.statusMax.type, 'number');
-    assert.ok(props.since);
-    assert.equal(props.since.type, 'string');
-    assert.ok(props.currentOnly);
-    assert.equal(props.currentOnly.type, 'boolean');
-    assert.ok(props.limit);
-    assert.equal(props.limit.type, 'number');
-  });
-
-  test('toolNames 中包含 browser_network_detail（已注册到 MCP）', () => {
-    assert.ok(toolNames.has('browser_network_detail'), '工具 browser_network_detail 应在 toolNames 中');
-  });
-});
+// v1.10.0: browser_network_detail 已移除（别名 → browser_network mode=detail）
 
 // ============================================================
 // browser_console
@@ -185,34 +148,4 @@ describe('browser_errors', () => {
   });
 });
 
-// ============================================================
-// browser_errors_aggregate
-// ============================================================
-
-describe('browser_errors_aggregate', () => {
-  test('schema 文件存在且 JSON 合法', () => {
-    const filePath = path.join(TOOLS_DIR, 'browser_errors_aggregate.json');
-    assert.ok(fs.existsSync(filePath));
-    const schema = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    assert.equal(schema.name, 'browser_errors_aggregate');
-    assert.ok(schema.description);
-    assert.ok(schema.inputSchema);
-  });
-
-  test('schema 包含 limit/includeCurrentPage/evidence 参数', () => {
-    const schema = JSON.parse(fs.readFileSync(path.join(TOOLS_DIR, 'browser_errors_aggregate.json'), 'utf8'));
-    const props = schema.inputSchema.properties;
-    assert.ok(props.limit);
-    assert.equal(props.limit.type, 'number');
-    assert.ok(props.includeCurrentPage);
-    assert.equal(props.includeCurrentPage.type, 'boolean');
-    assert.ok(props.evidence);
-    assert.equal(props.evidence.type, 'object');
-  });
-
-  test('toolNames 中包含 browser_errors_aggregate 且 handler 调用 aggregateErrors', () => {
-    assert.ok(toolNames.has('browser_errors_aggregate'), '工具 browser_errors_aggregate 应在 toolNames 中');
-    const handlerSrc = fs.readFileSync(path.join(HANDLERS_DIR, 'diagnose.js'), 'utf8');
-    assert.ok(handlerSrc.includes('aggregateErrors'));
-  });
-});
+// v1.10.0: browser_errors_aggregate 已移除（别名 → browser_errors mode=aggregate）

@@ -18,34 +18,7 @@ describe('新增工具 schema 验证', () => {
     }
   });
 
-  // browser_performance_trace
-  describe('browser_performance_trace', () => {
-    test('schema 文件存在且 JSON 合法', () => {
-      const schemaPath = path.join(TOOLS_DIR, 'browser_performance_trace.json');
-      assert.ok(fs.existsSync(schemaPath));
-      const schema = JSON.parse(fs.readFileSync(schemaPath, 'utf8'));
-      assert.equal(schema.name, 'browser_performance_trace');
-    });
-
-    test('schema 包含 url/categories/duration/exportHar 参数', () => {
-      const schema = JSON.parse(fs.readFileSync(path.join(TOOLS_DIR, 'browser_performance_trace.json'), 'utf8'));
-      const props = schema.inputSchema.properties;
-      assert.ok(props.url);
-      assert.ok(props.categories);
-      assert.ok(props.duration);
-      assert.ok(props.exportHar);
-    });
-
-    // v1.6.8 移除 outputSchema：handler 返回 text content 而非 structuredContent，MCP 协议要求 outputSchema 必须不存在
-    test('outputSchema 不存在（MCP 协议合规）', () => {
-      const schema = JSON.parse(fs.readFileSync(path.join(TOOLS_DIR, 'browser_performance_trace.json'), 'utf8'));
-      assert.equal(schema.outputSchema, undefined, '不应定义 outputSchema');
-    });
-
-    test('toolNames 中包含 browser_performance_trace', () => {
-      assert.ok(toolNames.has('browser_performance_trace'));
-    });
-  });
+  // v1.10.0: browser_performance_trace 已移除（别名 → browser_performance mode=trace）
 
   // browser_anti_bot_detect
   describe('browser_anti_bot_detect', () => {

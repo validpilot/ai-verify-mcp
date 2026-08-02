@@ -52,25 +52,6 @@ describe('browser_screenshot', () => {
 });
 
 // ============================================================
-// browser_screenshot_element
-// ============================================================
-
-describe('browser_screenshot_element', () => {
-  test('schema 文件存在且 JSON 合法', () => {
-    const filePath = path.join(TOOLS_DIR, 'browser_screenshot_element.json');
-    assert.ok(fs.existsSync(filePath));
-    const schema = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    assert.equal(schema.name, 'browser_screenshot_element');
-    assert.ok(schema.description);
-    assert.ok(schema.inputSchema);
-  });
-
-  test('toolNames 中包含 browser_screenshot_element（已注册到 MCP）', () => {
-    assert.ok(toolNames.has('browser_screenshot_element'), '工具 browser_screenshot_element 应在 toolNames 中');
-  });
-});
-
-// ============================================================
 // browser_artifacts
 // ============================================================
 

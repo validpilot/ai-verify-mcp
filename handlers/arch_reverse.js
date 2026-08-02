@@ -138,10 +138,6 @@ async function archReverseProbe(args, deps) {
       result.summary.criticalCves > 0 ? `⚠️ 发现 ${result.summary.criticalCves} 个严重 CVE，建议立即处理` : '使用 browser_lighthouse_audit 执行性能审计'
     ];
 
-    result.paidUpgradeHint = result.summary.cveCount > 0
-      ? `开源版识别到 ${result.summary.cveCount} 个 CVE（含 ${result.summary.criticalCves} 个严重）。升级 Pro 启用 SSH 端口扫描、Docker 拓扑解析、中间件链深度分析、完整 NVD CVE 数据库。`
-      : `开源版识别到 ${result.summary.techCount} 个技术栈组件。升级 Pro 启用 SSH 端口扫描、Docker 拓扑解析、CVE 实时查询（完整 NVD 数据库）。`;
-
   } catch (e) {
     result.success = false;
     result.error = e.message;

@@ -1,8 +1,0 @@
-{
-  "name": "chain_list_templates",
-  "description": "列出所有内置链路规格模板，包括 marketplace-purchase、login-basic、credits-balance 等。每个模板包含名称、描述、步骤数、是否有状态源、目标 URL。",
-  "inputSchema": {
-    "type": "object",
-    "properties": {}
-  }
-}

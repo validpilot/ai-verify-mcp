@@ -2,6 +2,324 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.14.0] - 2026-07-31
+
+### Fixed
+
+- **validation_run target 页面关闭问题**（严重）：`ensurePage()` 在发现 about:blank 页面时会关闭旧页面创建新页面，但 `callTool` 中 `page = deps.page` 会用 handler 局部旧引用覆盖全局 page，导致 `captureStepEvidence(target, ...)` 报错 "Target page has been closed"。修复：`ensurePage` 当 about:blank + targetUrl 时直接导航不关闭页面；`browser_navigate` handler 传 `args.url` 给 `ensurePage`。（`server.js` + `handlers/browser.js`）
+- **`docker rm` / `DROP TABLE` 安全漏洞**（严重）：`docker rm` 和 `DROP TABLE` 原为黄线规则（DEV 环境允许执行），导致测试时 `docker rm -f validpilot-postgres` 被执行、容器被删除。修复：将 `docker rm/rmi/volume rm/network rm` 和 `DROP TABLE` 从黄线提升为红线规则（任何环境都禁止）。（`core/command_safety.js`）
+- **validation_decision 占位符**：开源版本未实现，仅返回"该能力在闭源端完整实现，开源版本仅作为占位"。修复：完整实现快速止损决策逻辑——支持手动传入 `browserErrors` 或自动从 `getUnifiedErrors()` 获取错误状态，基于关键 JS/CSS 404、页面运行时错误数量返回 STOP/WARN/CONTINUE 决策、置信度、Token 节省估算和修复建议。（`handlers/validation.js`）
+
+### Changed
+
+- **移除 exploration.js 中的 premiumHints**：`exploration_quick` 工具返回结果中包含 `premiumHints` 字段（"升级 Pro 解锁..."），不符合开源版本定位。移除 `buildPremiumHints` 函数和 `premiumHints` 输出字段。（`handlers/exploration.js`）
+- **移除 87 处 paidUpgradeHint**：从 13 个文件中移除所有 `paidUpgradeHint` 字段及相关代码（evidence.js、visual.js、validation.js、diagnose.js、system.js、session.js、browser.js、network.js、locator.js、arch_reverse.js、exploration.js、mcp-error.js、report-html.js）
+
+### Security
+
+- **安全规则升级**：`docker rm/rmi/volume rm/network rm` 从黄线提升为红线（任何环境都拦截），防止 AI 误删容器/镜像/卷/网络
+- **`DROP TABLE` 从黄线提升为红线**（任何环境都拦截），防止 AI 误删数据库表
+- **`docker stop/kill/pause` 新增为黄线规则**（DEV 环境允许+审计，STAGING/PROD 需审批）
+
+## [1.13.0] - 2026-07-30
+
+### Added
+
+- **基础设施访问工具下沉到开源版本**（`handlers/backend.js` + `core/ssh.js` + `core/command_safety.js` + 3 个工具 schema）：将 Premium 版本中的 3 个核心基础设施访问工具下沉到开源版本，践行「基础设施访问工具（SSH, database, Docker）不应受定价层级限制」的设计理念。AI 开发者自行管理凭据，工具不消耗 Credits。
+  - **`backend_ssh_exec`**（`tools/backend_ssh_exec.json`）：通过 SSH 在远程服务器执行 Shell 命令。支持密码/密钥/agent 多种认证方式。内置红线/黄线安全拦截（DROP DATABASE/rm -rf //shutdown 永远禁止）。
+  - **`backend_docker_exec`**（`tools/backend_docker_exec.json`）：通过 SSH 在目标服务器上执行 Docker 命令。支持 ps/logs/inspect/stats/images/compose 等命令。docker rm/rmi/volume rm 在非 DEV 环境需审批。
+  - **`backend_sql_query`**（`tools/backend_sql_query.json`）：通过 SSH 隧道对远程 PostgreSQL 执行 SQL 查询。返回 JSON 数组格式结果。内置脱敏机制自动过滤敏感字段（password/token/secret/key 等）。支持 Docker-exec 模式和 SSH-remote 模式。
+  - **`core/ssh.js`**（新建）：SSH 工具模块，从 mcp-server/scripts/utils/ssh.js 移植。支持环境变量配置（SSH_HOST/SSH_USER/SSH_PASS/SSH_KEY_PATH 等）、自动密钥发现（id_rsa/id_ed25519/id_ecdsa/id_dsa）、ssh-agent 认证。
+  - **`core/command_safety.js`**（新建）：命令安全检查模块，从 mcp-server/core/command_safety.js 移植。实现红线/黄线/绿线三层安全规则 + 环境感知（DEV/STAGING/PROD）+ 审计日志。
+  - **`handlers/backend.js`**（新建）：基础设施工具 handler，实现 3 个工具的执行逻辑。包含 CSV 解析器、敏感字段脱敏、安全检查集成。
+  - **依赖新增**：`ssh2@^1.16.0`（SSH 协议客户端库）
+  - **设计原则**：基础设施访问工具属基本必需品，AI 开发者已自行管理凭据，不应受定价层级限制。工具标注「不消耗 Credits」。
+
+## [1.12.0] - 2026-07-30
+
+### Added
+
+- **新增 `dev_workflow` 开发工作流验证引导工具**（`tools/dev_workflow.json` + `handlers/system.js` + `handlers/skill_map.js`）：解决「AI 写完代码后很少使用 MCP 工具验证」的核心问题。此工具作为"触发入口"，在 AI 完成代码修改后主动推荐对应的 MCP 工具链和验证流程。
+  - **核心价值**：AI 完成代码修改后调用 `dev_workflow { taskType: "login" }`，工具返回完整的验证步骤、每步应使用的 MCP 工具及参数建议，引导 AI 按步骤完成闭环验证
+  - **11 种任务类型**：login（登录验证）、form（表单提交）、crud（增删改查）、navigation（导航路由）、display（数据展示）、bugfix（修复验证）、refactor（重构回归）、full_feature（完整功能）、deploy（部署验证）、performance（性能审计）、security（安全审计）
+  - **每种任务类型包含**：推荐的 Skill 名称、验证流程类型（5步链路/快速验证/回归验证等）、触发提示（告诉 AI 为什么现在应该验证）、具体工具调用步骤序列（含工具名、参数建议、操作原因、触发提示）
+  - **`TASK_SKILL_MAP` 映射表**（`handlers/skill_map.js`）：任务类型 → 验证流程的完整映射，包含 11 种任务类型 × 4-8 步工具链 = 70+ 工具调用建议
+  - **`getTaskWorkflow(taskType, url)` 函数**：根据任务类型获取推荐的验证流程，自动预填 URL 参数，关联 Skill 信息
+  - **`getAllTaskTypes()` 函数**：返回所有支持的任务类型列表
+  - **工具描述设计**：description 中明确写"AI 完成代码编写/修改后必须调用此工具"，强化触发条件
+
+- **`skill_validate` 新增 `mode=task_recommend` 任务类型推荐模式**（`tools/skill_validate.json` + `handlers/system.js`）：根据任务类型（login/form/crud/bugfix 等）反向推荐对应的 Skill 和完整验证工具链，并附带 Skill 一致性校验。新增 `taskType` 和 `url` 参数。
+  - 与 `dev_workflow` 的区别：`dev_workflow` 是独立的触发入口工具；`skill_validate { mode: "task_recommend" }` 在推荐的同时还校验 Skill 工具链一致性（`skillConsistency` 字段）
+
+- **关键工具返回结果自动注入 `workflowHint`**（`server.js` + `handlers/skill_map.js`）：在 14 个关键工具的返回结果中自动注入 `workflowHint` 字段，引导 AI 进行下一步验证操作。解决「调用了 `browser_navigate` 后不知道下一步该做什么」的问题。
+  - **`TOOL_WORKFLOW_HINTS` 映射表**（`handlers/skill_map.js`）：14 个关键工具的下一步提示，包括 `browser_navigate`→`browser_snapshot`、`browser_click`→`browser_assert`、`browser_form_fill`→`browser_click`、`validation_check`→`evidence` 等
+  - **统一注入逻辑**（`server.js`）：在工具返回结果的 JSON 中自动添加 `workflowHint` 字段，包含 `nextTool`（推荐下一步工具）、`hint`（操作提示）、`workflowRef`（关联 dev_workflow 引用）
+  - **注入原则**：仅对 `TOOL_WORKFLOW_HINTS` 中列出的工具注入；仅对成功的工具调用注入；仅对 JSON 格式的返回结果注入；已有 `workflowHint` 的不重复注入
+
+- **Skill 描述增强**（`.trae/skills/`）：在 `validation-expert` 和 `browser-dev-full-validation-skill` 的 SKILL.md 开头新增「触发入口（必读）」章节，明确标注何时触发此 Skill 以及首先调用 `dev_workflow` 获取验证建议
+
+### Fixed
+
+- **`imageErrors` 截图错误检测误报 amber/橙色/黄色文字为错误**（`server.js`）：`analyzeScreenshotForErrors` 函数中红色文字检测逻辑过于宽松，将 amber 色文字（如 `rgb(180, 83, 9)` 的"点数余额"）误判为红色错误文本，导致 `imageErrors` 误报。修复为：
+  - 新增 amber/yellow/orange 三种非错误颜色过滤
+  - 收紧红色判断条件：从 `r>160 && g<130 && r-g>40` 收紧为 `r>160 && g<100 && b<100 && r-g>80`
+  - HSL 判断增加饱和度阈值和色相排除区间
+  - 验证：修复前"点数余额"（amber-700）被误报为错误；修复后 `imageErrors` 为空数组
+
+## [1.11.3] - 2026-07-30
+
+### Fixed
+
+- **`imageErrors` 截图错误检测误报 amber/橙色/黄色文字为错误**（`server.js`）：`analyzeScreenshotForErrors` 函数中红色文字检测逻辑过于宽松，将 amber 色文字（如 `rgb(180, 83, 9)` 的"点数余额"）误判为红色错误文本，导致 `imageErrors` 误报。修复为：
+  - 新增 amber/yellow/orange 三种非错误颜色过滤：amber（`R>150 && G∈[60,140] && B<50`，如 `rgb(180,83,9)`）、yellow（`R>200 && G>130 && B<80`，如 `rgb(245,158,11)`）、orange（`R>200 && G∈[80,160] && B<60`，如 `rgb(234,88,12)`）
+  - 收紧红色判断条件：从 `r>160 && g<130 && r-g>40` 收紧为 `r>160 && g<100 && b<100 && r-g>80`，要求 G 和 B 都低于 100 且 R-G 差距大于 80
+  - HSL 判断增加饱和度阈值（`s>=60`）和色相排除区间（`20<h<60` 为 amber/yellow 范围）
+  - 已知颜色名列表新增 `#dc2626`、`#ef4444`（Tailwind red-600/red-500）
+  - 验证：修复前"点数余额"（amber-700）被误报为错误；修复后正常 amber/yellow/orange 文本不再触发误报，真正的红色错误文本（如 `rgb(220,38,38)`）仍能正确检测
+
+## [1.11.2] - 2026-07-30
+
+### Added
+
+- **`browser_table_verify` 新增 `mode=card` 卡片列表模式**（`handlers/browser.js` + `tools/browser_table_verify.json`）：支持验证非表格布局的数据列表（如用户管理、订单列表等使用 `div+flex` 渲染的卡片列表）。之前工具仅支持标准 `<table>` 元素，遇到卡片布局会报"未找到表格元素"错误。新增功能包括：
+  - `mode` 参数：`'table'`（默认，标准表格）或 `'card'`（卡片列表布局）
+  - `cardSelector` 参数：卡片元素选择器，每张卡片作为一行数据（如 `'.user-card'`、`'[class*="divide-y"] > div'`）
+  - `fieldMap` 参数：字段映射，key 为字段名（作为列名），value 为该字段在卡片内的 CSS 选择器（如 `{"email": "span.font-medium", "status": "span.bg-emerald-100"}`）
+  - `fieldAttr` 参数：从属性而非文本提取字段值（如 `{"link": "href"}`）
+  - 卡片模式下所有断言（行数、列值、单元格匹配、分页）均可用
+  - 卡片模式不支持排序验证和树形展开验证（卡片列表无表头可点击，自动跳过）
+  - 兼容性：`mode='table'` 时行为与之前版本完全一致
+
+## [1.11.1] - 2026-07-30
+
+### Fixed
+
+- **`browser_network` 网络日志重复记录误报**（`server.js`）：页面复用场景下 `setupPageListeners` 被多次调用，但 Playwright `page.on()` 不支持去重，导致每个 HTTP 响应被记录 N 次（N = 页面复用次数 + 1）。实测 1 次实际请求被报告为 23 次，严重误导测试结论。修复为使用 `WeakSet` 跟踪已注册监听器的页面，跳过重复注册。`resetRuntimeLogs()` 仍然每次调用以确保日志重置。
+  - 根因分析：`setupPageListeners` 在 4 处被调用（warmup/ensurePage 复用/池复用/新页面），其中 2 处为页面复用场景，在已有监听器的页面上重复注册
+  - 验证方法：通过 nginx access log 确认实际仅 1 次 HTTP 请求，MCP 工具误报为 23 次
+- **`setupPageListeners` 调用顺序修复**（`server.js`）：原代码在 3 处路径（复用浏览器/池复用/新页面）中先调用 `page.goto()` 再调用 `setupPageListeners()`，导致页面加载时的 API 请求在监听器注册前就已发出，无法被捕获。去重修复后旧监听器不再重复注册，此问题暴露为 0 条网络记录。修复为在所有路径中将 `setupPageListeners()` 移到 `page.goto()` **之前**，确保监听器就绪后再导航。
+
+## [1.11.0] - 2026-07-28
+
+### Added (v1.11.0 探索增强)
+
+- **`browser_form_fill` 新增 `mode=select` 模式**（`handlers/system.js` + `tools/browser_form_fill.json`）：支持下拉框选择和级联选择器操作，解决 Ant Design Select/Cascader 等只读输入框组件无法用 `browser_form_fill` 填充的问题。功能包括：
+  - **单选下拉框**（`selectValue` 参数）：打开下拉菜单 → 按文本匹配选项 → 点击选择 → 验证选中值
+  - **级联选择器**（`selectPath` 参数）：逐级打开菜单 → 按路径选择每级选项 → 验证最终选中值
+  - 多 UI 库支持：Ant Design Select（`.ant-select-item-option`）、Element UI Select（`.el-select-dropdown__item`）、原生 `<select>`
+  - 级联菜单支持：Ant Design Cascader（`.ant-cascader-menu`）
+  - 失败时返回可用选项列表（`availableOptions`），便于调试
+  - `waitMs` 参数控制每级选择后的等待时间
+- **`browser_click_audit` 新增 Modal/Dialog 检测**（`handlers/browser.js` + `tools/browser_click_audit.json`）：点击后自动检测弹窗是否出现，提取弹窗内容并支持断言。功能包括：
+  - 自动检测 4 种弹窗：Ant Design Modal（`.ant-modal`）、Element UI Dialog（`.el-dialog`）、通用 `[role="dialog"]`、Ant Design Drawer（`.ant-drawer`）
+  - 提取弹窗标题（`title`）、正文（`body`）、操作按钮列表（`buttons`，含按钮类型 primary/default）
+  - `expectModalTitle` 断言：验证弹窗标题包含期望文本
+  - `expectModalBody` 断言：验证弹窗内容包含期望文本
+  - `closeModal` 参数：验证后自动关闭弹窗（优先点击取消/关闭按钮，备选关闭图标，最后按 Escape）
+  - 仅在 `visualChanged=true && !urlNavigated` 时触发检测（SPA 弹窗场景）
+
+### Added
+
+- **`browser_table_verify` 新工具**（`handlers/browser.js` + `tools/browser_table_verify.json`）：专门验证表格数据，替代多次 `browser_snapshot + 手动比对` 的繁琐操作。功能包括：
+  - 表格数据提取（headers + rows，支持 thead/tbody 和无 thead 的表格结构）
+  - 行数断言（`expectRowCount` / `expectMinRowCount` / `expectMaxRowCount`）
+  - 列名断言（`expectColumns`）
+  - 列值断言（`columnValues`，验证某列包含特定值）
+  - 单元格内容匹配（`cellMatch`，验证特定单元格文本）
+  - 排序验证（`sortBy` + `sortOrder`，点击表头后验证排序顺序）
+  - 分页验证（`pagination`，翻页后验证数据是否变化）
+  - 静态资源限制（`maxRows` 默认 100，避免超大表格响应过大）
+  - 综合断言结果（`allAssertionsPassed`）
+- **`browser_api_intercept` 新工具**（`handlers/browser.js` + `tools/browser_api_intercept.json`）：拦截浏览器 API 请求，实现真正的"浏览器-API 数据一致性"自动验证。功能包括：
+  - 两种拦截模式：`observe`（默认，观察请求和响应，不修改）/ `mock`（返回模拟响应，不实际发送请求）
+  - URL glob 模式匹配（`urlPattern`，支持 `**/api/**` 等 glob 语法和字符串包含匹配）
+  - HTTP 方法过滤（`method`，如 GET/POST/PUT/DELETE）
+  - 静态资源过滤（`ignoreStatic` 默认 true，忽略 .js/.css/.png 等静态文件）
+  - 响应捕获（请求方法/URL/headers/body + 响应状态/headers/body）
+  - 状态码断言（`expectStatus`）
+  - 响应体断言（`expectBodyContains` / `expectBodyMatch` 正则）
+  - 响应头断言（`expectHeaders`）
+  - 数据一致性比对（`compareWith`，与 curl 等外部预期值进行 status/bodyContains/bodyMatch 比对）
+  - 捕获数量控制（`captureCount` 达到后立即返回，`waitMs` 超时保护）
+  - mock 响应（`mockResponse` 包含 status/headers/body，用于接口未就绪时的前端测试）
+  - 自动清理监听器和 route 拦截器（避免内存泄漏）
+  - **`trigger` 参数**（v1.11.0 补充）：解决 observe 模式下监听器安装时机晚于请求发出的核心问题。在安装监听器后、等待捕获前自动触发动作：
+    - `trigger.click`：监听器安装后点击指定 CSS 选择器（如按钮），触发发起 API 请求
+    - `trigger.eval`：监听器安装后在页面执行 JavaScript 代码（如 `fetch("/api/users")`），触发 API 请求
+    - `trigger.delayMs`：监听器安装后、触发动作前的等待时间（默认 100ms，确保监听器完全就绪）
+    - 结果中包含 `trigger` 字段，报告触发动作的执行结果
+
+### Changed
+
+- **`browser_click_audit` 新增 `form-submit` 模式**（`handlers/browser.js` + `tools/browser_click_audit.json`）：基于用户真实使用反馈，新增表单提交检测能力。功能包括：
+  - 新增 `mode` 参数：`basic`（默认，原有行为）/ `form-submit`（表单提交检测模式）
+  - 新增 `formSelector` 参数：指定表单容器选择器，默认自动查找点击元素最近的 form 祖先
+  - 新增 `expectNavigation` 参数：是否期望提交后发生 URL 跳转（默认 false，适用于 SPA 场景）
+  - 新增 `expectSuccess` 参数：是否期望提交成功（用于断言）
+  - 点击前注入 `submit` 事件监听器，捕获表单的 action/method/字段值
+  - 点击后检测：submit 事件触发情况、表单字段是否清空（成功提交标志）、成功/错误提示消息（支持 Element Plus / Ant Design / 通用类名）、提交相关网络请求（POST/PUT/DELETE/PATCH）
+  - 综合判定：`formSubmitted`（任一标志触发即视为已提交）、`submitSucceeded`（成功消息/网络 2xx/字段清空且无错误）
+  - 断言结果：`allAssertionsPassed`，失败时设置 `assertionFailed: true`
+  - 增强的 `nextSteps` 和 `suggestions`：根据提交结果提供针对性建议
+- **`handlers/browser.js` tools 数组扩展**：注册 `browser_table_verify` 和 `browser_api_intercept` 两个新工具，工具总数从 93 增至 95。
+
+### Verified
+
+- `node -c handlers/browser.js` 语法验证通过
+- `node -e` JSON schema 验证通过（`browser_table_verify.json` 11 个 properties、`browser_api_intercept.json` 13 个 properties（含 trigger）、`browser_click_audit.json` 9 个 properties）
+- **`browser_api_intercept` trigger 功能独立测试**（2026-07-28，4/4 通过）：
+  - ✅ observe + trigger.click：监听器安装后点击 `#fetchBtn`，成功捕获 GET /api/users（status=200，body 包含 alice）
+  - ✅ observe + trigger.eval：监听器安装后执行 `fetch("/api/users", {method:"POST"})`，成功捕获 POST 请求（status=201）
+  - ✅ mock 模式：route 拦截器返回模拟数据，页面正确显示 mocked_user
+  - ✅ 断言功能：expectStatus/expectBodyContains/expectBodyMatch/expectHeaders 全部通过
+- 待 MCP server 重启后进行 run_mcp 实际调用验证
+
+### Fixed (v1.11.0 补充)
+
+- **`browser_click_audit` form-submit 模式误报 `submitSucceeded`**（`handlers/browser.js`）：当网络请求返回 401/4xx/5xx 时，由于 React 重新渲染导致表单字段清空（`fieldsCleared: true`）且未检测到错误消息（`hasNoErrorMessages: true`），`submitSucceeded` 被误判为 `true`。修复为增加 `submitNetworkFailed` 检查：如果 submitRequests 中有 4xx/5xx 响应，则否定"字段清空+无错误消息"的成功判定。
+- **`browser_form_fill` mode=select 原生 select `finalValue` 读取不正确**（`handlers/system.js`）：原生 `<select>` 元素的选中值存储在 `select.value` 或 `options[selectedIndex].text` 中，而非 `input.value`。修复为优先检查 `select` 元素：`el.tagName === 'SELECT' ? el : el.querySelector('select')`，返回 `options[selectedIndex].text`。
+- **`browser_click_audit` Modal 检测扩展支持 Tailwind CSS 自定义弹窗**（`handlers/browser.js`）：原仅支持 Ant Design Modal、Element UI Dialog、`[role="dialog"]`、Ant Design Drawer。新增 Tailwind CSS 弹窗检测：查找 `.fixed.inset-0` 且 z-index >= 40 或有 `bg-black/bg-gray/bg-opacity` 遮罩的元素，提取标题（`h1/h2/h3/[class*="title"]`）、内容、按钮（支持 `bg-blue/bg-indigo` primary 识别）。自动关闭逻辑同步增强。
+- **`browser_form_fill` mode=select 级联选择误选页面级筛选器 dropdown**（`handlers/system.js`）：Ant Design 文档页面有多个可见的 `.ant-cascader-dropdown`，第一个是页面右上角的"贡献者"筛选器（`semantic-mark-popup-root` 类），导致级联选择时误取了筛选器的选项（contributors）而非目标 Cascader 的选项（Zhejiang/Jiangsu）。修复为：
+  1. 优先通过 input 的 `aria-controls` 属性关联对应的 dropdown（最精确）
+  2. 若无法关联，排除 `semantic-mark-popup-root` 类的页面级筛选器 dropdown
+  3. 取最后一个可见的 cascader-dropdown（新打开的 dropdown 通常在 DOM 最后面）
+- **`browser_form_fill` mode=select 单选下拉框误选页面级筛选器 dropdown**（`handlers/system.js`）：同样修复，排除 `semantic-mark-popup-root` 类的 dropdown，取最后一个可见的 select-dropdown。
+- **`browser_form_fill` mode=select `finalValue` 读取不正确**（`handlers/system.js`）：Ant Design 5.x 的 Select 选中值存储在 `.ant-select-selection-item` 的 `title` 属性中，而非 `input.value`。修复为多策略读取：优先 `.ant-select-selection-item[title]` → `.ant-select-selection-item` 文本 → `.el-select__selected-item` 文本 → `input.value`。
+- **`browser_api_intercept` mock 模式 route pattern 不匹配**（`handlers/browser.js`）：mock 模式下 `page.route(urlPattern, ...)` 直接使用用户传入的 urlPattern（如 `/posts`），但 Playwright route 匹配需要 glob 模式（如 `**/posts**`）才能匹配完整 URL。修复为自动将字符串包含模式转换为 `**${urlPattern}**` glob 模式，`unroute` 同步修复。
+- **`browser_api_intercept` mock 模式下断言不生效**（`handlers/browser.js`）：mock 模式捕获的请求项只有 `mockResponse` 字段而无 `response` 字段，导致 `expectStatus`/`expectBodyContains`/`expectBodyMatch`/`expectHeaders` 断言因 `first.response` 为 undefined 而被跳过。修复为在断言前将 `mockResponse` 归一化为 `response` 字段。
+- **`browser_table_verify` 排序验证三个问题**（`handlers/browser.js`）：
+  1. **单次点击不保证正确排序方向**：不同表格的首次点击可能产生升序或降序，工具只点击一次无法保证达到期望顺序。修复为最多点击 3 次，每次点击后检查排序方向，达到期望顺序即停止。
+  2. **字符串比较对数字排序不正确**：`localeCompare` 对数字字符串排序有误（如 "9" > "88"）。修复为智能比较函数：纯数字用数值比较，非数字用 `localeCompare`。
+  3. **结果中增加 `clickCount` 字段**：报告实际点击次数，便于调试。
+
+### Changed (v1.11.0 补充)
+
+- **`browser_table_verify` 新增 `waitMs` 参数**（`tools/browser_table_verify.json`）：排序/分页操作后的等待时间，确保数据加载完成。默认 800ms。
+
+### Verified (v1.11.0 补充 - 真实互联网项目测试)
+
+- **`browser_api_intercept` trigger + observe 模式**（2026-07-28，jsonplaceholder.typicode.com）：
+  - ✅ `trigger.eval`：执行 `fetch('https://jsonplaceholder.typicode.com/posts?_limit=3')` 后成功捕获 GET 请求（status=200，body 包含 userId）
+  - ✅ 3 个断言全部通过：captureCount、expectStatus(200)、expectBodyContains("userId")
+  - ✅ trigger 结果报告：`{"ok": true, "action": "eval", "result": "{}"}`
+- **`browser_api_intercept` mock 模式 glob pattern 修复**（2026-07-28，jsonplaceholder.typicode.com）：
+  - ✅ 独立测试验证：route pattern `**/posts**` 成功匹配 `https://jsonplaceholder.typicode.com/posts/1`，拦截请求并返回 mock 数据（mocked_post）
+- **`browser_table_verify` 表格验证**（2026-07-28，ant.design/components/table-cn）：
+  - ✅ 表格数据提取：5 列（Name, Age, Address, Tags, Action），3 行数据
+  - ✅ 行数断言：期望 3 行，实际 3 行
+  - ✅ 列名断言：所有 5 个期望列都存在
+  - ✅ 列值断言：Name 列包含 John Brown, Jim Green, Joe Black
+  - ✅ `allAssertionsPassed: true`
+- **`browser_click_audit` form-submit 模式**（2026-07-28，ant.design/components/form-cn）：
+  - ✅ submit 事件捕获：`submitTriggered: true`
+  - ✅ 表单提交检测：`formSubmitted: true`
+  - ✅ 提交成功判定：`submitSucceeded: true`（通过 console log "Success: {username: testuser, password: testpass123, remember: true}" + 网络 2xx 响应判定）
+  - ✅ expectSuccess 断言通过
+  - ✅ expectNavigation 断言通过（SPA 模式，URL 未跳转）
+  - ✅ `allAssertionsPassed: true`
+
+### Added (v1.11.0 补充 - 深度测试增强)
+
+- **`browser_table_verify` 新增 `expandRow` 参数**（`handlers/browser.js` + `tools/browser_table_verify.json`）：树形表格展开验证。点击指定行索引的展开按钮，等待子行加载，验证行数变化。结果包含 `beforeRowCount`/`afterRowCount`/`childRowsAdded`/`newRows`/`passed`。支持 Ant Design 的 `.ant-table-row-expand-icon` 和通用的 `[class*="expand-icon"]`/`[class*="expand-btn"]` 选择器。
+
+### Verified (v1.11.0 补充 - 深度测试验证)
+
+- **`browser_table_verify` 排序智能比较 + 重试点击**（2026-07-28，ant.design/components/table-cn）：
+  - ✅ 升序排序：Chinese Score 列 asc，值 [88, 98, 98, 98]，点击 1 次
+  - ✅ 降序排序：Chinese Score 列 desc，值 [98, 98, 98, 88]，点击 1 次
+  - ✅ 数字排序正确（88 < 98，非字符串比较 "88" > "98"）
+- **`browser_api_intercept` mock 模式断言修复**（2026-07-28，jsonplaceholder.typicode.com）：
+  - ✅ `expectStatus(200)` 断言通过（mockResponse 归一化为 response）
+  - ✅ `expectBodyContains("mocked_post")` 断言通过
+  - ✅ `allAssertionsPassed: true`
+- **`browser_table_verify` 分页验证**（2026-07-28，ant.design/components/table-cn）：
+  - ✅ 翻页 2 页，数据从 "Edward King 0" 变为 "Edward King 10"
+  - ✅ `dataChangedAcrossPages: true`
+- **`browser_table_verify` cellMatch + columnValues**（2026-07-28，ant.design/components/table-cn）：
+  - ✅ 4 个 cellMatch 断言全部通过
+  - ✅ 2 组 columnValues 断言全部通过
+  - ✅ 负面测试：expectRowCount(5) 和 cellMatch("Wrong Name") 正确检测为失败
+- **`browser_table_verify` expandRow 树形展开**（2026-07-28，ant.design/components/table-cn）：
+  - ✅ 展开第 0 行（John Brown sr.），行数从 2 增至 5
+  - ✅ 新增 3 行子数据：John Brown jr.、Jim Green sr.、Joe Black
+  - ✅ `childRowsAdded: 3`，`passed: true`
+- **`browser_form_fill` mode=select 单选下拉框**（2026-07-28，ant.design/components/select-cn）：
+  - ✅ 成功选择 "Jack" 选项：`success: true`，`library: "ant-design"`，`clickedOption: "Jack"`
+  - ✅ `finalValue: "Jack"` — 修复后正确读取 Ant Design 5.x `.ant-select-content` 文本节点
+- **`browser_form_fill` mode=select 级联选择 dropdown 误选修复**（2026-07-28，ant.design/components/cascader-cn）：
+  - ❌ 修复前：误选页面级"贡献者"筛选器 dropdown（availableOptions: ["contributors"]）
+  - ✅ 修复后：成功选择 ["Zhejiang", "Hangzhou", "West Lake"]，三级全部成功，`allLevelsSelected: true`
+  - ✅ `finalValue: "Zhejiang / Hangzhou / West Lake"` — 正确读取级联选中值
+  - ✅ `aria-controls` 关联和 `semantic-mark-popup-root` 排除策略均生效
+- **`browser_click_audit` Modal 检测功能**（2026-07-28，ant.design/components/modal-cn）：
+  - ✅ `modalFound: true`，`library: "ant-design"`，正确检测到 Ant Design Modal
+  - ✅ `title: "Title"`，`body: "Some contents..."`，正确提取弹窗标题和内容
+  - ✅ `buttons: 3 个`（空按钮、取 消、确 定），`buttonCount: 3`，正确提取按钮列表
+  - ✅ `titleAssertion`：期望 "Basic Modal" 实际 "Title"，正确报告不匹配（`passed: false`）
+  - ✅ `closed: true`，自动关闭弹窗成功
+
+## [1.10.2] - 2026-07-23
+
+### Fixed
+
+- **`validateToolSchemas()` 必需工具列表别名残留**（`server.js`）：`requiredTools` 数组中仍包含 13 个已移除的别名工具名（`browser_errors_clear`、`browser_events_clear`、`browser_network_detail`、`debug_investigate`、`validation_report_export`、`browser_visual_baseline/compare/report`、`browser_performance_check`、`browser_locator_validate/suggest`、`mcp_health_check`、`mcp_self_test`），导致 `mcp_diag { mode: 'health' }` 报告 `ok: false` 和 13 个 missing 工具。修复为 30 个主工具名，`ok: true`，`missing: []`。
+- **`FEATURE_GATE.ossFeatures` 别名残留**（`server.js`）：开源功能门控列表中仍包含大量别名工具名（`mcp_health_check`、`evidence_pack`、`evidence_index`、`error_summary_md`、`contract_guard`、`contract_baseline`、`browser_performance_check`、`browser_chain`、`validation_chain`、`asset_endpoint_probe/enum/routes_discover`、`browser_captcha_detect/screenshot/read`、`browser_find_element/find_page`、`browser_locator_suggest/validate` 等），修复为 37 个主工具名。
+- **`dual_chain_orchestrator.js` 别名工具调用**：4 处 `_callToolSafe()` 调用使用了已移除的别名工具名：
+  - `browser_find_element` → `browser_find`（2 处）
+  - `browser_smart_fill` → `browser_form_fill { mode: 'smart' }`（1 处）
+  - `browser_network_detail` → `browser_network { mode: 'detail' }`（1 处）
+- **`server.js` 自测函数别名调用**：`mcp_self_test` 中的 `testTool('browser_find_element', ...)` 修复为 `testTool('browser_find', ...)`。
+- **`handlers/visual.js` 错误消息别名引用**：元素截图超时的 `suggestion` 字段中 `browser_find_element` 修复为 `browser_find`。
+- **`server.js` 调试建议消息别名引用**：错误排查 `nextSteps` 中 `browser_errors_clear`、`browser_events_clear` 修复为 `browser_errors（mode: clear）`、`browser_events（mode: clear）`。
+
+### Verified
+
+- `node -e` 直接验证 `validateToolSchemas()`：`registeredCount: 93`，`requiredCount: 32`，`missing: []`，`ok: true`。
+- 完整测试套件回归：313/313 通过，0 失败（覆盖 tools.test.js、system_extra.test.js、dual_chain_orchestrator.test.js、handlers_*.test.js、evidence.test.js、visual.test.js、session.test.js、network*.test.js、security*.test.js、locator.test.js、diagnose_extra.test.js、prompts.test.js、skill_map.test.js）。
+
+## [1.10.1] - 2026-07-23
+
+### Fixed
+
+- **handler 响应中残留别名工具名清理**：14 个 handler 文件（visual/diagnose/validation/evidence/browser/security/session/system/network/locator/asset/exploration/correlate/data_compare）的 `nextSteps`/`suggestions`/`tool`/`relatedTool`/`verifyTool` 字段中残留的别名工具名引用替换为主工具名 + `mode` 参数格式（共 495 处替换，降至 135 处保留项 — 保留项为 dispatch 调用、backward compat 检查、内容类型标识等必要引用）。
+- **测试断言同步更新**：`test/handlers_network_system.test.js` 中 2 个测试断言更新为匹配新的主工具名 + mode 格式：
+  - `browser_network_detail` → `browser_network` + `detail`（"有错误时 nextSteps 包含错误排查建议" 测试）
+  - `browser_diagnose` → `browser_debug` + `diagnose`（"无 page 时返回 getUnifiedErrors 结果" 测试）
+
+### Verified
+
+- **完整测试套件回归**（2026-07-23）：63 个测试文件全部通过（1022 ✔ / 0 ✖），覆盖所有 93 个主工具的 schema 注册、handler 路由、响应字段一致性。注：`cli.test.js` 3 个失败为 pre-existing 问题（CLI 集成测试需运行中的服务器），与 v1.10.1 无关。
+
+## [1.10.0] - 2026-07-22
+
+### Breaking Change
+
+- **移除 61 个工具别名（v1.9.5 过渡期结束）**：v1.9.5 引入的 `TOOL_ALIASES` 别名转发机制作为兼容层已服务一个版本周期。v1.10.0 正式移除所有别名，工具数量从 154（含 61 别名）降至 93 个主工具。**升级指南**：将旧工具名调用替换为「主工具名 + `mode` 参数」，例如 `evidence_pack` → `evidence { mode: 'pack' }`、`security_headers_check` → `security_scan { mode: 'headers' }`。完整映射表见 [v1.9.5 CHANGELOG](#195---2026-07-21) 的 Phase 表格。
+
+### Changed
+
+- **server.js TOOL_ALIASES 移除**：删除 `server.js` 中 61 个别名定义（约 90 行）和 callTool 中的别名转发逻辑（3 行）。从此 callTool 直接路由到主工具 handler，不再做透明转发。
+- **handler tools 数组清理**：11 个 handler 文件（browser/session/evidence/network/diagnose/visual/locator/system/security/asset/correlate）中移除 47 个别名工具注册，仅保留主工具。
+- **SKILL_TOOLS_MAP 别名工具名替换**：`handlers/skill_map.js` 中 7 个 Skill 的工具链引用全部从别名工具名更新为主工具名 + `mode` 字段（如 `evidence_pack` → `evidence { mode: 'pack' }`），保证 `skill_validate` 一致性校验通过。
+- **prompts.js buildMessages 别名工具名替换**：`handlers/prompts.js` 中 7 个 Prompt 的 buildMessages 输出全部从别名工具名更新为主工具名 + `mode` 参数（共 25 处替换，如 `evidence_pack({...})` → `evidence({ mode: 'pack', ... })`、`security_headers_check({...})` → `security_scan({ mode: 'headers', ... })`）。修复后 `skill_validate` 一致性校验的 mapDrift 警告从 40 降至 0。
+
+### Removed
+
+- **61 个别名 schema 文件**：从 `tools/` 目录删除 `browser_chain.json`、`browser_batch.json`、`validation_chain.json`、`browser_errors_aggregate.json`、`browser_errors_clear.json`、`browser_events_clear.json`、`browser_smart_fill.json`、`browser_network_detail.json`、`validation_quick_run.json`、`validation_report_export.json`、`trace_correlation_check.json`、`browser_trace_chain.json`、`browser_visual_baseline.json`、`browser_visual_compare.json`、`browser_visual_report.json`、`browser_visual_check.json`、`browser_visual_snapshot.json`、`screenshot_diff.json`、`browser_screenshot_element.json`、`browser_session_create.json`、`browser_session_switch.json`、`browser_session_close.json`、`browser_sessions.json`、`browser_captcha_detect.json`、`browser_captcha_read.json`、`browser_captcha_screenshot.json`、`browser_overlay_detect.json`、`browser_overlay_dismiss.json`、`browser_locator_suggest.json`、`browser_locator_validate.json`、`browser_find_element.json`、`browser_find_page.json`、`browser_performance_check.json`、`browser_performance_trace.json`、`browser_cookies.json`、`browser_storage.json`、`browser_debug_report.json`、`browser_diagnose.json`、`debug_investigate.json`、`error_fix_suggestion.json`、`error_summary_md.json`、`skill_mcp_validate.json`、`skill_consistency_check.json`、`skill_tools_map.json`、`security_headers_check.json`、`security_csp_analyze.json`、`security_sql_injection_scan.json`、`security_xss_scan.json`、`security_owasp_top10.json`、`evidence_pack.json`、`evidence_index.json`、`chain_list_templates.json`、`chain_spec_run.json`、`chain_score_report.json`、`mcp_health_check.json`、`mcp_self_test.json`、`contract_baseline.json`、`contract_guard.json`、`asset_routes_discover.json`、`asset_endpoint_enum.json`、`asset_endpoint_probe.json`。保留 93 个主工具 schema。
+- **测试文件中别名 describe 块**：18 个测试文件中移除 33+ 个别名工具的 describe 块（包括对已删除 schema 的 require 断言、handler 注册断言等）。
+- **冗余测试文件**：删除 `test/error_fix_suggestion.test.js`、`test/validation_quick_run.test.js`（功能已由 `error_analyze { mode: 'fix' }` 和 `validation_check` 主工具覆盖）。
+
+### Verified
+
+- **测试套件全量回归**（2026-07-22）：63 个测试文件全部通过（1315 ✔ / 0 ✖），覆盖所有 93 个主工具的 schema 注册、handler 路由、SKILL_TOOLS_MAP 一致性校验、prompt buildMessages 输出对比。注：`cli.test.js` 3 个失败为 pre-existing 问题（CLI 集成测试需运行中的服务器），与 v1.10.0 无关。
+- **skill_validate 一致性**：`SKILL_TOOLS_MAP` 中 7 个 Skill 的所有 required 工具均在 93 个主工具中存在，mapDrift 警告从 40 降至 0（prompts.js 同步更新后）。
+- **MCP 工具调用验证**（2026-07-22）：通过 run_mcp 调用核心主工具 + mode 参数，验证 mode 分发正确：
+  - `mcp_diag { mode: 'health' }` ✅ MCP 服务器健康
+  - `skill_validate { mode: 'consistency' }` ✅ 7/7 skills passed, 0 warnings
+  - `skill_validate { mode: 'tools_map', toolName: 'evidence' }` ✅ 返回 7 个引用 evidence 主工具的 Skill
+  - `security_scan { mode: 'headers', url: 'https://ant.design/' }` ✅ 返回安全头扫描结果
+  - `chain_spec { mode: 'list' }` ✅ 返回 6 个内置链路模板
+
 ## [1.9.5] - 2026-07-21
 
 ### Changed

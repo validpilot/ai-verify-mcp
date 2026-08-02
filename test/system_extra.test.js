@@ -66,32 +66,7 @@ describe('css_var_check', () => {
 // skill_mcp_validate
 // ============================================================
 
-describe('skill_mcp_validate', () => {
-  test('schema 文件存在且 JSON 合法', () => {
-    const filePath = path.join(TOOLS_DIR, 'skill_mcp_validate.json');
-    assert.ok(fs.existsSync(filePath));
-    const schema = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    assert.equal(schema.name, 'skill_mcp_validate');
-    assert.ok(schema.description);
-    assert.ok(schema.inputSchema);
-  });
-
-  test('schema 包含 skillName 为必填，及 mode 枚举参数', () => {
-    const schema = JSON.parse(fs.readFileSync(path.join(TOOLS_DIR, 'skill_mcp_validate.json'), 'utf8'));
-    const props = schema.inputSchema.properties;
-    assert.ok(props.skillName);
-    assert.equal(props.skillName.type, 'string');
-    assert.ok(schema.inputSchema.required.includes('skillName'), 'skillName 应为必填');
-    assert.ok(props.mode);
-    assert.equal(props.mode.type, 'string');
-    assert.ok(props.mode.enum.includes('strict'), 'mode 应包含 strict');
-    assert.ok(props.mode.enum.includes('warn'), 'mode 应包含 warn');
-  });
-
-  test('toolNames 中包含 skill_mcp_validate（已注册到 MCP）', () => {
-    assert.ok(toolNames.has('skill_mcp_validate'), '工具 skill_mcp_validate 应在 toolNames 中');
-  });
-});
+// v1.10.0: skill_mcp_validate 已移除（别名 → skill_validate mode=mcp_validate）
 
 // ============================================================
 // skill_mcp_sync（OSS 不包含，属于 Team 版付费能力）
@@ -112,35 +87,7 @@ describe('skill_mcp_sync', () => {
 // browser_trace_chain
 // ============================================================
 
-describe('browser_trace_chain', () => {
-  test('schema 文件存在且 JSON 合法', () => {
-    const filePath = path.join(TOOLS_DIR, 'browser_trace_chain.json');
-    assert.ok(fs.existsSync(filePath));
-    const schema = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    assert.equal(schema.name, 'browser_trace_chain');
-    assert.ok(schema.description);
-    assert.ok(schema.inputSchema);
-  });
-
-  test('schema 包含 traceId/since/url/statusMin/includeBackendLogs 参数', () => {
-    const schema = JSON.parse(fs.readFileSync(path.join(TOOLS_DIR, 'browser_trace_chain.json'), 'utf8'));
-    const props = schema.inputSchema.properties;
-    assert.ok(props.traceId);
-    assert.equal(props.traceId.type, 'string');
-    assert.ok(props.since);
-    assert.equal(props.since.type, 'string');
-    assert.ok(props.url);
-    assert.equal(props.url.type, 'string');
-    assert.ok(props.statusMin);
-    assert.equal(props.statusMin.type, 'number');
-    assert.ok(props.includeBackendLogs);
-    assert.equal(props.includeBackendLogs.type, 'boolean');
-  });
-
-  test('toolNames 中包含 browser_trace_chain（已注册到 MCP）', () => {
-    assert.ok(toolNames.has('browser_trace_chain'), '工具 browser_trace_chain 应在 toolNames 中');
-  });
-});
+// v1.10.0: browser_trace_chain 已移除（别名 → trace_correlate mode=chain）
 
 // ============================================================
 // backend_logs（OSS 不包含，属于 Pro 版付费能力）
@@ -244,56 +191,13 @@ describe('browser_traverse_menu', () => {
 // mcp_health_check
 // ============================================================
 
-describe('mcp_health_check', () => {
-  test('schema 文件存在且 JSON 合法', () => {
-    const filePath = path.join(TOOLS_DIR, 'mcp_health_check.json');
-    assert.ok(fs.existsSync(filePath));
-    const schema = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    assert.equal(schema.name, 'mcp_health_check');
-    assert.ok(schema.description);
-    assert.ok(schema.inputSchema);
-  });
-
-  test('schema 无入参（inputSchema properties 为空对象）', () => {
-    const schema = JSON.parse(fs.readFileSync(path.join(TOOLS_DIR, 'mcp_health_check.json'), 'utf8'));
-    const props = schema.inputSchema.properties;
-    assert.deepEqual(props, {});
-  });
-
-  test('toolNames 中包含 mcp_health_check（已注册到 MCP）', () => {
-    assert.ok(toolNames.has('mcp_health_check'), '工具 mcp_health_check 应在 toolNames 中');
-  });
-});
+// v1.10.0: mcp_health_check 已移除（别名 → mcp_diag mode=health）
 
 // ============================================================
 // mcp_self_test
 // ============================================================
 
-describe('mcp_self_test', () => {
-  test('schema 文件存在且 JSON 合法', () => {
-    const filePath = path.join(TOOLS_DIR, 'mcp_self_test.json');
-    assert.ok(fs.existsSync(filePath));
-    const schema = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    assert.equal(schema.name, 'mcp_self_test');
-    assert.ok(schema.description);
-    assert.ok(schema.inputSchema);
-  });
-
-  test('schema 包含 sessionName/headless/trace 参数', () => {
-    const schema = JSON.parse(fs.readFileSync(path.join(TOOLS_DIR, 'mcp_self_test.json'), 'utf8'));
-    const props = schema.inputSchema.properties;
-    assert.ok(props.sessionName);
-    assert.equal(props.sessionName.type, 'string');
-    assert.ok(props.headless);
-    assert.equal(props.headless.type, 'boolean');
-    assert.ok(props.trace);
-    assert.equal(props.trace.type, 'boolean');
-  });
-
-  test('toolNames 中包含 mcp_self_test（已注册到 MCP）', () => {
-    assert.ok(toolNames.has('mcp_self_test'), '工具 mcp_self_test 应在 toolNames 中');
-  });
-});
+// v1.10.0: mcp_self_test 已移除（别名 → mcp_diag mode=selftest）
 
 // ============================================================
 // benchmark_run（OSS 不包含，属于 Pro 版付费能力）
@@ -359,63 +263,10 @@ describe('fix_verify', () => {
 // skill_tools_map（v1.9.3+ Skill↔Tool 双向映射查询）
 // ============================================================
 
-describe('skill_tools_map', () => {
-  test('schema 文件存在且 JSON 合法', () => {
-    const filePath = path.join(TOOLS_DIR, 'skill_tools_map.json');
-    assert.ok(fs.existsSync(filePath));
-    const schema = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    assert.equal(schema.name, 'skill_tools_map');
-    assert.ok(schema.description);
-    assert.ok(schema.inputSchema);
-  });
-
-  test('schema 包含 skillName/toolName/includeDetails 参数及 anyOf 二选一约束', () => {
-    const schema = JSON.parse(fs.readFileSync(path.join(TOOLS_DIR, 'skill_tools_map.json'), 'utf8'));
-    const props = schema.inputSchema.properties;
-    assert.ok(props.skillName);
-    assert.equal(props.skillName.type, 'string');
-    assert.ok(props.toolName);
-    assert.equal(props.toolName.type, 'string');
-    assert.ok(props.includeDetails);
-    assert.equal(props.includeDetails.type, 'boolean');
-    assert.ok(Array.isArray(schema.inputSchema.anyOf), 'anyOf 必须存在（skillName 或 toolName 二选一）');
-    assert.equal(schema.inputSchema.anyOf.length, 2);
-  });
-
-  test('toolNames 中包含 skill_tools_map（已注册到 MCP）', () => {
-    assert.ok(toolNames.has('skill_tools_map'), '工具 skill_tools_map 应在 toolNames 中');
-  });
-});
+// v1.10.0: skill_tools_map 已移除（别名 → skill_validate mode=tools_map）
 
 // ============================================================
 // skill_consistency_check（v1.9.3+ Skill-MCP 一致性批量校验，不依赖外部文件）
 // ============================================================
 
-describe('skill_consistency_check', () => {
-  test('schema 文件存在且 JSON 合法', () => {
-    const filePath = path.join(TOOLS_DIR, 'skill_consistency_check.json');
-    assert.ok(fs.existsSync(filePath));
-    const schema = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    assert.equal(schema.name, 'skill_consistency_check');
-    assert.ok(schema.description);
-    assert.ok(schema.inputSchema);
-  });
-
-  test('schema 包含 mode 枚举（strict/warn）与可选 skillName 参数', () => {
-    const schema = JSON.parse(fs.readFileSync(path.join(TOOLS_DIR, 'skill_consistency_check.json'), 'utf8'));
-    const props = schema.inputSchema.properties;
-    assert.ok(props.mode);
-    assert.equal(props.mode.type, 'string');
-    assert.ok(props.mode.enum.includes('strict'), 'mode 应包含 strict');
-    assert.ok(props.mode.enum.includes('warn'), 'mode 应包含 warn');
-    assert.equal(props.mode.default, 'strict');
-    assert.ok(props.skillName);
-    assert.equal(props.skillName.type, 'string');
-    // skillName 是可选（不在 required 中）
-    assert.ok(!schema.inputSchema.required || !schema.inputSchema.required.includes('skillName'), 'skillName 应为可选');
-  });
-
-  test('toolNames 中包含 skill_consistency_check（已注册到 MCP）', () => {
-    assert.ok(toolNames.has('skill_consistency_check'), '工具 skill_consistency_check 应在 toolNames 中');
-  });
-});
+// v1.10.0: skill_consistency_check 已移除（别名 → skill_validate mode=consistency）

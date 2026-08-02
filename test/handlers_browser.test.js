@@ -263,18 +263,7 @@ describe('browser_highlight', () => {
   });
 });
 
-// ============================================================
-// browser_smart_fill — 参数验证
-// ============================================================
-
-describe('browser_smart_fill', () => {
-  test('无 selector 返回 mcpParamMissing', async () => {
-    const deps = makeDeps();
-    const result = await browserHandle('browser_smart_fill', {}, deps);
-    assert.ok(result.isError);
-    assert.ok(result.content[0].text.includes('selector'));
-  });
-});
+// v1.10.0: browser_smart_fill 已移除（别名 → browser_form_fill mode=smart）
 
 // ============================================================
 // browser_open — 基本 mock 验证
@@ -317,26 +306,7 @@ describe('browser_open', () => {
   });
 });
 
-// ============================================================
-// browser_events_clear — 调用 clearBrowserEvents
-// ============================================================
-
-describe('browser_events_clear', () => {
-  test('调用 clearBrowserEvents 并返回结果', async () => {
-    let clearCalled = false;
-    const deps = makeDeps({
-      clearBrowserEvents: async () => {
-        clearCalled = true;
-        return { cleared: true, count: 5 };
-      }
-    });
-    const result = await browserHandle('browser_events_clear', {}, deps);
-    const parsed = parseResult(result);
-    assert.equal(clearCalled, true);
-    assert.equal(parsed.cleared, true);
-    assert.equal(parsed.count, 5);
-  });
-});
+// v1.10.0: browser_events_clear 已移除（别名 → browser_events mode=clear）
 
 // ============================================================
 // browser_flow — 调用 runFlow

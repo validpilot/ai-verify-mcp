@@ -46,17 +46,13 @@ describe('security handler - 结构与 schema', () => {
     assert.equal(typeof securityHandle, 'function', 'handle 应为函数');
   });
 
-  test('tools 数组包含 6 个工具', () => {
-    assert.equal(securityTools.length, 6, '应有 6 个工具');
+  test('tools 数组包含 2 个工具', () => {
+    assert.equal(securityTools.length, 2, '应有 2 个工具');
   });
 
   test('tools 包含所有预期的工具名', () => {
     const expected = [
-      'security_headers_check',
-      'security_csp_analyze',
-      'security_sql_injection_scan',
-      'security_xss_scan',
-      'security_owasp_top10',
+      'security_scan',
       'api_probe',
     ];
     for (const name of expected) {

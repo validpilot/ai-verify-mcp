@@ -51,7 +51,7 @@ describe('skill_map module', () => {
   });
 
   describe('getSkillTools', () => {
-    it('should return validate-login with 7 tools including browser_open, browser_click, browser_assert, evidence_pack', () => {
+    it('should return validate-login with 7 tools including browser_open, browser_click, browser_assert, evidence', () => {
       const result = getSkillTools('validate-login');
       assert.ok(result, 'should not return null for known skill');
       assert.strictEqual(result.skillName, 'validate-login');
@@ -60,7 +60,7 @@ describe('skill_map module', () => {
       assert.ok(toolNames.includes('browser_open'));
       assert.ok(toolNames.includes('browser_click'));
       assert.ok(toolNames.includes('browser_assert'));
-      assert.ok(toolNames.includes('evidence_pack'));
+      assert.ok(toolNames.includes('evidence'));
       assert.ok(toolNames.includes('browser_wait'));
     });
 
@@ -102,10 +102,9 @@ describe('skill_map module', () => {
       assert.ok(skills.includes('debug-page'));
     });
 
-    it('should return 6 skills that reference evidence_pack (all except e2e-flow)', () => {
-      const skills = getToolSkills('evidence_pack');
-      assert.strictEqual(skills.length, 6, `expected 6, got ${skills.length}: ${skills.join(', ')}`);
-      assert.ok(!skills.includes('e2e-flow'), 'e2e-flow should NOT reference evidence_pack');
+    it('should return 7 skills that reference evidence (all skills use evidence tool)', () => {
+      const skills = getToolSkills('evidence');
+      assert.strictEqual(skills.length, 7, `expected 7, got ${skills.length}: ${skills.join(', ')}`);
     });
 
     it('should return skills that reference validation_run (only e2e-flow)', () => {
@@ -145,7 +144,7 @@ describe('skill_map module', () => {
       const reverse = getReverseMap();
       assert.ok(typeof reverse === 'object');
       assert.ok(Array.isArray(reverse.browser_open));
-      assert.ok(Array.isArray(reverse.evidence_pack));
+      assert.ok(Array.isArray(reverse.evidence));
       assert.ok(Array.isArray(reverse.validation_run));
     });
 

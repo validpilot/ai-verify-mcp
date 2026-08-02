@@ -133,47 +133,5 @@ describe('data_generator — isSupported', () => {
   });
 });
 
-// ============================================================
-// browser_smart_fill schema + 注册
-// ============================================================
-
-describe('browser_smart_fill schema', () => {
-  test('schema 文件存在且 JSON 合法', () => {
-    const schema = JSON.parse(fs.readFileSync(path.join(TOOLS_DIR, 'browser_smart_fill.json'), 'utf8'));
-    assert.equal(schema.name, 'browser_smart_fill');
-    assert.ok(schema.description);
-    assert.ok(schema.inputSchema);
-    assert.ok(schema.inputSchema.properties);
-  });
-
-  test('已注册到 MCP（toolNames 中包含）', () => {
-    assert.ok(toolNames.has('browser_smart_fill'), 'browser_smart_fill 应已注册');
-  });
-
-  test('schema 包含 selector 和 fieldType 为必填参数', () => {
-    const schema = JSON.parse(fs.readFileSync(path.join(TOOLS_DIR, 'browser_smart_fill.json'), 'utf8'));
-    const props = schema.inputSchema.properties;
-    assert.ok(props.selector);
-    assert.equal(props.selector.type, 'string');
-    assert.ok(props.fieldType);
-    assert.equal(props.fieldType.type, 'string');
-    assert.ok(props.fieldType.enum, 'fieldType 应有枚举值');
-    assert.ok(props.fieldType.enum.includes('email'), '应包含 email 类型');
-    assert.ok(props.fieldType.enum.includes('phone'), '应包含 phone 类型');
-    assert.equal(props.fieldType.enum.length, 10, '应支持10种字段类型枚举');
-    assert.ok(schema.inputSchema.required.includes('selector'), 'selector 应为必填');
-    assert.ok(schema.inputSchema.required.includes('fieldType'), 'fieldType 应为必填');
-  });
-
-  test('handler 包含 browser_smart_fill 处理逻辑', () => {
-    const src = fs.readFileSync(path.join(__dirname, '..', 'handlers', 'browser.js'), 'utf8');
-    assert.ok(src.includes("name === 'browser_smart_fill'"));
-    assert.ok(src.includes('data_generator'), 'handler 引用 data_generator 模块');
-    assert.ok(src.includes('el.fill'), '使用 Playwright fill API');
-  });
-
-  test('描述中提及能力补齐方案 P0-2', () => {
-    const schema = JSON.parse(fs.readFileSync(path.join(TOOLS_DIR, 'browser_smart_fill.json'), 'utf8'));
-    assert.ok(schema.description.includes('P0-2') || schema.description.includes('10+'), '描述应提及智能表单填充能力');
-  });
-});
+// v1.10.0: browser_smart_fill 已移除（别名 → browser_form_fill mode=smart）
+// data_generator 模块测试仍保留（被 browser_form_fill 主工具使用）

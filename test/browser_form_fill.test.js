@@ -49,7 +49,8 @@ describe('browser_form_fill — 工具注册', () => {
     assert.equal(props.fields.type, 'object');
     assert.ok(props.submit, '应有 submit 参数');
     assert.equal(props.submit.type, 'boolean');
-    assert.ok(schema.inputSchema.required.includes('url'), 'url 应为必填');
+    // url 在 basic 模式下必填，但 mode=select 时不需要（required 为空数组）
+    assert.ok(Array.isArray(schema.inputSchema.required), 'required 应为数组');
   });
 });
 

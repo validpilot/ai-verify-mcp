@@ -1,0 +1,94 @@
+{
+  "name": "browser_api_intercept",
+  "description": "Intercept browser API requests for observation or mocking. Captures request/response pairs, supports status/body/header assertions, and enables true browser-API data consistency verification.\n\n中文详情：\n- 用途：拦截浏览器发出的 API 请求，观察请求/响应或返回模拟响应\n- 何时使用：API 数据一致性验证时；前后端联调时；网络请求断言时；mock 接口测试时；前后端分离项目的接口验证\n- 模式：\n  - observe（默认）：观察模式，让请求继续发送，捕获请求和响应数据\n  - mock：模拟响应模式，返回自定义响应，不实际发送请求\n- 输出：{ ok, urlPattern, mode, captured, matchedCount, assertions, mockApplied? }\n- 参数：\n  - urlPattern (string, 可选)：要拦截的 URL 模式（glob 或正则字符串），默认 '*' 拦截所有请求\n  - method (string, 可选)：HTTP 方法过滤器（如 'GET'/'POST'），不提供则拦截所有方法\n  - mode (string, 可选)：observe（默认）/ mock\n  - mockResponse (object, 可选, mock 模式)：模拟响应 {status, headers, body}\n  - waitMs (number, 可选)：等待匹配请求的时间，默认 5000ms\n  - captureCount (number, 可选)：期望捕获的请求数，达到后立即返回，默认 1\n  - expectStatus (number, 可选)：期望的响应状态码（用于断言）\n  - expectBodyContains (string, 可选)：期望响应体包含的字符串\n  - expectBodyMatch (string, 可选)：期望响应体匹配的正则表达式字符串\n  - expectHeaders (object, 可选)：期望响应头包含的 key-value 对\n  - compareWith (object, 可选)：与外部预期值比对 {status, bodyContains, bodyMatch}\n  - ignoreStatic (boolean, 可选)：是否忽略静态资源（.js/.css/.png/.jpg/.svg/.woff 等），默认 true",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "urlPattern": {
+        "type": "string",
+        "description": "要拦截的 URL 模式（支持 glob 如 '/api/**' 或字符串正则如 '/api/v1/users'）。默认 '*' 拦截所有请求",
+        "default": "*"
+      },
+      "method": {
+        "type": "string",
+        "description": "HTTP 方法过滤器（GET/POST/PUT/DELETE/PATCH 等）。不提供则拦截所有方法",
+        "enum": ["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"]
+      },
+      "mode": {
+        "type": "string",
+        "description": "拦截模式：observe（默认，观察请求和响应，不修改）/ mock（返回模拟响应，不实际发送请求）",
+        "enum": ["observe", "mock"],
+        "default": "observe"
+      },
+      "mockResponse": {
+        "type": "object",
+        "properties": {
+          "status": {"type": "number", "default": 200, "description": "模拟响应状态码"},
+          "headers": {"type": "object", "description": "模拟响应头"},
+          "body": {"type": "string", "description": "模拟响应体（字符串）"}
+        },
+        "description": "（mock 模式）模拟响应配置"
+      },
+      "waitMs": {
+        "type": "number",
+        "default": 5000,
+        "description": "等待匹配请求的时间（毫秒）。超时后返回已捕获的请求"
+      },
+      "captureCount": {
+        "type": "number",
+        "default": 1,
+        "description": "期望捕获的请求数。达到该数量后立即返回，不必等待 waitMs 超时"
+      },
+      "expectStatus": {
+        "type": "number",
+        "description": "期望的响应状态码（用于断言）"
+      },
+      "expectBodyContains": {
+        "type": "string",
+        "description": "期望响应体包含的字符串（用于断言）"
+      },
+      "expectBodyMatch": {
+        "type": "string",
+        "description": "期望响应体匹配的正则表达式字符串（用于断言）"
+      },
+      "expectHeaders": {
+        "type": "object",
+        "description": "期望响应头包含的 key-value 对（用于断言）"
+      },
+      "compareWith": {
+        "type": "object",
+        "properties": {
+          "status": {"type": "number", "description": "比对的预期状态码"},
+          "bodyContains": {"type": "string", "description": "比对的预期响应体包含字符串"},
+          "bodyMatch": {"type": "string", "description": "比对的预期响应体正则"}
+        },
+        "description": "与外部预期值（如 curl 结果）进行数据一致性比对"
+      },
+      "ignoreStatic": {
+        "type": "boolean",
+        "default": true,
+        "description": "是否忽略静态资源（.js/.css/.png/.jpg/.svg/.woff/.ico 等静态文件）。默认 true"
+      },
+      "trigger": {
+        "type": "object",
+        "description": "在安装监听器后、等待捕获前触发的动作。解决 observe 模式下监听器安装时机晚于请求发出的问题。可选 click / eval / delayMs",
+        "properties": {
+          "click": {
+            "type": "string",
+            "description": "监听器安装后点击的 CSS 选择器（如 '#fetchBtn'），用于触发发起 API 请求的按钮"
+          },
+          "eval": {
+            "type": "string",
+            "description": "监听器安装后在页面执行的 JavaScript 代码（如 'fetch(\\\"/api/users\\\")'），用于触发 API 请求"
+          },
+          "delayMs": {
+            "type": "number",
+            "default": 100,
+            "description": "监听器安装后、触发动作前的等待时间（毫秒），确保监听器完全就绪。默认 100ms"
+          }
+        }
+      }
+    },
+    "required": []
+  }
+}

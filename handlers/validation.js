@@ -13,10 +13,7 @@ const tools = [
   "validation_run",
   "validation_element",
   "validation_flow",
-  "validation_chain",
   "validation_report",
-  "validation_report_export",
-  "validation_quick_run",
   "browser_smoke_test",
   "browser_counterfactual_analyze",
   "validation_matrix",
@@ -26,13 +23,7 @@ const tools = [
   "validation_permission",
   "state_diff_assert",
 "chain_spec",
-  "chain_spec_run",
-  "chain_list_templates",
-  "trace_correlation_check",
-  "chain_score_report",
-  "contract",
-  "contract_guard",
-  "contract_baseline"
+  "contract"
 ];
 
 const stateDiffSnapshots = new Map();
@@ -424,50 +415,67 @@ resetRuntimeLogs();
       const viewportHeight = window.innerHeight;
       const viewportArea = viewportWidth * viewportHeight;
       const overlays = [];
-      
+
       document.querySelectorAll('body *').forEach(el => {
         const style = window.getComputedStyle(el);
         if (!style || style.display === 'none' || style.visibility === 'hidden') return;
-        
+
         const rect = el.getBoundingClientRect();
         if (!rect || rect.width === 0 || rect.height === 0) return;
-        
+
         const zIndex = parseInt(style.zIndex) || 0;
         const position = style.position;
         const opacity = parseFloat(style.opacity) || 1;
-        
+
+        const className = typeof el.className === 'string' ? el.className : '';
+        const id = typeof el.id === 'string' ? el.id : '';
+        const tagName = el.tagName.toLowerCase();
+
+        if (tagName === 'body' || tagName === 'html') return;
+
+        // SPA 根节点感知
+        const spaRootIds = ['app', 'root', '__next', '__nuxt', '__vue'];
+        const isSpaRoot = (id && spaRootIds.includes(id)) ||
+          (tagName === 'div' && position === 'static' && zIndex === 0 &&
+           rect.top <= 5 && rect.left <= 5 &&
+           rect.width >= viewportWidth * 0.95 &&
+           el.parentElement === document.body);
+        if (isSpaRoot) return;
+
         const viewportOverlapWidth = Math.max(0, Math.min(rect.right, viewportWidth) - Math.max(rect.left, 0));
         const viewportOverlapHeight = Math.max(0, Math.min(rect.bottom, viewportHeight) - Math.max(rect.top, 0));
         const overlapArea = viewportOverlapWidth * viewportOverlapHeight;
         const coveragePercent = Math.round((overlapArea / viewportArea) * 100);
-        
+
+        if (coveragePercent < 5) return;
+
         let isOverlay = false;
         let overlayType = 'unknown';
-        
+
         if (zIndex >= 1000) { isOverlay = true; overlayType = 'high-zindex'; }
         if (position === 'fixed' && coveragePercent >= 10) { isOverlay = true; overlayType = 'fixed-overlay'; }
         if (position === 'absolute' && zIndex > 0 && coveragePercent >= 20) { isOverlay = true; overlayType = 'absolute-overlay'; }
         if (opacity < 1 && opacity > 0.3 && coveragePercent >= 30) { isOverlay = true; overlayType = 'semi-transparent-mask'; }
-        
-        const className = typeof el.className === 'string' ? el.className : '';
+
         const classLower = className.toLowerCase();
-        if (classLower.includes('cookie') || classLower.includes('banner') || 
+        if (classLower.includes('cookie') || classLower.includes('banner') ||
             classLower.includes('consent') || classLower.includes('modal') ||
             classLower.includes('popup') || classLower.includes('dialog')) {
           isOverlay = true;
           overlayType = 'detected-by-class';
         }
-        
-        if ((el.tagName === 'DIV' || el.tagName === 'SPAN') && 
-            rect.width >= viewportWidth * 0.8 && 
-            rect.height >= viewportHeight * 0.5) {
+
+        if ((tagName === 'div' || tagName === 'span' || tagName === 'section' || tagName === 'aside') &&
+            rect.width >= viewportWidth * 0.8 &&
+            rect.height >= viewportHeight * 0.5 &&
+            zIndex >= 100 && position !== 'static') {
           isOverlay = true;
           overlayType = 'fullscreen-overlay';
         }
-        
+
         if (isOverlay) {
           overlays.push({
-            tagName: el.tagName.toLowerCase(),
+            tagName,
             className: className.slice(0, 100),
             rect: { x: Math.round(rect.x), y: Math.round(rect.y), width: Math.round(rect.width), height: Math.round(rect.height) },
             zIndex,
@@ -479,10 +487,13 @@ resetRuntimeLogs();
           });
         }
       });
-      
+
       overlays.sort((a, b) => b.coveragePercent - a.coveragePercent);
       const totalCoverage = overlays.reduce((sum, o) => sum + o.coveragePercent, 0);
-      const hasBlockingOverlay = overlays.some(o => o.coveragePercent >= 50 || o.overlayType === 'fullscreen-overlay');
+      const hasBlockingOverlay = overlays.some(o =>
+        (o.coveragePercent >= 50 || o.overlayType === 'fullscreen-overlay') &&
+        (o.position !== 'static' || o.zIndex > 0)
+      );
       
       return {
         count: overlays.length,
@@ -515,20 +526,19 @@ resetRuntimeLogs();
         '调用 browser_screenshot 截图留存证据',
         '调用 browser_a11y_check 深入检查无障碍',
         '调用 validation_run 运行完整验证流程',
-        '调用 evidence_pack 打包所有证据'
+        "调用 evidence { mode: 'pack' } 打包所有证据"
       ] : [
         '调用 browser_counterfactual_analyze 进行反事实根因分析',
         '调用 browser_errors 查看详细 JS 错误',
         '调用 browser_network 查看网络请求详情',
-        '调用 browser_diagnose 分析页面问题'
+        "调用 browser_debug { mode: 'diagnose' } 分析页面问题"
       ],
       suggestions: [
         { type: passed ? 'next' : 'fix', tool: 'browser_screenshot', reason: passed ? '留存基准证据' : '查看页面实际状态' },
         { type: passed ? 'next' : 'fix', tool: 'browser_errors', reason: passed ? '检查是否有潜在错误' : '查看详细错误信息' },
-        { type: results.overlay?.hasBlockingOverlay ? 'fix' : 'next', tool: 'browser_overlay_dismiss', reason: results.overlay?.hasBlockingOverlay ? '关闭遮挡物' : '继续验证流程' },
+        { type: results.overlay?.hasBlockingOverlay ? 'fix' : 'next', tool: 'browser_overlay', reason: results.overlay?.hasBlockingOverlay ? '关闭遮挡物' : '继续验证流程' },
         { type: 'next', tool: 'validation_run', reason: '运行完整的验证流程' }
-      ],
-      paidUpgradeHint: '需要更深入的性能分析、自动化回归测试、团队协作？升级到 Pro/Team 版本获取完整验证能力。'
+      ]
     };
     
     let response = `🚀 冒烟测试完成（${totalTime}ms）\n\n`;
@@ -563,7 +573,7 @@ resetRuntimeLogs();
     
     response += `🚀 下一步建议：\n`;
     if (results.overlay?.hasBlockingOverlay) {
-      response += `   1. browser_overlay_dismiss → 自动关闭遮挡物\n`;
+      response += `   1. browser_overlay { mode: 'dismiss' } → 自动关闭遮挡物\n`;
       response += `   2. browser_click → 手动点击关闭按钮\n`;
       response += `   3. browser_screenshot → 查看页面状态\n`;
     } else if (passed) {
@@ -573,7 +583,7 @@ resetRuntimeLogs();
     } else {
       response += `   1. browser_counterfactual_analyze → 反事实根因分析\n`;
       response += `   2. browser_errors → 查看详细错误\n`;
-      response += `   3. browser_diagnose → 分析问题根因\n`;
+      response += `   3. browser_debug { mode: 'diagnose' } → 分析问题根因\n`;
     }
     
     if (args.format === 'html') {
@@ -613,17 +623,32 @@ resetRuntimeLogs();
         if (!style || style.display === 'none' || style.visibility === 'hidden') return;
         const rect = el.getBoundingClientRect();
         if (!rect || rect.width === 0 || rect.height === 0) return;
-        
+
         const zIndex = parseInt(style.zIndex) || 0;
         const position = style.position;
         const opacity = parseFloat(style.opacity) || 1;
         const className = typeof el.className === 'string' ? el.className : '';
+        const id = typeof el.id === 'string' ? el.id : '';
+        const tagName = el.tagName.toLowerCase();
         const classLower = className.toLowerCase();
-        
+
+        if (tagName === 'body' || tagName === 'html') return;
+
+        // SPA 根节点感知
+        const spaRootIds = ['app', 'root', '__next', '__nuxt', '__vue'];
+        const isSpaRoot = (id && spaRootIds.includes(id)) ||
+          (tagName === 'div' && position === 'static' && zIndex === 0 &&
+           rect.top <= 5 && rect.left <= 5 &&
+           rect.width >= viewportWidth * 0.95 &&
+           el.parentElement === document.body);
+        if (isSpaRoot) return;
+
         const overlapW = Math.max(0, Math.min(rect.right, viewportWidth) - Math.max(rect.left, 0));
         const overlapH = Math.max(0, Math.min(rect.bottom, viewportHeight) - Math.max(rect.top, 0));
         const coverage = Math.round((overlapW * overlapH / viewportArea) * 100);
-        
+
+        if (coverage < 5) return;
+
         let isOverlay = false;
         let type = 'unknown';
         if (zIndex >= 1000) { isOverlay = true; type = 'high-zindex'; }
@@ -634,13 +659,14 @@ resetRuntimeLogs();
             classLower.includes('popup') || classLower.includes('dialog') || classLower.includes('overlay')) {
           isOverlay = true; type = 'detected-by-class';
         }
-        if ((el.tagName === 'DIV' || el.tagName === 'SPAN') && 
-            rect.width >= viewportWidth * 0.8 && rect.height >= viewportHeight * 0.5) {
+        if ((tagName === 'div' || tagName === 'span' || tagName === 'section' || tagName === 'aside') &&
+            rect.width >= viewportWidth * 0.8 && rect.height >= viewportHeight * 0.5 &&
+            zIndex >= 100 && position !== 'static') {
           isOverlay = true; type = 'fullscreen-overlay';
         }
-        
+
         if (isOverlay) {
-          overlays.push({ type, coverage, tagName: el.tagName.toLowerCase(), className: className.slice(0, 50) });
+          overlays.push({ type, coverage, tagName, className: className.slice(0, 50) });
         }
       });
       
@@ -681,12 +707,12 @@ resetRuntimeLogs();
         id: 'overlay-blocking',
         factor: '页面遮挡物',
         description: `检测到 ${pageState.overlays.length} 个遮挡元素，最大覆盖率 ${maxCoverage}%`,
-        counterfactual: '如果调用 browser_overlay_dismiss 关闭遮挡物，被遮挡的元素将变得可交互',
+        counterfactual: "如果调用 browser_overlay { mode: 'dismiss' } 关闭遮挡物，被遮挡的元素将变得可交互",
         wouldStillFail: maxCoverage < 80 ? 'maybe' : 'unlikely',
         confidence,
         evidence: pageState.overlays.map(o => ({ type: o.type, coverage: o.coverage, element: `${o.tagName}.${o.className.split(' ')[0]}` })),
-        verifyTool: 'browser_overlay_dismiss',
-        verifyAction: '调用 browser_overlay_dismiss 后重新运行测试',
+        verifyTool: 'browser_overlay',
+        verifyAction: "调用 browser_overlay { mode: 'dismiss' } 后重新运行测试",
         impact: 'high'
       });
     }
@@ -843,24 +869,23 @@ resetRuntimeLogs();
         `调用 ${topHypothesis.verifyTool} 验证根因假设`,
         `根据验证结果修复问题`,
         '修复后重新运行失败的测试',
-        '调用 evidence_pack 打包问题定位证据'
+        "调用 evidence { mode: 'pack' } 打包问题定位证据"
       ] : hypotheses.length > 0 ? [
-        '调用 browser_diagnose 进行深度诊断',
+        "调用 browser_debug { mode: 'diagnose' } 进行深度诊断",
         '调用 browser_screenshot 查看页面实际状态',
         '调用 browser_errors 查看所有错误',
-        '调用 evidence_pack 打包诊断证据'
+        "调用 evidence { mode: 'pack' } 打包诊断证据"
       ] : [
         '页面状态正常，失败可能是测试本身的问题',
         '检查测试断言是否正确',
         '调用 browser_assert 验证预期元素',
-        '调用 evidence_pack 打包证据'
+        "调用 evidence { mode: 'pack' } 打包证据"
       ],
       suggestions: hypotheses.slice(0, 3).map(h => ({
         type: 'verify',
         tool: h.verifyTool,
         reason: `验证根因假设: ${h.factor}（置信度 ${Math.round(h.confidence * 100)}%）`
-      })),
-      paidUpgradeHint: '需要 AI 深度根因分析、自动修复建议、历史趋势对比？升级到 Pro 版本获取完整反事实推理引擎能力。'
+      }))
     };
     
     let response = `🔍 反事实根因分析\n\n`;
@@ -894,13 +919,13 @@ resetRuntimeLogs();
       response += `   2. 根据验证结果修复问题\n`;
       response += `   3. 重新运行失败的测试\n`;
     } else if (hypotheses.length > 0) {
-      response += `   1. browser_diagnose → 深度诊断\n`;
+      response += `   1. browser_debug { mode: 'diagnose' } → 深度诊断\n`;
       response += `   2. browser_screenshot → 查看页面状态\n`;
       response += `   3. browser_errors → 查看所有错误\n`;
     } else {
       response += `   1. 检查测试断言是否正确\n`;
       response += `   2. browser_assert → 验证预期元素\n`;
-      response += `   3. evidence_pack → 打包证据\n`;
+      response += `   3. evidence { mode: 'pack' } → 打包证据\n`;
     }
     
     if (args.format === 'html' && args.format !== 'json') {
@@ -956,7 +981,7 @@ const { target } = await ensurePage(args);
     return text(JSON.stringify(await runValidationFlow(target, args), null, 2));
   }
 
-  // ====== validation_chain ======
+  // ====== validation_flow (mode=chain) ======
   if (name === 'validation_chain') {
 const { target } = await ensurePage(args);
     return text(JSON.stringify(await runValidationChain(target, args), null, 2));
@@ -1207,21 +1232,21 @@ const { target } = await ensurePage(args);
     return mcpParamMissing('mode', name, '可选 list / run / score');
   }
 
-  // ====== chain_spec_run ======
+  // ====== chain_spec (mode=run) ======
   if (name === 'chain_spec_run') {
     const { target } = await ensurePage(args);
     return text(JSON.stringify(await runChainSpecRun(target, args), null, 2));
   }
 
-  // ====== trace_correlation_check ======
+  // ====== trace_correlate (mode=check) ======
   if (name === 'trace_correlation_check') {
     return text(JSON.stringify(await runTraceCorrelationCheck(args), null, 2));
   }
 
-  // ====== chain_list_templates ======
+  // ====== chain_spec (mode=list) ======
   if (name === 'chain_list_templates') {
     return text(JSON.stringify({
-      tool: 'chain_list_templates',
+      tool: 'chain_spec',
       templates: Object.entries(BUILTIN_TEMPLATES).map(([key, tpl]) => ({
         name: key,
         description: tpl.description,
@@ -1232,7 +1257,7 @@ const { target } = await ensurePage(args);
     }, null, 2));
   }
 
-  // ====== chain_score_report ======
+  // ====== chain_spec (mode=score) ======
   if (name === 'chain_score_report') {
     return text(JSON.stringify(runChainScoreReport(args), null, 2));
   }
@@ -1250,12 +1275,12 @@ const { target } = await ensurePage(args);
     return mcpParamMissing('mode', name);
   }
 
-  // ====== contract_guard ======
+  // ====== contract (mode=guard) ======
   if (name === 'contract_guard') {
     return text(JSON.stringify(await runContractGuard(args), null, 2));
   }
 
-  // ====== contract_baseline ======
+  // ====== contract (mode=baseline) ======
   if (name === 'contract_baseline') {
     return text(JSON.stringify(runContractBaseline(args), null, 2));
   }
@@ -1281,12 +1306,12 @@ const { target } = await ensurePage(args);
     return text(output);
   }
 
-  // ====== validation_report_export ======
+  // ====== validation_report (mode=export) ======
   if (name === 'validation_report_export') {
   return text(JSON.stringify(exportValidationReport(args), null, 2));
   }
 
-  // ====== validation_quick_run ======
+  // ====== validation_check (mode=quick) ======
   if (name === 'validation_quick_run') {
 const { target } = await ensurePage(args);
     if (!args.url) return mcpParamMissing('url', name);
@@ -1567,7 +1592,87 @@ const { target } = await ensurePage(args);
 
   // ====== validation_decision ======
   if (name === 'validation_decision') {
-  return text('validation_decision: 决策建议。该能力在闭源端完整实现，开源版本仅作为占位');
+    // 快速止损决策：基于错误状态判断是否值得继续验证
+    let pageErrorCount = 0;
+    let criticalJsErrors = 0;
+    let criticalCssErrors = 0;
+    let totalCount = 0;
+
+    if (args.browserErrors && typeof args.browserErrors === 'object') {
+      pageErrorCount = Number(args.browserErrors.pageErrorCount) || 0;
+      criticalJsErrors = Number(args.browserErrors.criticalJsErrors) || 0;
+      criticalCssErrors = Number(args.browserErrors.criticalCssErrors) || 0;
+      totalCount = Number(args.browserErrors.totalCount) || (pageErrorCount + criticalJsErrors + criticalCssErrors);
+    } else {
+      // 未传入错误数据时，从统一错误收集器获取当前状态
+      const errors = getUnifiedErrors({ currentOnly: true });
+      pageErrorCount = errors.summary.pageErrorCount || 0;
+      const networkErrors = errors.networkErrors || [];
+      criticalJsErrors = networkErrors.filter(e => /\.js(\?|$)/i.test(e.url || '') && e.status >= 400).length;
+      criticalCssErrors = networkErrors.filter(e => /\.css(\?|$)/i.test(e.url || '') && e.status >= 400).length;
+      totalCount = errors.summary.total || 0;
+    }
+
+    // 决策逻辑
+    let decision = 'CONTINUE';
+    let confidence = 95;
+    let estimatedTokenSavings = 0;
+    let estimatedWasteTokens = 0;
+    const reasons = [];
+
+    if (criticalJsErrors > 0) {
+      decision = 'STOP';
+      confidence = 98;
+      estimatedTokenSavings = 70;
+      estimatedWasteTokens = 8000;
+      reasons.push(`关键 JS 资源加载失败 ${criticalJsErrors} 个，页面可能无法正常交互`);
+    } else if (pageErrorCount >= 5) {
+      decision = 'STOP';
+      confidence = 95;
+      estimatedTokenSavings = 65;
+      estimatedWasteTokens = 7000;
+      reasons.push(`页面运行时错误 ${pageErrorCount} 个，页面可能处于异常状态`);
+    } else if (criticalCssErrors > 0) {
+      decision = 'WARN';
+      confidence = 80;
+      estimatedTokenSavings = 20;
+      estimatedWasteTokens = 2000;
+      reasons.push(`关键 CSS 资源加载失败 ${criticalCssErrors} 个，页面样式可能异常`);
+    } else if (pageErrorCount > 0) {
+      decision = 'WARN';
+      confidence = 75;
+      estimatedTokenSavings = 15;
+      estimatedWasteTokens = 1500;
+      reasons.push(`页面运行时错误 ${pageErrorCount} 个，建议先修复错误再继续验证`);
+    } else if (totalCount > 0) {
+      decision = 'WARN';
+      confidence = 70;
+      estimatedTokenSavings = 10;
+      estimatedWasteTokens = 1000;
+      reasons.push(`检测到 ${totalCount} 个非关键错误，验证结果可能受影响`);
+    } else {
+      reasons.push('页面状态正常，无错误，可以安全继续验证');
+    }
+
+    const result = {
+      decision,
+      confidence,
+      estimatedTokenSavings,
+      estimatedWasteTokens,
+      errorSummary: { pageErrorCount, criticalJsErrors, criticalCssErrors, totalCount },
+      reasons,
+      recommendation: decision === 'STOP'
+        ? '建议立即停止验证，先修复页面错误。继续验证将浪费大量 Token 且结果不可靠。'
+        : decision === 'WARN'
+          ? '可以继续验证，但需关注错误对验证结果的影响。建议先修复非关键错误。'
+          : '页面状态良好，建议继续执行完整验证流程。',
+      timestamp: new Date().toISOString()
+    };
+
+    if (args.format === 'text') {
+      return text(`决策: ${decision} (置信度 ${confidence}%)\n原因: ${reasons.join('; ')}\n建议: ${result.recommendation}`);
+    }
+    return text(JSON.stringify(result, null, 2));
   }
 
   return mcpError(`未知工具（validation）: ${name}`, { error: 'UNKNOWN_TOOL', toolName: name });
@@ -2000,7 +2105,7 @@ async function runValidationChain(target, args = {}) {
 
   const ac = new AbortController();
   const timeoutTimer = setTimeout(() => {
-    ac.abort(new Error(`validation_chain 整体超时（${timeout}ms）`));
+    ac.abort(new Error(`validation_flow 整体超时（${timeout}ms）`));
   }, timeout);
 
   try {
@@ -2605,7 +2710,7 @@ async function runChainSpecRun(target, args = {}) {
     : null;
 
   return redact({
-    tool: 'chain_spec_run',
+    tool: 'chain_spec',
     runId,
     passed: failures.length === 0,
     totalSteps: steps.length,
@@ -2685,7 +2790,7 @@ async function runTraceCorrelationCheck(args = {}, ctx = null) {
   const backendCorrelation = backendMatches.length > 0 ? backendMatched / backendMatches.length : null;
 
   return {
-    tool: 'trace_correlation_check',
+    tool: 'trace_correlate',
     since,
     totalRequests,
     tracedRequests: tracedRequests.length,
@@ -2763,7 +2868,7 @@ function runChainScoreReport(args = {}) {
   );
 
   return {
-    tool: 'chain_score_report',
+    tool: 'chain_spec',
     runId: chainResult.runId || args.runId || null,
     scores: {
       functional: { score: functionalScore, passedSteps, totalSteps, failedSteps },
@@ -2925,7 +3030,7 @@ async function runContractGuard(args = {}) {
   }
 
   return {
-    tool: 'contract_guard',
+    tool: 'contract',
     totalContracts: validContracts.length,
     errorCount: errors.length,
     contracts: validContracts,
@@ -3075,26 +3180,26 @@ function compareContractsWithBaseline(contracts, baselineName = 'default') {
 function runContractBaseline(args = {}) {
   const action = args.action || 'list';
   if (action === 'list') {
-    return { tool: 'contract_baseline', action, baselines: listContractBaselines() };
+    return { tool: 'contract', action, baselines: listContractBaselines() };
   }
   if (action === 'save') {
-    return { tool: 'contract_baseline', action, result: saveContractBaseline(args.contracts || [], args.name || 'default') };
+    return { tool: 'contract', action, result: saveContractBaseline(args.contracts || [], args.name || 'default') };
   }
   if (action === 'load') {
-    return { tool: 'contract_baseline', action, baseline: loadContractBaseline(args.name || 'default') };
+    return { tool: 'contract', action, baseline: loadContractBaseline(args.name || 'default') };
   }
   if (action === 'compare') {
-    return { tool: 'contract_baseline', action, result: compareContractsWithBaseline(args.contracts || [], args.name || 'default') };
+    return { tool: 'contract', action, result: compareContractsWithBaseline(args.contracts || [], args.name || 'default') };
   }
   if (action === 'delete') {
     const filePath = getContractBaselinePath(args.name || 'default');
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
-      return { tool: 'contract_baseline', action, deleted: true, name: args.name };
+      return { tool: 'contract', action, deleted: true, name: args.name };
     }
-    return { tool: 'contract_baseline', action, deleted: false, message: 'Baseline 不存在' };
+    return { tool: 'contract', action, deleted: false, message: 'Baseline 不存在' };
   }
-  return { tool: 'contract_baseline', error: '未知 action: ' + action };
+  return { tool: 'contract', error: '未知 action: ' + action };
 }
 
 function runValidationCompliance(args = {}) {

@@ -65,10 +65,6 @@ const { mcpError } = require('../core/mcp-error');
 
 const tools = [
   "browser_session",
-  "browser_sessions",
-  "browser_session_create",
-  "browser_session_switch",
-  "browser_session_close",
   "browser_emulate_device"
 ];
 
@@ -79,23 +75,23 @@ async function handle(name, args, deps) {
   const { MAX_SESSIONS, SCREENSHOT_DIR, HAR_DIR, VISUAL_DIR, VISUAL_BASELINE_DIR, VISUAL_ACTUAL_DIR, VISUAL_DIFF_DIR, VALIDATIONS_DIR, REPORT_DIR, LOG_FILE, PROJECT_ROOT, TOOLS_DIR, logger, ensurePage, text, log, resetRuntimeLogs, getPageLinks, postActionErrorCheck, probeKnownEndpoints, getUnifiedErrors, closeBrowserSession, listBrowserSessions, filterNetwork, filterNetworkDetails, getStorageSnapshot, buildDebugReport, captureStepEvidence, waitForCondition, assertPage, runFlow, installInstrumentation, getBrowserEvents, clearBrowserEvents, startTrace, stopTrace, getArtifacts, clearArtifacts, ensureArtifactsDir, getBackendProbeEndpoints, isCloudApiProbeTarget, screenshotWithRedaction, safeArtifactName, analyzeScreenshotForErrors, exportHar, runFullAudit, visualBaseline, visualCompare, visualReport, runA11yCheck, runPerformanceCheck, runLighthouseAudit, findElement, findPage, suggestLocator, validateLocator, mcpHealthCheck, projectAudit, mcpSelfTest, runValidationCheck, runValidationPlan, runValidationElement, runValidationFlow, buildValidationReport, exportValidationReport, runValidationQuickRun, runDeployVerify, investigateDebug, runBrowserFullRegression, traverseMenu, fetchBackendLogs, buildTraceChain, detectSilentFailures, redact, redactString, isSensitiveKey, trimTraceLogs, genSpanId, genTraceId, browserOperator, evidenceCollector, deepInteractor, errorAggregator, path, fs, execSync, callTool } = deps;
   try {
   // ====== browser_session ======
-  // v1.9.5 起合并 browser_session_create/switch/close + browser_sessions
+  // v1.9.5 起合并 browser_session mode=create/switch/close + mode=list
   if (name === 'browser_session') {
     const mode = args.mode || 'list';
 
-    // mode=list：等价于已废弃的 browser_sessions
+    // mode=list：等价于已废弃的 browser_session
     if (mode === 'list') {
       return handle('browser_sessions', args, deps);
     }
-    // mode=create：等价于已废弃的 browser_session_create
+    // mode=create：等价于已废弃的 browser_session
     if (mode === 'create') {
       return handle('browser_session_create', args, deps);
     }
-    // mode=switch：等价于已废弃的 browser_session_switch
+    // mode=switch：等价于已废弃的 browser_session
     if (mode === 'switch') {
       return handle('browser_session_switch', args, deps);
     }
-    // mode=close：等价于已废弃的 browser_session_close
+    // mode=close：等价于已废弃的 browser_session
     if (mode === 'close') {
       return handle('browser_session_close', args, deps);
     }
@@ -103,13 +99,13 @@ async function handle(name, args, deps) {
     return text(JSON.stringify({ error: `未知 mode: ${mode}` }, null, 2));
   }
 
-  // ====== browser_sessions ======
+  // ====== browser_session mode=list ======
   if (name === 'browser_sessions') {
   const _result = listBrowserSessions();
-  return text(JSON.stringify({ ..._result, nextSteps: ['使用 browser_session_create 创建新会话', '使用 browser_session_switch 切换会话'], suggestions: [{ type: 'next', tool: 'browser_session_create', reason: '创建新会话' }, { type: 'next', tool: 'browser_session_switch', reason: '切换会话' }], paidUpgradeHint: '需要多会话管理、团队协作、云端同步？升级到 Team 版本获取完整会话管理能力。' }, null, 2));
+  return text(JSON.stringify({ ..._result, nextSteps: ['使用 browser_session { mode: \'create\' } 创建新会话', '使用 browser_session { mode: \'switch\' } 切换会话'], suggestions: [{ type: 'next', tool: 'browser_session', reason: '创建新会话' }, { type: 'next', tool: 'browser_session', reason: '切换会话' }] }, null, 2));
   }
 
-  // ====== browser_session_create ======
+  // ====== browser_session mode=create ======
   if (name === 'browser_session_create') {
 const name = args.name || args.sessionName || `session-${++sessionCounter}`;
     if (sessions.size >= MAX_SESSIONS && !sessions.has(activeSessionName)) {
@@ -121,10 +117,10 @@ const name = args.name || args.sessionName || `session-${++sessionCounter}`;
     if (args.url) await target.goto(args.url, { waitUntil: 'domcontentloaded', timeout: args.timeout || 30000 });
     sessions.set(name, { name, url: target.url(), created: new Date().toISOString(), browser, page });
     activeSessionName = name;
-    return text(JSON.stringify({ created: true, activeSession: activeSessionName, sessionName: name, url: target.url(), nextSteps: ['使用 browser_session_switch 切换到其他会话', '使用 browser_sessions 查看所有会话'], suggestions: [{ type: 'next', tool: 'browser_session_switch', reason: '切换到其他会话' }, { type: 'next', tool: 'browser_sessions', reason: '查看所有会话' }], paidUpgradeHint: '需要多会话管理、团队协作、云端同步？升级到 Team 版本获取完整会话管理能力。' }, null, 2));
+    return text(JSON.stringify({ created: true, activeSession: activeSessionName, sessionName: name, url: target.url(), nextSteps: ['使用 browser_session { mode: \'switch\' } 切换到其他会话', '使用 browser_session { mode: \'list\' } 查看所有会话'], suggestions: [{ type: 'next', tool: 'browser_session', reason: '切换到其他会话' }, { type: 'next', tool: 'browser_session', reason: '查看所有会话' }] }, null, 2));
   }
 
-  // ====== browser_session_switch ======
+  // ====== browser_session mode=switch ======
   if (name === 'browser_session_switch') {
 const name = args.name || args.sessionName;
     if (!name) {
@@ -138,7 +134,7 @@ const name = args.name || args.sessionName;
       page = session.page;
       browser = session.browser;
       activeSessionName = name;
-      return text(JSON.stringify({ switched: true, activeSession: activeSessionName, url: page.url(), nextSteps: ['使用 browser_session_close 关闭当前会话', '使用 browser_sessions 查看所有会话'], suggestions: [{ type: 'next', tool: 'browser_session_close', reason: '关闭当前会话' }, { type: 'next', tool: 'browser_sessions', reason: '查看所有会话' }], paidUpgradeHint: '需要多会话管理、团队协作、云端同步？升级到 Team 版本获取完整会话管理能力。' }, null, 2));
+      return text(JSON.stringify({ switched: true, activeSession: activeSessionName, url: page.url(), nextSteps: ['使用 browser_session { mode: \'close\' } 关闭当前会话', '使用 browser_session { mode: \'list\' } 查看所有会话'], suggestions: [{ type: 'next', tool: 'browser_session', reason: '关闭当前会话' }, { type: 'next', tool: 'browser_session', reason: '查看所有会话' }] }, null, 2));
     } else {
       // 会话已关闭，重新打开
       sessions.delete(name);
@@ -146,10 +142,10 @@ const name = args.name || args.sessionName;
     }
   }
 
-  // ====== browser_session_close ======
+  // ====== browser_session mode=close ======
   if (name === 'browser_session_close') {
   const _result = await closeBrowserSession(args.name || args.sessionName);
-  return text(JSON.stringify({ ..._result, nextSteps: ['使用 browser_session_create 创建新会话', '使用 browser_sessions 查看剩余会话'], suggestions: [{ type: 'next', tool: 'browser_session_create', reason: '创建新会话' }, { type: 'next', tool: 'browser_sessions', reason: '查看剩余会话' }], paidUpgradeHint: '需要多会话管理、团队协作、云端同步？升级到 Team 版本获取完整会话管理能力。' }, null, 2));
+  return text(JSON.stringify({ ..._result, nextSteps: ['使用 browser_session { mode: \'create\' } 创建新会话', '使用 browser_session { mode: \'list\' } 查看剩余会话'], suggestions: [{ type: 'next', tool: 'browser_session', reason: '创建新会话' }, { type: 'next', tool: 'browser_session', reason: '查看剩余会话' }] }, null, 2));
   }
 
   // ====== browser_emulate_device ======
@@ -240,9 +236,8 @@ const name = args.name || args.sessionName;
       },
       pageInfo,
       verification,
-      nextSteps: ['使用 browser_session_create 为新设备创建会话', '使用 browser_sessions 查看当前会话'],
-      suggestions: [{ type: 'next', tool: 'browser_session_create', reason: '为新设备创建会话' }, { type: 'next', tool: 'browser_sessions', reason: '查看当前会话' }],
-      paidUpgradeHint: '需要多会话管理、团队协作、云端同步？升级到 Team 版本获取完整会话管理能力。'
+      nextSteps: ['使用 browser_session { mode: \'create\' } 为新设备创建会话', '使用 browser_session { mode: \'list\' } 查看当前会话'],
+      suggestions: [{ type: 'next', tool: 'browser_session', reason: '为新设备创建会话' }, { type: 'next', tool: 'browser_session', reason: '查看当前会话' }]
     }, null, 2));
   }
 
